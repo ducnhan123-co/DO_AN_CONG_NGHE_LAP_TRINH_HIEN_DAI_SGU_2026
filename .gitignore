@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+input/*.pdf
+mineru_output/
+docx_output/
+rag_output/
+*.faiss
+*.docx
+.for_docx.md
