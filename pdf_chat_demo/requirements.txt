@@ -6,3 +6,8 @@ pypdf
 pymupdf
 scikit-learn
 numpy
+# tuỳ chọn RAG_ENGINE=li_* (LlamaIndex)
+llama-index-core
+llama-index-embeddings-huggingface
+llama-index-embeddings-ollama
+llama-index-retrievers-bm25

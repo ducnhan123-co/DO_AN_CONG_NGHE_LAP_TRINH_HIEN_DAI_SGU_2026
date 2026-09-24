@@ -47,6 +47,9 @@ BIG_MODEL = "qwen3:14b"         # model lớn: hay nhất, chậm nhất
 EMBED_MODEL = "qwen3-embedding:0.6b"  # để dành khi cần dense retrieval
 TOP_K = 5
 NUM_CTX = 8192        # đủ chỗ cho cả 1 trang + lịch sử chat
+# Bộ tìm đoạn: "custom" (qwen3-embedding + TF-IDF, mặc định) hoặc LlamaIndex:
+# "li_e5" (giống đồ án) / "li_fusion_e5" / "li_qwen" / "li_fusion" — xem li_rag.py
+RAG_ENGINE = os.environ.get("RAG_ENGINE", "custom")
 HISTORY_TURNS = 6     # số tin nhắn cũ gửi kèm (3 lượt hỏi-đáp)
 HISTORY_CHARS = 3000  # mỗi tin; câu trả lời có LaTeX dài, cắt ngắn là model mất đếm "công thức thứ 3"
 # MinerU 4.x (venv riêng vì kéo torch): chạy nền sau upload để lấy công thức LaTeX chuẩn.
@@ -191,6 +194,10 @@ def index_doc(doc_id: str):
                           token_pattern=r"(?u)\b\w+(?:\.\w+)*\b")
     d["vectorizer"] = vec
     d["matrix"] = vec.fit_transform(texts)
+    if RAG_ENGINE != "custom":
+        from li_rag import LIRetriever
+        d["li"] = LIRetriever(d["chunks"], RAG_ENGINE)
+        return
     try:
         d["emb"] = embed(texts)
     except Exception as e:  # thiếu model embedding -> chỉ dùng TF-IDF
@@ -200,6 +207,8 @@ def index_doc(doc_id: str):
 
 def retrieve(doc_id: str, question: str, top_k=TOP_K):
     d = STORE[doc_id]
+    if d.get("li"):
+        return d["li"].retrieve(question, top_k)
     scores = cosine_similarity(d["vectorizer"].transform([question]), d["matrix"])[0]
     if d.get("emb") is not None:  # hybrid: ngữ nghĩa là chính, từ khoá để bắt số hiệu/ký hiệu
         q = embed([f"Instruct: Given a question, retrieve passages that answer it\nQuery: {question}"])[0]
@@ -309,7 +318,7 @@ def health():
         models = [m["name"] for m in r.get("models", [])]
     except Exception as e:
         return {"ok": False, "ollama": f"unreachable: {e}", "docs": len(STORE)}
-    return {"ok": True, "ollama_models": models, "llm": LLM_MODEL,
+    return {"ok": True, "ollama_models": models, "llm": LLM_MODEL, "rag_engine": RAG_ENGINE,
             "docs": len(STORE)}
 
 
