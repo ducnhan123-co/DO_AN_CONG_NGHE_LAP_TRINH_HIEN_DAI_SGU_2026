@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>PDF.ai Clone — Tài liệu của tôi</title>
-<meta name="description" content="Demo clone pdf.ai/documents: quản lý tài liệu, upload nhanh, chat với PDF. Mock data SGU." />
+<title>MatchPDF — Tài liệu của tôi</title>
+<meta name="description" content="MatchPDF: quản lý tài liệu, upload nhanh, chat với PDF kèm trích dẫn số trang." />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23EA580C'/><text x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>P</text></svg>" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
@@ -55,7 +55,7 @@ tailwind.config = {
   <aside class="hidden lg:flex w-[248px] shrink-0 flex-col border-r border-stone-200 bg-white px-4 py-5 sticky top-0 h-[100dvh]">
     <a href="index.html" class="flex items-center gap-2.5 px-2">
       <span class="grid h-9 w-9 place-items-center rounded-xl bg-brand-500 text-white text-lg font-extrabold shadow-[0_8px_20px_-8px_rgba(234,88,12,.7)]">P</span>
-      <span class="font-extrabold text-[17px] tracking-tight">PDF<span class="text-brand-500">.ai</span> <span class="ml-1 rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-bold text-stone-500 align-middle">SGU DEMO</span></span>
+      <span class="font-extrabold text-[17px] tracking-tight">Match<span class="text-brand-500">PDF</span> <span class="ml-1 rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-bold text-stone-500 align-middle whitespace-nowrap">SGU DEMO</span></span>
     </a>
     <button onclick="openUpload()" class="mt-6 flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-stone-700 active:translate-y-[1px]">
       <i class="ph-bold ph-plus"></i> Tài liệu mới
@@ -136,15 +136,6 @@ tailwind.config = {
         <p class="text-sm text-stone-500">Thử từ khóa khác hoặc tải file mới lên.</p>
       </div>
 
-      <!-- tip banner -->
-      <div class="mt-8 flex flex-col sm:flex-row items-start sm:items-center gap-4 rounded-2xl border border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50 p-5">
-        <span class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-brand-500 text-white text-xl"><i class="ph-duotone ph-sparkle"></i></span>
-        <div class="text-sm">
-          <p class="font-bold">Mẹo học nhanh với AI chat</p>
-          <p class="text-stone-600">Mở bất kỳ tài liệu nào, hỏi <b class="font-mono text-[13px] bg-white px-1.5 py-0.5 rounded border">“Tóm tắt chương 2 trong 5 gạch đầu dòng”</b> — AI trích dẫn đúng số trang để bạn đối chiếu.</p>
-        </div>
-        <a href="reader.html" class="sm:ml-auto shrink-0 rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-stone-700 transition">Mở demo chat →</a>
-      </div>
     </div>
   </main>
 </div>
