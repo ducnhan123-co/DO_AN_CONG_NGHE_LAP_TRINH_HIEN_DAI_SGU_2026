@@ -1,4 +1,15 @@
-"""Bước 9-12 notebook: chunk Markdown MinerU -> E5 embedding -> FAISS -> retriever."""
+"""DEPRECATED kể từ Tuần 2.
+
+File này là bản gốc (chunk theo max_chars, không lọc base64, dùng FAISS thủ công).
+Nó có 3 lỗi đã ghi trong Weekly_Sprint_02.xlsx:
+  1) reuse nhầm dữ liệu cũ giữa các lần chạy MinerU
+  2) base64 ảnh lọt vào chunk text
+  3) công thức toán bị cắt đôi khi chunk theo max_chars
+
+Pipeline mới thay thế hoàn toàn 3 module: structured.py + chunking.py + llama_rag.py
+(được main.py dùng). File này CHỈ giữ lại để đối chiếu / báo cáo "trước - sau",
+không import từ đây nữa trong code mới.
+"""
 import json
 import re
 from pathlib import Path

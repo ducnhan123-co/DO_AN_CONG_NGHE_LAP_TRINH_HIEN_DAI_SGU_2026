@@ -5,26 +5,31 @@
 - LLM `Qwen/Qwen2.5-3B-Instruct`: local, không API trả phí, vừa VRAM Colab GPU.
 - Pandoc flags giữ Equation OMML thật trong Word.
 Không finetune thêm — đây là cấu hình cho điểm cao nhất đã verify.
+
+MỚI (fix lỗi tuần 2): mỗi PDF chạy trong một run dir riêng `runs/<ten>_<doc_id>/`
+để không lấy nhầm dữ liệu của PDF chạy trước đó.
 """
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parent.parent
 INPUT_DIR = BASE / "input"
-MINERU_DIR = BASE / "mineru_output"
 DOCX_DIR = BASE / "docx_output"
-RAG_DIR = BASE / "rag_output"
+RUNS_DIR = BASE / "runs"
 
 # Model tốt nhất (đừng đổi nếu muốn giữ điểm)
 EMBED_MODEL = "intfloat/multilingual-e5-base"
 LLM_NAME = "Qwen/Qwen2.5-3B-Instruct"
 
-# Chunk chuẩn từ notebook
+# Chunk chuẩn từ notebook (nay chunk theo BLOCK, không cắt cứng theo ký tự)
 MAX_CHARS = 1800
 OVERLAP = 250
 TOP_K = 5
 
-# MinerU backend chuẩn
+# MinerU: từ 4.0 dùng CLI "mineru-kit parse ... --tier <tier>" (giống notebook).
+# MINERU_BACKEND giữ lại cho tương thích --backend cũ trên CLI của main.py,
+# không còn được run_mineru() dùng thật sự.
 MINERU_BACKEND = "pipeline"
+MINERU_TIER = "standard"  # flash / basic / standard / advanced
 
 # Pandoc: giữ math -> OMML Equation, heading/table/image
 PANDOC_FROM = "markdown+tex_math_dollars+tex_math_single_backslash"

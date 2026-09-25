@@ -1,8 +1,12 @@
-"""Bước 13 notebook (optional): Qwen2.5-3B local trả lời RAG. Bỏ qua nếu thiếu VRAM."""
+"""Bước 13 notebook (optional): Qwen2.5-3B local trả lời RAG. Bỏ qua nếu thiếu VRAM.
+
+MỚI: dùng LlamaIndex retriever (src/llama_rag.py) thay cho FAISS thủ công cũ,
+nên context giờ có source/page đi kèm và không còn bị cắt đôi công thức.
+"""
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-from .build_rag import retrieve
+from .llama_rag import retrieve
 
 
 def load_llm(llm_name: str):
@@ -12,11 +16,12 @@ def load_llm(llm_name: str):
     return tok, model
 
 
-def ask_rag(question: str, tokenizer, model, embedder, index, chunks,
+def ask_rag(question: str, tokenizer, model, index,
             top_k: int = 4, max_new_tokens: int = 512):
-    retrieved = retrieve(question, embedder, index, chunks, top_k=top_k)
+    retrieved = retrieve(index, question, top_k=top_k)
     context = "\n\n".join(
-        f"[Source {i+1}]\n{r['text']}" for i, r in enumerate(retrieved))
+        f"[Source {i+1} | {r['source']} | trang {r['page']}]\n{r['text']}"
+        for i, r in enumerate(retrieved))
     user_prompt = f"""Bạn là trợ lý hỏi đáp tài liệu toán.
 
 Chỉ sử dụng thông tin trong CONTEXT.

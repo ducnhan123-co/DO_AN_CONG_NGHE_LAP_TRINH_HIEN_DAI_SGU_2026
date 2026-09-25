@@ -37,6 +37,15 @@ Fix đã áp dụng so với bản nháp (không phải finetune):
 - Resolve ảnh tương đối → đường dẫn tuyệt đối + `--resource-path` cho Pandoc.
 - Assert DOCX tồn tại và >0 bytes trước khi tiếp tục.
 
+Fix Tuần 2 (Preprocessing, xem Weekly_Sprint_02.xlsx):
+- Mỗi PDF chạy trong `runs/<ten>_<doc_id>/` riêng (doc_id = hash nội dung PDF) →
+  không còn lấy nhầm output của PDF chạy trước đó khi chạy nhiều PDF liên tiếp.
+- Chunk dựng từ `content_list.json` của MinerU (có page/section/loại block) thay vì
+  chỉ Markdown; ảnh base64 bị lọc bỏ khi chuẩn hoá, không lọt vào chunk text nữa.
+- Chunk theo BLOCK: công thức và bảng là đơn vị không bị chia, nên không còn công
+  thức bị cắt đôi giữa 2 chunk. Mỗi chunk có metadata `source/page/section`.
+- Retrieval chuyển từ FAISS thủ công sang LlamaIndex, trả kèm `score/source/page`.
+
 ## 4. Yêu cầu chạy
 
 ### Cách A — Colab (khuyến nghị, đúng notebook gốc)
@@ -48,10 +57,10 @@ Fix đã áp dụng so với bản nháp (không phải finetune):
 Cài trong Colab:
 
 ```bash
-!pip install -q "mineru[all]"
+!pip install -q "mineru[all]>=4.0,<5"
 !pip install -q sentence-transformers faiss-cpu pypandoc transformers accelerate
 !apt-get -qq update && !apt-get -qq install pandoc
-!mineru --help
+!mineru-kit --help
 !pandoc --version
 ```
 
@@ -99,23 +108,30 @@ python main.py --pdf input/<ten_file>.pdf
 
 ```python
 from pathlib import Path
-from src.config import MINERU_DIR, DOCX_DIR, RAG_DIR, EMBED_MODEL
-from src.run_mineru import run_mineru, find_mineru_outputs
+from src.config import DOCX_DIR, RUNS_DIR, EMBED_MODEL
+from src.run_mineru import run_mineru, find_mineru_outputs, find_content_list, prepare_run_dir
 from src.build_docx import prepare_work_md, md_to_docx
-from src.build_rag import split_markdown_sections, make_chunks, build_index, retrieve
+from src.structured import load_raw, normalize_blocks, save_structured
+from src.chunking import build_chunks
+from src.llama_rag import build_index, chunks_to_nodes, retrieve
 
 pdf = Path("input/<ten_file>.pdf")
-run_mineru(pdf, MINERU_DIR, backend="pipeline")
-md_path, _, _ = find_mineru_outputs(MINERU_DIR)
+doc_id, run_dir = prepare_run_dir(pdf, RUNS_DIR)          # run dir riêng cho PDF này
+mineru_dir = run_dir / "mineru"
+run_mineru(pdf, mineru_dir, tier="standard")  # dùng mineru-kit parse, không phải CLI cũ
+md_path, _, _ = find_mineru_outputs(mineru_dir)
+content_list_path = find_content_list(mineru_dir)
 text = md_path.read_text(encoding="utf-8", errors="ignore")
 
 work = DOCX_DIR / "test_for_docx.md"
 prepare_work_md(text, md_path, work)
 md_to_docx(work, DOCX_DIR / "test.docx", md_path.parent)
 
-chunks = make_chunks(split_markdown_sections(text))
-index, embedder, _, _ = build_index(chunks, EMBED_MODEL, RAG_DIR)
-print(retrieve("định nghĩa đạo hàm là gì?", embedder, index, chunks)[0])
+blocks = normalize_blocks(load_raw(content_list_path, md_path), pdf.name, doc_id)
+save_structured(blocks, run_dir / "structured_data.json")
+chunks = build_chunks(blocks)
+index = build_index(chunks_to_nodes(chunks), EMBED_MODEL, run_dir / "index")
+print(retrieve(index, "định nghĩa đạo hàm là gì?", top_k=5)[0])
 ```
 
 ## 6. Kiểm tra kết quả (bắt buộc)
@@ -150,13 +166,20 @@ grep -o -E '\\\\\(|\\\\\[|\\frac|\\int|\\sum|\$\$' mineru_output/**/*.md | sort 
 ```text
 main.py                 # pipeline 1 lệnh
 src/config.py           # model + chunk + backend chuẩn
-src/run_mineru.py       # chạy MinerU + tìm md/json/images
+src/run_mineru.py       # chạy MinerU theo run dir riêng từng PDF (doc_id = hash nội dung)
 src/build_docx.py       # ảnh tuyệt đối + pandoc DOCX Equation
-src/build_rag.py        # chunk + E5 + FAISS + retrieve
-src/ask_rag.py          # Qwen local (optional)
+src/structured.py       # content_list.json MinerU -> structured_data.json (lọc base64)
+src/chunking.py         # chunk theo BLOCK, công thức/bảng không bị cắt đôi
+src/validate.py         # kiểm tra DoD: không base64, không cắt công thức, có page/source
+src/llama_rag.py        # chunk -> TextNode -> LlamaIndex (E5) -> retrieve(score/source/page)
+src/ask_rag.py          # Qwen local (optional), dùng LlamaIndex retriever
+src/build_rag.py        # DEPRECATED — bản gốc giữ lại để đối chiếu trước/sau
+tests/test_chunking.py  # test DoD trên dữ liệu giả lập MinerU
 notebooks/...ipynb      # bản gốc Colab
 input/                  # bỏ PDF vào đây
-mineru_output/ docx_output/ rag_output/
+runs/<ten>_<doc_id>/    # output riêng từng PDF: mineru/, structured_data.json,
+                        #   chunks.json, validation.json, index/
+docx_output/
 requirements.txt  HUONG_DAN_CHAY_CHI_TIET.md
 ```
 
