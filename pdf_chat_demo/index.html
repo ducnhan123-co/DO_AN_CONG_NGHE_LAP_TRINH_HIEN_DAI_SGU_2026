@@ -293,7 +293,7 @@ async function handleFiles(files){
 }
 async function uploadOne(f,row,autoOpen){
   const st=row.querySelector('.st-status'), act=row.querySelector('.st-action');
-  st.innerHTML='<span class="text-brand-600 font-bold">Đang tải lên server… (file 1 trang chỉ vài giây)</span>';
+  st.innerHTML='<span class="text-brand-600 font-bold">Đang tải lên & đọc chữ… (PDF scan cần OCR: ~1–2 phút, đừng tắt)</span>';
   try{
     const fd=new FormData(); fd.append('f',f);
     const r=await fetch(API_BASE+'/api/upload',{method:'POST',body:fd});

@@ -46,6 +46,7 @@ FAST_MODEL = "qwen2.5:1.5b"     # model nhẹ: trả lời nhanh, hợp M5
 BIG_MODEL = "qwen3:14b"         # model lớn: hay nhất, chậm nhất
 EMBED_MODEL = "qwen3-embedding:0.6b"  # để dành khi cần dense retrieval
 TOP_K = 5
+MIN_CHARS_PER_PAGE = 50  # dưới mức này coi là PDF scan -> OCR
 NUM_CTX = 8192        # đủ chỗ cho cả 1 trang + lịch sử chat
 # Bộ tìm đoạn: "custom" (qwen3-embedding + TF-IDF, mặc định) hoặc LlamaIndex:
 # "li_e5" (giống đồ án) / "li_fusion_e5" / "li_qwen" / "li_fusion" — xem li_rag.py
@@ -331,10 +332,10 @@ async def upload(f: UploadFile = File(...)):
     path.write_bytes(await f.read())
     try:
         pages, ocr = await _extract_or_ocr(path)
+        res = _index_pages(doc_id, f.filename, path, pages, ocr=ocr)
     except HTTPException:
         path.unlink(missing_ok=True)
         raise
-    res = _index_pages(doc_id, f.filename, path, pages, ocr=ocr)
     if MINERU_BIN.exists():  # chat được ngay bằng bản nhanh, MinerU nâng cấp sau
         STORE[doc_id]["parser"] = res["parser"] = "mineru_running"
         threading.Thread(target=_mineru_upgrade, args=(doc_id,), daemon=True).start()
@@ -351,6 +352,8 @@ def _index_pages(doc_id: str, name: str, path: Path, pages: list[str], ocr=False
     for i, t in enumerate(pages, start=1):
         for c in split_chunks(t):
             chunks.append({"page": i, "text": c})
+    if not chunks:  # trước đây crash 500 "empty vocabulary" -> trình duyệt chỉ thấy "Failed to fetch"
+        raise HTTPException(400, "Không trích được chữ nào từ PDF (kể cả OCR).")
     STORE[doc_id] = {"file": path, "name": name, "ocr": ocr, "parser": parser,
                      "pages": pages, "chunks": chunks}
     path.with_suffix(".json").write_text(json.dumps(
@@ -363,13 +366,14 @@ def _index_pages(doc_id: str, name: str, path: Path, pages: list[str], ocr=False
 
 
 async def _extract_or_ocr(pdf_path: Path):
-    """Trích text thường, không có chữ thì OCR (cho PDF scan)."""
+    """Trích text thường, gần như không có chữ thì OCR (cho PDF scan)."""
     try:
         pages = [(p.extract_text() or "").strip()
                  for p in PdfReader(str(pdf_path)).pages]
     except Exception as e:
         raise HTTPException(400, f"Không đọc được PDF: {e}")
-    if any(pages):
+    # PDF scan hay còn lọt vài ký tự (số trang in góc) -> any(pages) vẫn True; đo theo mật độ chữ
+    if sum(len(p) for p in pages) >= MIN_CHARS_PER_PAGE * max(1, len(pages)):
         return pages, False
     pages = await asyncio.to_thread(ocr_pages, pdf_path)
     if not any(pages):
