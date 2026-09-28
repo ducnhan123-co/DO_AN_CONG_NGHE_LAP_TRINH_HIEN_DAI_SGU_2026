@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SGU PDF RAG</title>
+  <style>
+    :root { --ink: #14213d; --paper: #f7f3e9; --accent: #e85d04; --line: #c9c2b5; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: linear-gradient(135deg, #f7f3e9, #e7eef0); color: var(--ink); font: 16px Georgia, serif; }
+    main { width: min(760px, calc(100% - 32px)); margin: 8vh auto; }
+    h1 { font: 700 clamp(2.5rem, 8vw, 5rem)/.9 Georgia, serif; letter-spacing: -.06em; margin: 0; }
+    .lead { font-size: 1.1rem; max-width: 55ch; }
+    section { margin-top: 28px; padding: 24px; border: 1px solid var(--line); background: rgba(255,255,255,.62); }
+    label, button { display: block; font-weight: bold; }
+    input, button { font: inherit; margin-top: 8px; }
+    input[type=file], input[type=text] { width: 100%; padding: 12px; border: 1px solid var(--line); background: white; }
+    button { padding: 12px 18px; border: 0; background: var(--accent); color: white; cursor: pointer; }
+    button:disabled { background: #9b968c; cursor: wait; }
+    #status { min-height: 1.5em; margin: 16px 0 0; }
+    #answer { white-space: pre-wrap; line-height: 1.5; }
+    li { margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Đọc PDF.<br>Hỏi đúng ngữ cảnh.</h1>
+    <p class="lead">MinerU chuyển tài liệu toán, E5 + LlamaIndex truy xuất đoạn liên quan; Qwen local có thể bật ở backend khi đủ tài nguyên.</p>
+    <section>
+      <label>1. Chọn một PDF (tối đa 50 MB)<input id="pdf" type="file" accept="application/pdf"></label>
+      <button id="upload">Lập chỉ mục tài liệu</button>
+      <p id="status" aria-live="polite"></p>
+    </section>
+    <section hidden id="chat">
+      <label>2. Hỏi tài liệu<input id="question" type="text" maxlength="2000" placeholder="Ví dụ: Định nghĩa quan trọng trong chương 1 là gì?"></label>
+      <button id="ask">Tìm câu trả lời</button>
+      <div id="answer" aria-live="polite"></div>
+      <ul id="sources"></ul>
+    </section>
+  </main>
+  <script src="config.js"></script>
+  <script>
+    const api = (window.APP_CONFIG?.API_BASE_URL || "").replace(/\/$/, "");
+    const upload = document.querySelector("#upload"), status = document.querySelector("#status");
+    const chat = document.querySelector("#chat"), ask = document.querySelector("#ask");
+    let documentId;
+    const request = (path, options) => fetch(`${api}${path}`, options).then(async response => {
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "Yêu cầu thất bại.");
+      return data;
+    });
+    upload.onclick = async () => {
+      const file = document.querySelector("#pdf").files[0];
+      if (!file) return status.textContent = "Hãy chọn PDF trước.";
+      upload.disabled = true; status.textContent = "Đang gửi PDF...";
+      try {
+        const form = new FormData(); form.append("file", file);
+        const document = await request("/api/documents", { method: "POST", body: form });
+        documentId = document.id; status.textContent = "Đang chạy MinerU và lập chỉ mục...";
+        const timer = setInterval(async () => {
+          try {
+            const current = await request(`/api/documents/${documentId}`);
+            if (current.status === "ready") { clearInterval(timer); status.textContent = "Sẵn sàng hỏi đáp."; chat.hidden = false; upload.disabled = false; }
+            if (current.status === "failed") { clearInterval(timer); throw new Error(current.error || "Không thể xử lý PDF."); }
+          } catch (error) { clearInterval(timer); status.textContent = error.message; upload.disabled = false; }
+        }, 2000);
+      } catch (error) { status.textContent = error.message; upload.disabled = false; }
+    };
+    ask.onclick = async () => {
+      const question = document.querySelector("#question").value.trim();
+      if (!question) return;
+      ask.disabled = true; document.querySelector("#answer").textContent = "Đang truy xuất...";
+      try {
+        const result = await request(`/api/documents/${documentId}/questions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question }) });
+        document.querySelector("#answer").textContent = result.answer;
+        document.querySelector("#sources").replaceChildren(...result.sources.map(source => {
+          const item = document.createElement("li"); item.textContent = `${source.section || source.source || "Tài liệu"}, trang ${source.page || "?"} (độ khớp ${source.score.toFixed(2)}): ${source.text.slice(0, 220)}`; return item;
+        }));
+      } catch (error) { document.querySelector("#answer").textContent = error.message; }
+      finally { ask.disabled = false; }
+    };
+  </script>
+</body>
+</html>
