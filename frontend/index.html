@@ -1,84 +1,313 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SGU PDF RAG</title>
-  <style>
-    :root { --ink: #14213d; --paper: #f7f3e9; --accent: #e85d04; --line: #c9c2b5; }
-    * { box-sizing: border-box; }
-    body { margin: 0; background: linear-gradient(135deg, #f7f3e9, #e7eef0); color: var(--ink); font: 16px Georgia, serif; }
-    main { width: min(760px, calc(100% - 32px)); margin: 8vh auto; }
-    h1 { font: 700 clamp(2.5rem, 8vw, 5rem)/.9 Georgia, serif; letter-spacing: -.06em; margin: 0; }
-    .lead { font-size: 1.1rem; max-width: 55ch; }
-    section { margin-top: 28px; padding: 24px; border: 1px solid var(--line); background: rgba(255,255,255,.62); }
-    label, button { display: block; font-weight: bold; }
-    input, button { font: inherit; margin-top: 8px; }
-    input[type=file], input[type=text] { width: 100%; padding: 12px; border: 1px solid var(--line); background: white; }
-    button { padding: 12px 18px; border: 0; background: var(--accent); color: white; cursor: pointer; }
-    button:disabled { background: #9b968c; cursor: wait; }
-    #status { min-height: 1.5em; margin: 16px 0 0; }
-    #answer { white-space: pre-wrap; line-height: 1.5; }
-    li { margin: 8px 0; }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MatchPDF — Tài liệu của tôi</title>
+<meta name="description" content="MatchPDF: quản lý tài liệu, upload nhanh, chat với PDF kèm trích dẫn số trang." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23EA580C'/><text x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>P</text></svg>" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script>
+tailwind.config = {
+  theme: { extend: {
+    fontFamily: { sans: ['"Be Vietnam Pro"','Inter','system-ui','sans-serif'], mono: ['"JetBrains Mono"','monospace'] },
+    colors: { brand: {50:'#FFF4ED',100:'#FFE6D5',500:'#EA580C',600:'#C2410C',700:'#9A3412'} }
+  }}
+}
+</script>
+<style>
+  html{scroll-behavior:smooth}
+  body{background:#FAFAF9;color:#1C1917;-webkit-font-smoothing:antialiased}
+  .card-hover{transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s,border-color .25s}
+  .card-hover:hover{transform:translateY(-3px);box-shadow:0 18px 40px -18px rgba(28,25,23,.25);border-color:#FDBA74!important}
+  .card-hover:active{transform:translateY(0) scale(.99)}
+  .thumb-paper{background:linear-gradient(180deg,#fff 0%,#FFF7ED 100%);position:relative;overflow:hidden}
+  .thumb-lines{background-image:repeating-linear-gradient(180deg,transparent 0 9px,#E7E5E4 9px 10px);opacity:.55}
+  .skeleton{position:relative;overflow:hidden;background:#F5F5F4}
+  .skeleton::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 20%,rgba(255,255,255,.9) 50%,transparent 80%);animation:shimmer 1.4s infinite}
+  @keyframes shimmer{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+  .fade-up{animation:fadeUp .5s cubic-bezier(.2,.8,.2,1) both}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .nav-item{display:flex;align-items:center;gap:.7rem;padding:.6rem .8rem;border-radius:.75rem;font-size:.875rem;font-weight:500;color:#57534E;transition:all .18s}
+  .nav-item:hover{background:#F5F5F4;color:#1C1917}
+  .nav-item.active{background:#1C1917;color:#fff}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#D6D3D1;border-radius:8px;border:2px solid #FAFAF9}
+  #dropOverlay{transition:opacity .2s}
+  dialog::backdrop{background:rgba(28,25,23,.5);backdrop-filter:blur(4px)}
+</style>
 </head>
-<body>
-  <main>
-    <h1>Đọc PDF.<br>Hỏi đúng ngữ cảnh.</h1>
-    <p class="lead">MinerU chuyển tài liệu toán, E5 + LlamaIndex truy xuất đoạn liên quan; Qwen local có thể bật ở backend khi đủ tài nguyên.</p>
-    <section>
-      <label>1. Chọn một PDF (tối đa 50 MB)<input id="pdf" type="file" accept="application/pdf"></label>
-      <button id="upload">Lập chỉ mục tài liệu</button>
-      <p id="status" aria-live="polite"></p>
-    </section>
-    <section hidden id="chat">
-      <label>2. Hỏi tài liệu<input id="question" type="text" maxlength="2000" placeholder="Ví dụ: Định nghĩa quan trọng trong chương 1 là gì?"></label>
-      <button id="ask">Tìm câu trả lời</button>
-      <div id="answer" aria-live="polite"></div>
-      <ul id="sources"></ul>
-    </section>
+<body class="min-h-[100dvh]">
+
+<div id="dropOverlay" class="fixed inset-0 z-[90] hidden items-center justify-center bg-stone-950/60 backdrop-blur-sm">
+  <div class="bg-white rounded-3xl px-12 py-10 text-center border-2 border-dashed border-brand-500">
+    <i class="ph-duotone ph-cloud-arrow-up text-5xl text-brand-500"></i>
+    <p class="mt-3 font-bold text-lg">Thả file để tải lên</p>
+    <p class="text-sm text-stone-500">PDF · tối đa 50MB · xử lý ngay trên trình duyệt (demo)</p>
+  </div>
+</div>
+
+<div class="flex min-h-[100dvh]">
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="hidden lg:flex w-[248px] shrink-0 flex-col border-r border-stone-200 bg-white px-4 py-5 sticky top-0 h-[100dvh]">
+    <a href="index.html" class="flex items-center gap-2.5 px-2">
+      <span class="grid h-9 w-9 place-items-center rounded-xl bg-brand-500 text-white text-lg font-extrabold shadow-[0_8px_20px_-8px_rgba(234,88,12,.7)]">P</span>
+      <span class="font-extrabold text-[17px] tracking-tight">Match<span class="text-brand-500">PDF</span> <span class="ml-1 rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-bold text-stone-500 align-middle whitespace-nowrap">SGU DEMO</span></span>
+    </a>
+    <button onclick="openUpload()" class="mt-6 flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-stone-700 active:translate-y-[1px]">
+      <i class="ph-bold ph-plus"></i> Tài liệu mới
+    </button>
+    <nav class="mt-6 space-y-1">
+      <a href="index.html" class="nav-item active"><i class="ph-duotone ph-files text-lg"></i> Tài liệu của tôi</a>
+      <a href="reader.html" class="nav-item"><i class="ph-duotone ph-chats-circle text-lg"></i> Đoạn chat gần đây</a>
+      <a href="#" class="nav-item"><i class="ph-duotone ph-star text-lg"></i> Được gắn sao</a>
+      <a href="#" class="nav-item"><i class="ph-duotone ph-trash text-lg"></i> Thùng rác</a>
+    </nav>
+    <div class="mt-6 rounded-2xl bg-stone-50 border border-stone-200 p-3.5">
+      <p class="text-xs font-semibold text-stone-500 uppercase tracking-wider">Thư mục</p>
+      <div class="mt-2 space-y-1 text-sm">
+        <a href="#" class="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-white"><i class="ph-duotone ph-folder text-amber-500"></i> Luận văn SGU <span class="ml-auto text-xs text-stone-400">4</span></a>
+        <a href="#" class="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-white"><i class="ph-duotone ph-folder text-sky-500"></i> Giáo trình <span class="ml-auto text-xs text-stone-400">3</span></a>
+        <a href="#" class="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-white"><i class="ph-duotone ph-folder text-emerald-500"></i> Bài báo NCKH <span class="ml-auto text-xs text-stone-400">2</span></a>
+      </div>
+    </div>
+    <div class="mt-auto rounded-2xl border border-stone-200 p-4">
+      <div class="flex items-center justify-between text-xs font-semibold"><span>Dung lượng demo</span><span class="font-mono">38 / 100 MB</span></div>
+      <div class="mt-2 h-2 overflow-hidden rounded-full bg-stone-100"><div class="h-full w-[38%] rounded-full bg-gradient-to-r from-brand-500 to-amber-400"></div></div>
+      <p class="mt-2 text-xs text-stone-500">Gói <b>Sinh viên</b> · mock data, không giới hạn.</p>
+    </div>
+    <div class="mt-3 flex items-center gap-2.5 px-1">
+      <span class="grid h-9 w-9 place-items-center rounded-full bg-stone-900 text-white text-xs font-bold">SV</span>
+      <div class="text-xs"><p class="font-bold">Sinh viên SGU</p><p class="text-stone-500">sv@sgu.edu.vn</p></div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="min-w-0 flex-1">
+    <!-- topbar -->
+    <header class="sticky top-0 z-30 border-b border-stone-200 bg-[#FAFAF9]/85 backdrop-blur-md">
+      <div class="mx-auto flex h-16 max-w-[1200px] items-center gap-3 px-4 sm:px-6">
+        <span class="lg:hidden grid h-9 w-9 place-items-center rounded-xl bg-brand-500 text-white font-extrabold">P</span>
+        <h1 class="text-[17px] font-extrabold tracking-tight">Tài liệu của tôi</h1>
+        <span id="docCount" class="rounded-full bg-stone-200/70 px-2.5 py-0.5 text-xs font-bold text-stone-600">9</span>
+        <div class="ml-auto flex items-center gap-2">
+          <label class="hidden sm:flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm w-[260px] focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20 transition">
+            <i class="ph-bold ph-magnifying-glass text-stone-400"></i>
+            <input id="search" placeholder="Tìm tài liệu…" class="w-full bg-transparent outline-none placeholder:text-stone-400" />
+          </label>
+          <div class="hidden sm:flex items-center rounded-xl border border-stone-200 bg-white p-1 text-sm">
+            <button id="viewGrid" class="rounded-lg bg-stone-900 px-2.5 py-1.5 text-white"><i class="ph-fill ph-grid-four"></i></button>
+            <button id="viewList" class="rounded-lg px-2.5 py-1.5 text-stone-500 hover:bg-stone-100"><i class="ph-fill ph-rows"></i></button>
+          </div>
+          <button onclick="openUpload()" class="flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-bold text-white shadow-[0_10px_24px_-10px_rgba(234,88,12,.8)] transition hover:bg-brand-600 active:translate-y-[1px]">
+            <i class="ph-bold ph-upload-simple"></i><span class="hidden sm:inline">Tải lên PDF</span><span class="sm:hidden">Tải lên</span>
+          </button>
+        </div>
+      </div>
+      <div class="sm:hidden px-4 pb-3">
+        <label class="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm">
+          <i class="ph-bold ph-magnifying-glass text-stone-400"></i>
+          <input id="searchM" placeholder="Tìm tài liệu…" class="w-full bg-transparent outline-none" />
+        </label>
+      </div>
+    </header>
+
+    <div class="mx-auto max-w-[1200px] px-4 sm:px-6 pb-20">
+      <!-- filter row -->
+      <div class="mt-5 flex flex-wrap items-center gap-2 text-sm">
+        <button data-filter="all" class="fbtn rounded-full bg-stone-900 px-4 py-1.5 font-semibold text-white">Tất cả</button>
+        <button data-filter="luanvan" class="fbtn rounded-full border border-stone-200 bg-white px-4 py-1.5 font-medium text-stone-600 hover:border-stone-400">Luận văn</button>
+        <button data-filter="giaotrinh" class="fbtn rounded-full border border-stone-200 bg-white px-4 py-1.5 font-medium text-stone-600 hover:border-stone-400">Giáo trình</button>
+        <button data-filter="baibao" class="fbtn rounded-full border border-stone-200 bg-white px-4 py-1.5 font-medium text-stone-600 hover:border-stone-400">Bài báo</button>
+        <button data-filter="star" class="fbtn rounded-full border border-stone-200 bg-white px-4 py-1.5 font-medium text-stone-600 hover:border-stone-400"><i class="ph-fill ph-star text-amber-500"></i> Đã sao</button>
+        <span class="ml-auto flex items-center gap-1.5 text-xs text-stone-500">
+          <i class="ph-duotone ph-lightning"></i> Mở tài liệu là đọc + chat ngay, không chờ server
+        </span>
+      </div>
+
+      <!-- grid -->
+      <div id="grid" class="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"></div>
+      <div id="empty" class="hidden py-20 text-center">
+        <i class="ph-duotone ph-file-dashed text-6xl text-stone-300"></i>
+        <p class="mt-4 font-bold">Không tìm thấy tài liệu</p>
+        <p class="text-sm text-stone-500">Thử từ khóa khác hoặc tải file mới lên.</p>
+      </div>
+
+    </div>
   </main>
-  <script src="config.js"></script>
-  <script>
-    const api = (window.APP_CONFIG?.API_BASE_URL || "").replace(/\/$/, "");
-    const upload = document.querySelector("#upload"), status = document.querySelector("#status");
-    const chat = document.querySelector("#chat"), ask = document.querySelector("#ask");
-    let documentId;
-    const request = (path, options) => fetch(`${api}${path}`, options).then(async response => {
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || "Yêu cầu thất bại.");
-      return data;
-    });
-    upload.onclick = async () => {
-      const file = document.querySelector("#pdf").files[0];
-      if (!file) return status.textContent = "Hãy chọn PDF trước.";
-      upload.disabled = true; status.textContent = "Đang gửi PDF...";
-      try {
-        const form = new FormData(); form.append("file", file);
-        const document = await request("/api/documents", { method: "POST", body: form });
-        documentId = document.id; status.textContent = "Đang chạy MinerU và lập chỉ mục...";
-        const timer = setInterval(async () => {
-          try {
-            const current = await request(`/api/documents/${documentId}`);
-            if (current.status === "ready") { clearInterval(timer); status.textContent = "Sẵn sàng hỏi đáp."; chat.hidden = false; upload.disabled = false; }
-            if (current.status === "failed") { clearInterval(timer); throw new Error(current.error || "Không thể xử lý PDF."); }
-          } catch (error) { clearInterval(timer); status.textContent = error.message; upload.disabled = false; }
-        }, 2000);
-      } catch (error) { status.textContent = error.message; upload.disabled = false; }
-    };
-    ask.onclick = async () => {
-      const question = document.querySelector("#question").value.trim();
-      if (!question) return;
-      ask.disabled = true; document.querySelector("#answer").textContent = "Đang truy xuất...";
-      try {
-        const result = await request(`/api/documents/${documentId}/questions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question }) });
-        document.querySelector("#answer").textContent = result.answer;
-        document.querySelector("#sources").replaceChildren(...result.sources.map(source => {
-          const item = document.createElement("li"); item.textContent = `${source.section || source.source || "Tài liệu"}, trang ${source.page || "?"} (độ khớp ${source.score.toFixed(2)}): ${source.text.slice(0, 220)}`; return item;
-        }));
-      } catch (error) { document.querySelector("#answer").textContent = error.message; }
-      finally { ask.disabled = false; }
-    };
-  </script>
+</div>
+
+<!-- ============ UPLOAD MODAL ============ -->
+<dialog id="uploadDlg" class="rounded-3xl p-0 w-[min(560px,92vw)] shadow-2xl">
+  <div class="p-6">
+    <div class="flex items-center gap-3">
+      <span class="grid h-10 w-10 place-items-center rounded-2xl bg-brand-50 text-brand-600 text-xl"><i class="ph-duotone ph-upload-simple"></i></span>
+      <div><h3 class="font-extrabold text-lg tracking-tight">Tải tài liệu lên</h3><p class="text-xs text-stone-500">Demo chạy 100% phía trình duyệt, file không rời máy bạn.</p></div>
+      <button onclick="document.getElementById('uploadDlg').close()" class="ml-auto grid h-9 w-9 place-items-center rounded-full hover:bg-stone-100"><i class="ph-bold ph-x"></i></button>
+    </div>
+    <label id="dropzone" class="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-stone-300 bg-stone-50 px-6 py-10 text-center transition hover:border-brand-500 hover:bg-brand-50/50">
+      <i class="ph-duotone ph-cloud-arrow-up text-4xl text-stone-400"></i>
+      <p class="mt-2 text-sm font-bold">Kéo thả PDF vào đây hoặc <span class="text-brand-600 underline">chọn file</span></p>
+      <p class="text-xs text-stone-500">PDF · tối đa 50MB · mỗi file mở chat riêng</p>
+      <input id="fileInput" type="file" accept="application/pdf" class="hidden" multiple />
+    </label>
+    <div id="uploadList" class="mt-3 space-y-2"></div>
+    <div class="mt-4 flex justify-end gap-2">
+      <button onclick="document.getElementById('uploadDlg').close()" class="rounded-xl px-4 py-2.5 text-sm font-semibold text-stone-600 hover:bg-stone-100">Đóng</button>
+      <button onclick="finishUpload()" class="rounded-xl bg-brand-500 px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-600">Xong, mở thư viện</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+/* ================= MOCK DATA (giả lập như đã có tài liệu thật) ================= */
+const DOCS = [
+  {id:'luanvan-ai', title:'Luận văn: Ứng dụng AI trong phân tích tài liệu học thuật', cat:'luanvan', pages:86, size:'12.4 MB', updated:'2 giờ trước', chats:24, star:true, color:'#EA580C', pct:72,
+   excerpt:'Chương 2 trình bày mô hình RAG kết hợp trích xuất bố cục văn bản…'},
+  {id:'gt-csdl', title:'Giáo trình Cơ sở dữ liệu — Chương 1-6 (SGU)', cat:'giaotrinh', pages:214, size:'28.1 MB', updated:'Hôm qua', chats:51, star:true, color:'#0284C7', pct:35,
+   excerpt:'Chuẩn hóa lược đồ, phụ thuộc hàm và dạng chuẩn 3NF với ví dụ quản lý sinh viên…'},
+  {id:'gt-xstk', title:'Giáo trình Xác suất thống kê (bản 2024)', cat:'giaotrinh', pages:168, size:'19.7 MB', updated:'3 ngày trước', chats:18, star:false, color:'#059669', pct:12,
+   excerpt:'Biến ngẫu nhiên rời rạc, phân phối nhị thức và ước lượng khoảng tin cậy…'},
+  {id:'bb-rag', title:'Bài báo: Retrieval-Augmented Generation cho QA tiếng Việt', cat:'baibao', pages:12, size:'1.8 MB', updated:'Tuần trước', chats:9, star:false, color:'#7C3AED', pct:90,
+   excerpt:'So sánh BM25 + rerank với dense retrieval trên bộ ViQuAD mở rộng…'},
+  {id:'luanvan-tmdt', title:'Khóa luận: Website thương mại điện tử (Laravel + React)', cat:'luanvan', pages:112, size:'15.2 MB', updated:'Tuần trước', chats:33, star:false, color:'#DB2777', pct:58,
+   excerpt:'Thiết kế giỏ hàng, thanh toán VNPay sandbox và đánh giá tải với k6…'},
+  {id:'gt-ctdl', title:'Giáo trình Cấu trúc dữ liệu & Giải thuật', cat:'giaotrinh', pages:196, size:'22.5 MB', updated:'2 tuần trước', chats:42, star:false, color:'#0D9488', pct:44,
+   excerpt:'Cây AVL, bảng băm và phân tích độ phức tạp amortized…'},
+  {id:'bb-ocr', title:'Bài báo: Trích xuất bảng biểu từ PDF scan bằng OCR', cat:'baibao', pages:9, size:'1.2 MB', updated:'2 tuần trước', chats:6, star:false, color:'#B45309', pct:100,
+   excerpt:'Pipeline tiền xử lý ảnh, Tesseract fine-tune và đối sánh cấu trúc bảng…'},
+  {id:'luanvan-kt', title:'Luận văn: Kế toán doanh thu trong DN vừa và nhỏ', cat:'luanvan', pages:98, size:'9.6 MB', updated:'Tháng trước', chats:11, star:false, color:'#4D7C0F', pct:20,
+   excerpt:'Ghi nhận doanh thu theo VAS 14 và minh họa trên số liệu thực tế…'},
+  {id:'luanvan-mkt', title:'Khóa luận: Chiến lược marketing cho quán cà phê Gen Z', cat:'luanvan', pages:74, size:'8.3 MB', updated:'Tháng trước', chats:15, star:true, color:'#E11D48', pct:66,
+   excerpt:'Khảo sát 312 đáp viên, mô hình 4P áp dụng cho F&B quy mô nhỏ…'},
+];
+let filter='all', query='', view='grid';
+const grid = document.getElementById('grid');
+
+function thumbHTML(d, i){
+  return `<div class="thumb-paper h-36 border-b border-stone-200 p-4">
+    <div class="flex items-start justify-between">
+      <span class="rounded-lg px-2 py-1 text-[11px] font-extrabold text-white" style="background:${d.color}">PDF</span>
+      <i class="ph-duotone ph-file-pdf text-2xl text-stone-300"></i>
+    </div>
+    <p class="mt-2 font-mono text-[11px] leading-relaxed text-stone-500 line-clamp-2">${d.excerpt}</p>
+    <div class="thumb-lines absolute inset-x-4 bottom-3 top-24 rounded"></div>
+    <div class="absolute bottom-3 left-4 right-4 flex items-center gap-2">
+      <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-stone-200/70"><div class="h-full rounded-full" style="width:${d.pct}%;background:${d.color}"></div></div>
+      <span class="font-mono text-[10px] text-stone-500">${d.pct}%</span>
+    </div>
+  </div>`;
+}
+function render(){
+  const list = DOCS.filter(d =>
+    (filter==='all' || (filter==='star' ? d.star : d.cat===filter)) &&
+    d.title.toLowerCase().includes(query.toLowerCase()));
+  document.getElementById('docCount').textContent = list.length;
+  document.getElementById('empty').classList.toggle('hidden', list.length>0);
+  grid.className = view==='grid'
+    ? 'mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3'
+    : 'mt-5 flex flex-col gap-3';
+  grid.innerHTML = list.map((d,i)=> view==='grid' ? `
+    <article class="card-hover fade-up overflow-hidden rounded-2xl border border-stone-200 bg-white" style="animation-delay:${i*40}ms">
+      ${thumbHTML(d,i)}
+      <div class="p-4">
+        <div class="flex items-start gap-2">
+          <h3 class="min-w-0 flex-1 truncate-2 font-bold text-[14px] leading-snug" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${d.title}</h3>
+          <button onclick="toggleStar('${d.id}',event)" class="shrink-0 text-lg ${d.star?'text-amber-400':'text-stone-300 hover:text-amber-400'}"><i class="ph-fill ph-star"></i></button>
+        </div>
+        <p class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px] text-stone-500">
+          <span>${d.pages} trang</span>·<span>${d.size}</span>·<span>${d.updated}</span>
+        </p>
+        <div class="mt-3 flex items-center gap-2">
+          <a href="reader.html?id=${d.id}" class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-3 py-2 text-[13px] font-bold text-white transition hover:bg-brand-600 active:translate-y-[1px]">
+            <i class="ph-duotone ph-chats-circle"></i> Chat ngay
+          </a>
+          <a href="reader.html?id=${d.id}" title="Đọc PDF" class="grid h-9 w-9 place-items-center rounded-xl border border-stone-200 text-stone-600 transition hover:border-brand-500 hover:text-brand-600"><i class="ph-bold ph-book-open"></i></a>
+          <button title="Thêm" class="grid h-9 w-9 place-items-center rounded-xl border border-stone-200 text-stone-400 transition hover:border-stone-400 hover:text-stone-700"><i class="ph-bold ph-dots-three"></i></button>
+        </div>
+        <p class="mt-2.5 flex items-center gap-1.5 text-[11px] text-stone-400"><i class="ph-duotone ph-chat-centered-text"></i> ${d.chats} đoạn chat · mở là đọc được ngay</p>
+      </div>
+    </article>` : `
+    <article class="card-hover fade-up flex items-center gap-4 rounded-2xl border border-stone-200 bg-white p-3" style="animation-delay:${i*30}ms">
+      <span class="grid h-12 w-12 shrink-0 place-items-center rounded-xl text-white font-extrabold" style="background:${d.color}">PDF</span>
+      <div class="min-w-0 flex-1">
+        <h3 class="truncate font-bold text-sm">${d.title}</h3>
+        <p class="font-mono text-[11px] text-stone-500">${d.pages} trang · ${d.size} · ${d.updated} · ${d.chats} chats</p>
+      </div>
+      <a href="reader.html?id=${d.id}" class="shrink-0 rounded-xl bg-stone-900 px-4 py-2 text-[13px] font-bold text-white hover:bg-brand-600 transition">Chat ngay</a>
+    </article>`).join('');
+}
+function toggleStar(id, e){ e.stopPropagation(); const d=DOCS.find(x=>x.id===id); d.star=!d.star; render(); }
+document.querySelectorAll('.fbtn').forEach(b=>b.onclick=()=>{
+  filter=b.dataset.filter;
+  document.querySelectorAll('.fbtn').forEach(x=>x.className='fbtn rounded-full border border-stone-200 bg-white px-4 py-1.5 font-medium text-stone-600 hover:border-stone-400');
+  b.className='fbtn rounded-full bg-stone-900 px-4 py-1.5 font-semibold text-white';
+  render();
+});
+const onQ=v=>{query=v;render();};
+document.getElementById('search').oninput=e=>onQ(e.target.value);
+document.getElementById('searchM').oninput=e=>onQ(e.target.value);
+document.getElementById('viewGrid').onclick=()=>{view='grid';render();
+  document.getElementById('viewGrid').className='rounded-lg bg-stone-900 px-2.5 py-1.5 text-white';
+  document.getElementById('viewList').className='rounded-lg px-2.5 py-1.5 text-stone-500 hover:bg-stone-100';};
+document.getElementById('viewList').onclick=()=>{view='list';render();
+  document.getElementById('viewList').className='rounded-lg bg-stone-900 px-2.5 py-1.5 text-white';
+  document.getElementById('viewGrid').className='rounded-lg px-2.5 py-1.5 text-stone-500 hover:bg-stone-100';};
+
+/* ---- upload giả lập: đọc tên file thật + mở reader ngay ---- */
+function openUpload(){ document.getElementById('uploadDlg').showModal(); }
+document.getElementById('dropzone').onclick=()=>document.getElementById('fileInput').click();
+document.getElementById('fileInput').onchange=e=>handleFiles(e.target.files);
+['dragover','dragenter'].forEach(ev=>document.getElementById('dropzone').addEventListener(ev,e=>{e.preventDefault();e.currentTarget.classList.add('border-brand-500','bg-brand-50/60');}));
+['dragleave','drop'].forEach(ev=>document.getElementById('dropzone').addEventListener(ev,e=>{e.preventDefault();e.currentTarget.classList.remove('border-brand-500','bg-brand-50/60');}));
+document.getElementById('dropzone').addEventListener('drop',e=>handleFiles(e.dataTransfer.files));
+let dragN=0;
+window.addEventListener('dragenter',e=>{e.preventDefault();dragN++;const o=document.getElementById('dropOverlay');o.classList.remove('hidden');o.classList.add('flex');});
+window.addEventListener('dragleave',e=>{e.preventDefault();if(--dragN<=0){dragN=0;const o=document.getElementById('dropOverlay');o.classList.add('hidden');o.classList.remove('flex');}});
+window.addEventListener('dragover',e=>e.preventDefault());
+window.addEventListener('drop',e=>{e.preventDefault();dragN=0;const o=document.getElementById('dropOverlay');o.classList.add('hidden');o.classList.remove('flex');if(e.dataTransfer.files.length){openUpload();handleFiles(e.dataTransfer.files);}});
+/* ---- upload THẬT lên server Python (8001) -> sang reader chat bằng model local ----
+   Server tắt thì tự rơi về chế độ demo cũ. */
+const API_BASE='http://127.0.0.1:8001';
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+async function serverOnline(){ try{ const r=await fetch(API_BASE+'/api/health'); return (await r.json()).ok; }catch(e){ return false; } }
+async function handleFiles(files){
+  const box=document.getElementById('uploadList'); box.innerHTML='';
+  if(!files.length){ box.innerHTML='<p class="text-sm text-stone-400 text-center py-2">Chưa có file nào. Thử kéo 1 file PDF vào.</p>'; return; }
+  const online=await serverOnline();
+  [...files].slice(0,5).forEach((f)=>{
+    const row=document.createElement('div');
+    row.className='flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 text-sm fade-up';
+    row.innerHTML=`<span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-500 text-white font-extrabold text-xs">PDF</span>
+      <div class="min-w-0 flex-1"><p class="truncate font-bold">${esc(f.name)}</p>
+      <p class="st-status font-mono text-[11px] text-stone-500">Đang chờ…</p></div>
+      <span class="st-action shrink-0"></span>`;
+    box.appendChild(row);
+    if(online) uploadOne(f,row,files.length===1);
+    else{ row.querySelector('.st-status').textContent='Server tắt — chỉ mở được demo';
+      row.querySelector('.st-action').innerHTML=`<a href="reader.html?name=${encodeURIComponent(f.name)}" class="shrink-0 rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Mở demo →</a>`; }
+  });
+}
+async function uploadOne(f,row,autoOpen){
+  const st=row.querySelector('.st-status'), act=row.querySelector('.st-action');
+  st.innerHTML='<span class="text-brand-600 font-bold">Đang tải lên & đọc chữ… (PDF scan cần OCR: ~1–2 phút, đừng tắt)</span>';
+  try{
+    const fd=new FormData(); fd.append('f',f);
+    const r=await fetch(API_BASE+'/api/upload',{method:'POST',body:fd});
+    if(!r.ok) throw new Error(await r.text());
+    const j=await r.json();
+    st.textContent=`${j.num_pages} trang · ${j.num_chunks} chunks · sẵn sàng chat thật`;
+    if(autoOpen){ location.href='reader.html?doc_id='+j.doc_id; return; } // 1 file: mở luôn
+    act.innerHTML=`<a href="reader.html?doc_id=${j.doc_id}" class="shrink-0 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Mở chat thật →</a>`;
+  }catch(e){ const msg=String(e&&e.message||e);
+    st.innerHTML=`<span class="text-red-600 font-bold">Upload lỗi: ${esc(msg.slice(0,160))}</span>`;
+    act.innerHTML=`<a href="reader.html?name=${encodeURIComponent(f.name)}" class="shrink-0 rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-bold text-white">Mở demo →</a>`; }
+}
+function finishUpload(){ document.getElementById('uploadDlg').close(); render(); }
+render();
+</script>
 </body>
 </html>
