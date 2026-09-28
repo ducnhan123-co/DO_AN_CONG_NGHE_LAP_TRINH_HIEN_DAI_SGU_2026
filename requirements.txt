@@ -1,9 +1,11 @@
-# Core chuẩn từ notebook — model tốt nhất, không đổi nếu muốn giữ điểm
-mineru[all]
+# Core cố định: MinerU -> structured blocks -> E5/LlamaIndex -> Qwen (tuỳ chọn)
+mineru>=4.0,<5
+pypdf
+pymupdf
 sentence-transformers
-faiss-cpu
 pypandoc
+llama-index-core
+llama-index-embeddings-huggingface
 transformers
 accelerate
 torch
-numpy
