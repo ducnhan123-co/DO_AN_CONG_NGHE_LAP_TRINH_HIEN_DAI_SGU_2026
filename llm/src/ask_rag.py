@@ -1,6 +1,6 @@
 """Bước 13 notebook (optional): Qwen2.5-3B local trả lời RAG. Bỏ qua nếu thiếu VRAM.
 
-MỚI: dùng LlamaIndex retriever (llm/llama_rag.py) thay cho FAISS thủ công cũ,
+MỚI: dùng LlamaIndex retriever (src/llama_rag.py) thay cho FAISS thủ công cũ,
 nên context giờ có source/page đi kèm và không còn bị cắt đôi công thức.
 """
 import torch
