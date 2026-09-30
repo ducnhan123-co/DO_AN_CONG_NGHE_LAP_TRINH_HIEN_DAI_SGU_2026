@@ -5,7 +5,7 @@ from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
-# lỗi
+#  lỗi
 class ErrorBody(BaseModel):
     code: str
     message: str
@@ -28,17 +28,18 @@ _DESC = {
     413: "File quá lớn",
     415: "Định dạng file không được hỗ trợ",
     422: "Dữ liệu gửi lên không hợp lệ",
+    429: "Quá nhiều job đang chờ xử lý",
     500: "Lỗi hệ thống",
     503: "Mô hình ngôn ngữ không khả dụng",
 }
 
 
 def errors(*codes: int) -> dict:
-    """Khai báo response lỗi chuẩn"""
+    """Khai báo response lỗi chuẩn cho OpenAPI."""
     return {c: {"model": ErrorResponse, "description": _DESC[c]} for c in codes}
 
 
-# document và job
+#  document và job
 class DocumentCreated(BaseModel):
     document_id: str
     job_id: str
@@ -60,6 +61,18 @@ class DocumentOut(BaseModel):
     updated_at: datetime
 
 
+class DocumentListItem(BaseModel):
+    id: str
+    filename: str
+    status: str
+    created_at: datetime
+
+
+class DocumentListOut(BaseModel):
+    items: List[DocumentListItem]
+    total: int
+
+
 class JobOut(BaseModel):
     id: str
     document_id: str
@@ -72,7 +85,7 @@ class JobOut(BaseModel):
     finished_at: Optional[datetime] = None
 
 
-# chat
+#  chat
 class ChatRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 

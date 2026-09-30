@@ -17,6 +17,8 @@ DbSession = Annotated[Session, Depends(get_db)]
 _SSE_DOC = {"description": "Khi stream=true (hoặc Accept: text/event-stream): "
                            "các sự kiện thinking, token, citations, done, error.",
             "content": {"text/event-stream": {}}}
+
+
 def _sse_event(event: str, data: dict) -> dict:
     """Định dạng 1 sự kiện SSE cho sse-starlette."""
     return {"event": event, "data": json.dumps(data, ensure_ascii=False)}

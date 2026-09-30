@@ -1,17 +1,17 @@
-"""Nghiệp vụ tài liệu và job: upload, đọc trạng thái, xuất DOCX."""
+"""Nghiệp vụ tài liệu và job: upload, đọc trạng thái, thử lại, liệt kê, xuất DOCX."""
 import logging
 import shutil
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from fastapi import UploadFile
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import get_settings
 from backend.app.core.errors import AppError, document_not_found, job_not_found
 from backend.app.models import pipeline_model
-from backend.app.models.database import Document, DocumentStatus, Job
+from backend.app.models.database import Document, DocumentStatus, Job, JobStatus
 from backend.app.views.schemas import DocumentOut, ErrorInfo, JobOut
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ CHUNK = 1024 * 1024
 PDF_TYPES = {"application/pdf", "application/x-pdf", "application/octet-stream"}
 
 
-# document
+#  document
 def get_document(db: Session, document_id: str) -> Document:
     doc = db.get(Document, document_id)
     if doc is None:
@@ -35,6 +35,13 @@ def _latest_job(db: Session, document_id: str) -> Optional[Job]:
 
 def create_document(db: Session, upload: UploadFile) -> Tuple[Document, Job]:
     settings = get_settings()
+
+    pending = pipeline_model.queue_depth(db)
+    if pending >= settings.max_queued_jobs:
+        raise AppError(429, "TOO_MANY_JOBS_QUEUED",
+                       f"Đang có {pending} job chờ xử lý, vượt giới hạn {settings.max_queued_jobs}. "
+                       "Vui lòng thử lại sau.", {"pending": pending})
+
     filename = Path(upload.filename or "").name[:255]
     if not filename.lower().endswith(".pdf") or (upload.content_type or "") not in PDF_TYPES:
         raise AppError(415, "INVALID_FILE_TYPE", "Chỉ chấp nhận file PDF (.pdf).")
@@ -76,6 +83,42 @@ def create_document(db: Session, upload: UploadFile) -> Tuple[Document, Job]:
     return doc, job
 
 
+def retry_document(db: Session, document_id: str) -> Tuple[Document, Job]:
+    """Thử lại pipeline cho tài liệu đã failed, dùng lại PDF đã lưu, không cần upload lại."""
+    doc = get_document(db, document_id)
+    settings = get_settings()
+
+    if doc.status != DocumentStatus.failed.value:
+        raise AppError(409, "DOCUMENT_NOT_FAILED",
+                       "Chỉ có thể thử lại tài liệu ở trạng thái failed.",
+                       {"status": doc.status})
+    if not settings.pdf_path(doc.id).exists():
+        raise AppError(409, "PDF_MISSING", "Không còn tìm thấy file PDF gốc, cần upload lại.")
+
+    pending = pipeline_model.queue_depth(db)
+    if pending >= settings.max_queued_jobs:
+        raise AppError(429, "TOO_MANY_JOBS_QUEUED",
+                       f"Đang có {pending} job chờ xử lý, vượt giới hạn {settings.max_queued_jobs}. "
+                       "Vui lòng thử lại sau.", {"pending": pending})
+
+    job = Job(document_id=doc.id)
+    db.add(job)
+    doc.status = DocumentStatus.queued.value
+    doc.error_code = doc.error_message = None
+    db.commit()
+
+    pipeline_model.submit_pipeline(doc.id, job.id)
+    logger.info("Thử lại tài liệu %s, job mới %s", doc.id, job.id)
+    return doc, job
+
+
+def list_documents(db: Session, limit: int = 20, offset: int = 0) -> Tuple[List[Document], int]:
+    total = db.scalar(select(func.count()).select_from(Document)) or 0
+    rows = db.scalars(select(Document).order_by(Document.created_at.desc())
+                      .limit(limit).offset(offset)).all()
+    return rows, total
+
+
 def document_out(db: Session, document_id: str) -> DocumentOut:
     doc = get_document(db, document_id)
     job = _latest_job(db, doc.id)
@@ -88,7 +131,7 @@ def document_out(db: Session, document_id: str) -> DocumentOut:
         created_at=doc.created_at, updated_at=doc.updated_at)
 
 
-# job
+#  job
 def job_out(db: Session, job_id: str) -> JobOut:
     job = db.get(Job, job_id)
     if job is None:
@@ -99,13 +142,13 @@ def job_out(db: Session, job_id: str) -> JobOut:
                   started_at=job.started_at, finished_at=job.finished_at)
 
 
-# export
+#  export
 def get_docx(db: Session, document_id: str) -> Tuple[Path, str]:
     """Trả về (đường dẫn file DOCX, tên file tải xuống)."""
     doc = get_document(db, document_id)
     path = get_settings().docx_path(doc.id)
     if not path.exists():
-        if doc.status == DocumentStatus.failed:
+        if doc.status == DocumentStatus.failed.value:
             raise AppError(409, "DOCUMENT_FAILED",
                            "Xử lý tài liệu thất bại nên không có file DOCX.",
                            {"error": doc.error_code})

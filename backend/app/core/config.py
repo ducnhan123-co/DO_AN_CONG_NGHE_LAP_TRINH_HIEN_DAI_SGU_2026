@@ -10,7 +10,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BACKEND_DIR = Path(__file__).resolve().parents[2]   # .../backend
 ROOT_DIR = BACKEND_DIR.parent                        # thư mục gốc dự án
 
-# Cho phép `from src...` (pipeline gốc) dù chạy uvicorn từ đâu.
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
@@ -28,6 +27,10 @@ class Settings(BaseSettings):
     top_k: int = 5
     log_level: str = "INFO"
     cors_origins: List[str] = ["*"]
+    api_prefix: str = "/api" 
+
+    max_queued_jobs: int = 3        # số job (queued+running) tối đa, vượt thì từ chối upload (429)
+    chat_history_turns: int = 3     # số lượt hỏi-đáp gần nhất đưa vào ngữ cảnh chat
 
     llm_backend: str = "none"          # none | qwen_local | ollama
     llm_name: str = ""                 # rỗng -> src.config.LLM_NAME
@@ -64,4 +67,5 @@ def get_settings() -> Settings:
 
 def setup_logging(level: str = "INFO") -> None:
     import logging
-    logging.basicConfig(level=level.upper(), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(level=level.upper(),
+                        format="%(asctime)s %(levelname)s %(name)s: %(message)s")

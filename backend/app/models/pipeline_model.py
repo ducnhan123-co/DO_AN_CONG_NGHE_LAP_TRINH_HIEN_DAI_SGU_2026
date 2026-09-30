@@ -27,7 +27,7 @@ _embedder: Optional[Any] = None
 _executor: Optional[ThreadPoolExecutor] = None
 
 
-# lưu / nạp / tìm FAISS
+#  lưu / nạp / tìm FAISS
 def set_embedder(embedder: Any) -> None:
     global _embedder
     if embedder is not None:
@@ -96,7 +96,7 @@ def search(doc_id: str, question: str, top_k: int) -> List[dict]:
     return hits
 
 
-# trạng thái job
+#  trạng thái job
 def _running(db: Session, doc: Document, job: Job, stage: DocumentStatus, progress: int) -> None:
     job.status = JobStatus.running.value
     job.stage = stage.value
@@ -136,11 +136,19 @@ def fail_stale_jobs(db: Session) -> int:
         Job.status.in_([JobStatus.queued.value, JobStatus.running.value]))).all()
     for job in stale:
         _failed(db, job.document, job, "SERVER_RESTARTED",
-                "Máy chủ khởi động lại khi đang xử lý. Vui lòng tải lại tài liệu.")
+                "Máy chủ khởi động lại khi đang xử lý. Vui lòng thử lại (POST /documents/{id}/retry) "
+                "hoặc upload lại nếu file gốc không còn.")
     return len(stale)
 
 
-# chạy pipeline
+def queue_depth(db: Session) -> int:
+    """Số job đang queued hoặc running (dùng để giới hạn hàng đợi)."""
+    from sqlalchemy import func
+    return db.scalar(select(func.count()).select_from(Job).where(
+        Job.status.in_([JobStatus.queued.value, JobStatus.running.value]))) or 0
+
+
+#  chạy pipeline
 class PipelineError(Exception):
     def __init__(self, code: str, message: str):
         super().__init__(message)
@@ -171,19 +179,25 @@ def run_pipeline(document_id: str, job_id: str) -> None:
             for d in (mineru_dir, rag_dir):
                 d.mkdir(parents=True, exist_ok=True)
 
-            # 1. MinerU: PDF -> Markdown
+            # 1. MinerU: PDF -> Markdown (bỏ qua nếu đã có kết quả từ lần chạy trước, vd. sau retry)
             _running(db, doc, job, DocumentStatus.mineru_parsing, 5)
-            run_mineru(pdf_path, mineru_dir, backend=MINERU_BACKEND)
-            md_path, _, _ = find_mineru_outputs(mineru_dir)
-            markdown_text = md_path.read_text(encoding="utf-8", errors="ignore")
+            try:
+                md_path, _, _ = find_mineru_outputs(mineru_dir)
+                markdown_text = md_path.read_text(encoding="utf-8", errors="ignore")
+                logger.info("Bỏ qua MinerU: đã có Markdown từ lần chạy trước (%s)", doc.id)
+            except Exception:
+                run_mineru(pdf_path, mineru_dir, backend=MINERU_BACKEND)
+                md_path, _, _ = find_mineru_outputs(mineru_dir)
+                markdown_text = md_path.read_text(encoding="utf-8", errors="ignore")
             if not markdown_text.strip():
                 raise PipelineError("EMPTY_MARKDOWN", "MinerU không trích xuất được nội dung.")
 
-            # 2. Markdown -> DOCX 
+            # 2. Markdown -> DOCX (bỏ qua nếu output.docx đã tồn tại)
             _running(db, doc, job, DocumentStatus.building_docx, 40)
-            work_md = settings.doc_dir(doc.id) / "work_for_docx.md"
-            prepare_work_md(markdown_text, md_path, work_md)
-            md_to_docx(work_md, docx_path, md_path.parent)
+            if not docx_path.exists():
+                work_md = settings.doc_dir(doc.id) / "work_for_docx.md"
+                prepare_work_md(markdown_text, md_path, work_md)
+                md_to_docx(work_md, docx_path, md_path.parent)
             if not docx_path.exists():
                 raise PipelineError("DOCX_NOT_CREATED", "Không tạo được file DOCX.")
 
@@ -209,7 +223,7 @@ def run_pipeline(document_id: str, job_id: str) -> None:
             _failed(db, doc, job, "PIPELINE_FAILED", str(e)[:500])
 
 
-# hàng đợi nền
+#  hàng đợi nền
 def submit_pipeline(document_id: str, job_id: str):
     global _executor
     with _lock:
