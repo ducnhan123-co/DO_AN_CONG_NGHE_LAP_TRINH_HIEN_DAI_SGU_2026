@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from backend.app.core.config import get_settings
 from backend.app.core.errors import AppError, document_not_found, job_not_found
 from backend.app.models import pipeline_model
-from backend.app.models.database import Document, DocumentStatus, Job, JobStatus
+from backend.app.models.database import Document, DocumentStatus, Job, JobStatus, Message
 from backend.app.views.schemas import DocumentOut, ErrorInfo, JobOut
 
 logger = logging.getLogger(__name__)
@@ -126,9 +126,21 @@ def document_out(db: Session, document_id: str) -> DocumentOut:
     return DocumentOut(
         id=doc.id, filename=doc.filename, status=doc.status, error=err,
         num_sections=doc.num_sections, num_chunks=doc.num_chunks,
+        message_count=_message_count(db, doc.id),  
         latest_job_id=job.id if job else None,
         docx_available=get_settings().docx_path(doc.id).exists(),
         created_at=doc.created_at, updated_at=doc.updated_at)
+
+
+def _message_count(db: Session, document_id: str) -> int:
+    return db.scalar(select(func.count()).select_from(Message)
+                     .where(Message.document_id == document_id)) or 0
+
+
+def list_messages(db: Session, document_id: str) -> List[Message]:
+    get_document(db, document_id)      # 404 nếu document không tồn tại
+    return db.scalars(select(Message).where(Message.document_id == document_id)
+                      .order_by(Message.created_at.asc())).all()
 
 
 #  job

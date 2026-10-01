@@ -55,6 +55,7 @@ class DocumentOut(BaseModel):
     error: Optional[ErrorInfo] = None
     num_sections: int
     num_chunks: int
+    message_count: int = 0
     latest_job_id: Optional[str] = None
     docx_available: bool
     created_at: datetime
@@ -65,12 +66,25 @@ class DocumentListItem(BaseModel):
     id: str
     filename: str
     status: str
+    message_count: int = 0 
     created_at: datetime
 
 
 class DocumentListOut(BaseModel):
     items: List[DocumentListItem]
     total: int
+
+
+class MessageOut(BaseModel):
+    id: str
+    role: str
+    content: str
+    citations: List[Citation] = []
+    created_at: datetime
+
+
+class MessageListOut(BaseModel):
+    items: List[MessageOut]
 
 
 class JobOut(BaseModel):
@@ -96,9 +110,9 @@ class ChatRequest(BaseModel):
 
 
 class Citation(BaseModel):
-    index: int                    # số [n] xuất hiện trong câu trả lời
-    chunk_id: Optional[int] = None
-    heading: str
+    index: int                    # thứ tự trong danh sách trích dẫn (1, 2, 3...)
+    page: Optional[int] = None    # số trang PDF thật, khớp [số trang] trong câu trả lời
+    section: str                  # tên mục/section trong tài liệu
     score: float
     snippet: str
 
