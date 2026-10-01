@@ -64,7 +64,7 @@ async def upload(background_tasks: BackgroundTasks, f: UploadFile = File(...)) -
                 destination.write(chunk)
         if not path.read_bytes()[:5].startswith(b"%PDF-"):
             raise HTTPException(415, "Tệp tải lên không phải PDF hợp lệ.")
-        result = store.index_upload(doc_id, f.filename, path)
+        result = store.begin_upload(doc_id, f.filename, path)
     except HTTPException:
         path.unlink(missing_ok=True)
         raise
@@ -73,9 +73,9 @@ async def upload(background_tasks: BackgroundTasks, f: UploadFile = File(...)) -
         raise HTTPException(400, f"Không thể xử lý PDF: {str(exc)[:300]}") from exc
     finally:
         await f.close()
-    result["parser"] = "mineru_running"
-    store.docs[doc_id]["parser"] = "mineru_running"
-    store._save(doc_id)
+    # trả về ngay -> reader mở PDF liền; các bước nặng chạy lần lượt ở nền
+    background_tasks.add_task(store.index_background, doc_id)
+    background_tasks.add_task(store.build_docx_fast, doc_id)
     background_tasks.add_task(store.upgrade_mineru, doc_id)
     return result
 
@@ -83,6 +83,8 @@ async def upload(background_tasks: BackgroundTasks, f: UploadFile = File(...)) -
 @app.get("/api/doc/{doc_id}")
 def doc_info(doc_id: str) -> dict:
     doc_id = _doc_id(doc_id)
+    if doc_id in store.pending:
+        return store.pending_info(doc_id)
     if not store.load(doc_id):
         raise HTTPException(404, "Tài liệu không tồn tại.")
     return store.info(doc_id)
@@ -91,11 +93,30 @@ def doc_info(doc_id: str) -> dict:
 @app.get("/api/file/{doc_id}")
 def file(doc_id: str):
     doc_id = _doc_id(doc_id)
+    document = store.pending.get(doc_id)  # PDF gốc xem được ngay cả khi đang xử lý
+    if not document:
+        if not store.load(doc_id):
+            raise HTTPException(404, "Tài liệu không tồn tại.")
+        document = store.docs[doc_id]
+    return FileResponse(document["file"], media_type="application/pdf", filename=document["name"],
+                        content_disposition_type="inline")
+
+
+@app.get("/api/docx/{doc_id}")
+def docx_file(doc_id: str):
+    doc_id = _doc_id(doc_id)
+    if doc_id in store.pending:
+        raise HTTPException(425, "DOCX đang xử lý, xong sẽ tải được.")
     if not store.load(doc_id):
         raise HTTPException(404, "Tài liệu không tồn tại.")
     document = store.docs[doc_id]
-    return FileResponse(document["file"], media_type="application/pdf", filename=document["name"],
-                        content_disposition_type="inline")
+    path = DATA_DIR / f"{doc_id}.docx"
+    if document.get("docx") != "ready" or not path.exists():
+        raise HTTPException(425, "DOCX đang xử lý, xong sẽ tải được.")
+    name = Path(document["name"]).stem + ".docx"
+    return FileResponse(path,
+                        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        filename=name)
 
 
 @app.post("/api/warm")
@@ -109,6 +130,9 @@ def warm(payload: WarmRequest) -> dict:
 
 @app.post("/api/chat_stream")
 def chat_stream(payload: ChatRequest):
+    job = store.pending.get(payload.doc_id)
+    if job:
+        raise HTTPException(425, job.get("error") or "Tài liệu đang được đọc nền, vài giây nữa chat được.")
     if not store.load(payload.doc_id):
         raise HTTPException(404, "Tài liệu không tồn tại.")
 
