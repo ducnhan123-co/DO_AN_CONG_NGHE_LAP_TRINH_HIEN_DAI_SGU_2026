@@ -308,6 +308,30 @@ async function uploadOne(f,row,autoOpen){
     act.innerHTML=`<a href="reader.html?name=${encodeURIComponent(f.name)}" class="shrink-0 rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-bold text-white">Mở demo →</a>`; }
 }
 function finishUpload(){ document.getElementById('uploadDlg').close(); render(); }
+(async function loadRealDocs(){
+  try{
+    const r = await fetch(API_BASE + '/api/documents?limit=20');
+    if(!r.ok) return;
+    const { items } = await r.json();
+    if(!items || !items.length) return;
+
+    const box = document.createElement('div');
+    box.className = 'mb-6';
+    box.innerHTML = `<h2 class="text-sm font-extrabold text-stone-500 uppercase tracking-wider mb-2">
+      Tài liệu đã tải lên (${items.length})</h2>
+      <div class="flex flex-col gap-2">${items.map(d => `
+        <a href="reader.html?doc_id=${d.id}"
+           class="flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 hover:border-brand-500 transition">
+          <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-emerald-600 text-white font-extrabold text-xs">PDF</span>
+          <div class="min-w-0 flex-1">
+            <p class="truncate font-bold text-sm">${esc(d.filename)}</p>
+            <p class="font-mono text-[11px] text-stone-500">${esc(d.status)} · ${d.message_count} tin nhắn · ${new Date(d.created_at).toLocaleString('vi-VN')}</p>
+          </div>
+          <span class="shrink-0 rounded-lg bg-stone-900 px-3 py-1.5 text-[11px] font-bold text-white">Mở →</span>
+        </a>`).join('')}</div>`;
+    document.getElementById('grid').insertAdjacentElement('beforebegin', box);
+  }catch(e){ /* server tắt: bỏ qua, chỉ hiện demo như cũ */ }
+})();
 render();
 </script>
 </body>

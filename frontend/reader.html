@@ -63,7 +63,7 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
   <div class="ml-auto flex items-center gap-1">
     <button class="toolbtn" title="Gắn sao"><i class="ph-duotone ph-star text-lg text-amber-400"></i></button>
     <button class="toolbtn" onclick="alert('Demo: link chia sẻ đã sao chép (giả lập).')" title="Chia sẻ"><i class="ph-bold ph-share-network text-base"></i><span class="hidden lg:inline font-semibold">Chia sẻ</span></button>
-    <button class="toolbtn" title="Tải xuống"><i class="ph-bold ph-download-simple text-base"></i></button>
+    <button id="btnDownload" class="toolbtn" title="Tải xuống"><i class="ph-bold ph-download-simple text-base"></i></button>
     <button id="flipBtn" class="toolbtn" title="Đổi bên PDF / Chat"><i class="ph-bold ph-arrow-left-right text-base"></i><span class="hidden lg:inline font-semibold">Đổi bên</span></button>
     <span id="apiBadge" class="hidden md:flex items-center gap-1.5 rounded-full bg-stone-100 border border-stone-200 px-2.5 py-1 text-[11px] font-bold text-stone-500"><span class="h-1.5 w-1.5 rounded-full bg-stone-400"></span> Chế độ demo</span>
     <span class="grid h-8 w-8 place-items-center rounded-full bg-stone-900 text-[11px] font-bold text-white">SV</span>
@@ -445,6 +445,12 @@ document.getElementById('tabPdf').onclick=()=>showTab('pdf');
 document.getElementById('tabChat').onclick=()=>showTab('chat');
 window.addEventListener('resize',()=>showTab(document.getElementById('tabChat').classList.contains('bg-stone-900')?'chat':'pdf'));
 showTab('pdf');
+
+document.getElementById('btnDownload').onclick = () => {
+  const id = new URLSearchParams(location.search).get('doc_id');
+  if (!id) { alert('Chưa có tài liệu thật để tải (đang ở chế độ demo).'); return; }
+  window.open(API.base + '/api/documents/' + id + '/export/docx', '_blank');
+};
 
 let toastT;
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.remove('opacity-0','translate-y-4'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.add('opacity-0','translate-y-4'),2400); }

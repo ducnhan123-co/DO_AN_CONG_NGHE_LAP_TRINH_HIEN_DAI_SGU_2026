@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 from backend.app.models import document_model
 from backend.app.models.database import get_db
 from backend.app.views.schemas import (DocumentCreated, DocumentListItem,
-                                       DocumentListOut, DocumentOut, errors)
+                                       DocumentListOut, DocumentOut,
+                                       MessageListOut, MessageOut, errors)
 
 router = APIRouter()
 DbSession = Annotated[Session, Depends(get_db)]
@@ -29,6 +30,7 @@ def upload_document(response: Response, db: DbSession,
 def list_documents(db: DbSession, limit: int = 20, offset: int = 0):
     rows, total = document_model.list_documents(db, limit, offset)
     items = [DocumentListItem(id=r.id, filename=r.filename, status=r.status,
+                              message_count=document_model._message_count(db, r.id),
                               created_at=r.created_at) for r in rows]
     return DocumentListOut(items=items, total=total)
 
