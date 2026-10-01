@@ -6,6 +6,7 @@
 <title>MatchPDF — Tài liệu của tôi</title>
 <meta name="description" content="MatchPDF: quản lý tài liệu, upload nhanh, chat với PDF kèm trích dẫn số trang." />
 <script src="config.js"></script>
+<script src="lib.js"></script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23EA580C'/><text x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>P</text></svg>" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
@@ -123,6 +124,11 @@ tailwind.config = {
   </main>
 </div>
 
+<div id="cardMenu" class="hidden fixed z-[70] w-48 rounded-xl border border-stone-200 bg-white p-1 text-[13px] shadow-xl">
+  <button onclick="renameDoc()" class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left hover:bg-stone-100">✏️ Đổi tên</button>
+  <button onclick="deleteDoc()" class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-red-600 hover:bg-red-50">🗑 Xóa tài liệu + PDF</button>
+</div>
+
 <!-- ============ UPLOAD MODAL ============ -->
 <dialog id="uploadDlg" class="rounded-3xl p-0 w-[min(560px,92vw)] shadow-2xl">
   <div class="p-6">
@@ -143,7 +149,7 @@ tailwind.config = {
 
 <script>
 /* ================= THƯ VIỆN THẬT (mock đã xóa, upload file để thêm tài liệu) ================= */
-const DOCS = (()=>{ try{ return JSON.parse(localStorage.getItem('matchpdf_recents2')||'[]').map(d=>({id:d.doc_id,title:d.name})); }catch(e){ return []; } })();
+let DOCS = [];
 let filter='all', query='', view='grid';
 const grid = document.getElementById('grid');
 
@@ -164,7 +170,8 @@ function render(){
   grid.innerHTML = list.map((d,i)=> view==='grid' ? `
     <article class="card-hover fade-up overflow-hidden rounded-2xl border border-stone-200 bg-white/85 backdrop-blur-sm" style="animation-delay:${i*40}ms">
       <div class="p-4">
-        <h3 class="font-bold text-[14px] leading-snug" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(d.title)}</h3>
+        <div class="flex items-start gap-2"><h3 class="min-w-0 flex-1 font-bold text-[14px] leading-snug" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(d.title)}</h3>
+          <button onclick="event.stopPropagation();cardMenu('${d.id}',this)" class="shrink-0 rounded-md px-1.5 py-0.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700" title="Tùy chọn"><i class="ph-bold ph-dots-three"></i></button></div>
         <div class="mt-3">
           <a href="reader.html?doc_id=${d.id}" class="flex items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-3 py-2 text-[13px] font-bold text-white transition hover:bg-brand-600 active:translate-y-[1px]">
             <i class="ph-duotone ph-chats-circle"></i> Chat ngay
@@ -177,6 +184,7 @@ function render(){
         <h3 class="truncate font-bold text-sm">${esc(d.title)}</h3>
       </div>
       <a href="reader.html?doc_id=${d.id}" class="shrink-0 rounded-xl bg-stone-900 px-4 py-2 text-[13px] font-bold text-white hover:bg-brand-600 transition">Chat ngay</a>
+      <button onclick="event.stopPropagation();cardMenu('${d.id}',this)" class="shrink-0 rounded-md px-1.5 py-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700" title="Tùy chọn"><i class="ph-bold ph-dots-three"></i></button>
     </article>`).join('');
 }
 const onQ=v=>{query=v;render();};
@@ -254,7 +262,38 @@ async function uploadOne(f,row,autoOpen){
     st.innerHTML=`<span class="text-red-600 font-bold">Upload lỗi: ${esc(msg.slice(0,160))}</span>`;
     act.innerHTML=`<button onclick="retryLast()" class="shrink-0 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Thử lại →</button>`; }
 }
-render();
+/* ---- thư viện lưu trên server (SQLite, cổng 8002) ---- */
+const mapDocs=rows=>rows.map(d=>({id:d.doc_id,title:d.display_name||d.name}));
+async function migrateLegacy(){ // một lần: đưa danh sách "tài liệu gần đây" cũ (localStorage) lên server nếu BE còn file
+  try{ if(localStorage.getItem('matchpdf_migrated')) return;
+    const old=JSON.parse(localStorage.getItem('matchpdf_recents2')||'[]');
+    for(const d of old){ const info=await fetch(API_BASE+'/api/doc/'+d.doc_id).then(r=>r.ok?r.json():null).catch(()=>null);
+      if(info) await LIB.put('/docs/'+d.doc_id,{name:info.name||d.name,num_pages:info.num_pages,parser:info.parser}); }
+    localStorage.setItem('matchpdf_migrated','1'); }catch(e){}
+}
+async function loadDocs(){
+  let r=await LIB.get('/docs');
+  if(r.ok){ await migrateLegacy(); r=await LIB.get('/docs'); DOCS=mapDocs(r.data||[]); }
+  else { try{ DOCS=JSON.parse(localStorage.getItem('matchpdf_recents2')||'[]').map(d=>({id:d.doc_id,title:d.name})); }catch(e){ DOCS=[]; }
+    toast('Chưa kết nối thư viện (cổng 8002) — đang hiện danh sách cũ trong trình duyệt'); }
+  render();
+}
+let menuId=null;
+function cardMenu(id,btn){ const m=document.getElementById('cardMenu');
+  if(menuId===id&&!m.classList.contains('hidden')){ m.classList.add('hidden'); menuId=null; return; }
+  menuId=id; const r=btn.getBoundingClientRect(); m.classList.remove('hidden');
+  m.style.left=Math.min(r.left,window.innerWidth-200)+'px'; m.style.top=(r.bottom+4)+'px'; }
+document.addEventListener('click',e=>{ const m=document.getElementById('cardMenu'); if(m&&menuId&&!m.classList.contains('hidden')&&!m.contains(e.target)){ m.classList.add('hidden'); menuId=null; } });
+async function renameDoc(){ const id=menuId; document.getElementById('cardMenu').classList.add('hidden'); menuId=null;
+  const d=DOCS.find(x=>x.id===id); if(!d) return; const n=prompt('Tên mới:',d.title); if(!n||!n.trim()) return;
+  const r=await LIB.patch('/docs/'+id,{display_name:n.trim().slice(0,120)}); if(!r.ok){ toast('Không đổi được tên (thư viện chưa kết nối)'); return; } loadDocs(); }
+async function deleteDoc(){ const id=menuId; document.getElementById('cardMenu').classList.add('hidden'); menuId=null;
+  const d=DOCS.find(x=>x.id===id); if(!d||!confirm('Xóa “'+d.title+'” khỏi thư viện, kèm phiên chat, công thức và các bản DOCX?')) return;
+  const r=await LIB.del('/docs/'+id); if(!r.ok){ toast('Không xóa được (thư viện chưa kết nối)'); return; }
+  toast(r.data&&r.data.pdf==='deleted'?'Đã xóa tài liệu và PDF':'Đã xóa khỏi thư viện — PDF trên server chưa xóa được (BE chưa hỗ trợ)'); loadDocs(); }
+let toastT; function toast(msg){ let t=document.getElementById('toast'); if(!t){ t=document.createElement('div'); t.id='toast'; t.className='fixed bottom-6 left-1/2 z-[95] -translate-x-1/2 rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white shadow-2xl transition-opacity'; document.body.appendChild(t); }
+  t.textContent=msg; t.style.opacity=1; clearTimeout(toastT); toastT=setTimeout(()=>t.style.opacity=0,3200); }
+render(); loadDocs();
 </script>
 </body>
 </html>
