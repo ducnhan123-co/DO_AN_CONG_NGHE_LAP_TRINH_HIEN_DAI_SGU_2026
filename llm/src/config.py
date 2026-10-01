@@ -13,6 +13,7 @@ from pathlib import Path
 
 BASE = Path(__file__).resolve().parent.parent
 INPUT_DIR = BASE / "input"
+DOCX_DIR = BASE / "docx_output"
 RUNS_DIR = BASE / "runs"
 
 # Model tốt nhất (đừng đổi nếu muốn giữ điểm)

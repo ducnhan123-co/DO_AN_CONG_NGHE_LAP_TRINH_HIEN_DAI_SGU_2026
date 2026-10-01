@@ -1,4 +1,8 @@
-"""PDF ingestion, retrieval, MinerU upgrade, and Ollama generation for MatchPDF."""
+"""PDF ingestion, retrieval, MinerU upgrade, and Ollama generation for MatchPDF.
+
+Fast-load: chi dung pypdf + TF-IDF o startup, Ollama/embedding lazy.
+Khong Ollama van chay duoc (tra loi trich doan + citation).
+"""
 import json
 import math
 import os
@@ -12,10 +16,15 @@ from pypdf import PdfReader
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from .latex_norm import normalize_latex
-from .ocr import extract_pages
-from .run_mineru import find_content_list, run_mineru
-from .structured import load_raw, normalize_blocks
+from llm.latex_norm import normalize_latex
+from llm.ocr import extract_pages
+
+try:
+    from llm.src.run_mineru import find_content_list, run_mineru
+    from llm.src.structured import load_raw, normalize_blocks
+except ImportError:  # fallback khi chay tu thu muc llm/
+    from src.run_mineru import find_content_list, run_mineru  # type: ignore
+    from src.structured import load_raw, normalize_blocks  # type: ignore
 
 TOP_K = 5
 MAX_CHARS = 1500
@@ -66,33 +75,51 @@ def _pages_from_blocks(blocks: list[dict], page_count: int) -> list[str]:
 def _prompt(hits: list[dict], question: str, history: list[dict]) -> str:
     context = "\n\n".join(f"[trang {hit['page']}]\n{hit['text']}" for hit in hits)
     past = "\n".join(
-        f"{'Người dùng' if item.get('role') == 'user' else 'Trợ lý'}: {item.get('content', '')[:3000]}"
+        f"{'Nguoi dung' if item.get('role') == 'user' else 'Tro ly'}: {item.get('content', '')[:3000]}"
         for item in history[-6:]
     )
-    return f"""Bạn là trợ lý hỏi đáp tài liệu học thuật bằng tiếng Việt.
+    return f"""Ban la tro ly hoi dap tai lieu hoc thuat bang tieng Viet.
 
-QUY TẮC BẮT BUỘC:
-- Chỉ dùng thông tin trong CONTEXT; không đủ thì nói rõ.
-- Mỗi ý phải có trích dẫn trang dạng [số].
-- Giữ nguyên LaTeX trong $...$ hoặc $$...$$; không bịa công thức/số liệu.
-- Câu chào không liên quan tài liệu chỉ đáp một câu ngắn, không trích dẫn.
+QUY TAC BAT BUOC:
+- Chi dung thong tin trong CONTEXT; khong du thi noi ro.
+- Moi y phai co trich dan trang dang [so].
+- Giu nguyen LaTeX trong $...$ hoac $$...$$; khong bia cong thuc/so lieu.
+- Cau chao khong lien quan tai lieu chi dap mot cau ngan, khong trich dan.
 
-LỊCH SỬ:
-{past or '(chưa có)'}
+LICH SU:
+{past or '(chua co)'}
 
 CONTEXT:
 {context}
 
-CÂU HỎI: {question}
-TRẢ LỜI:"""
+CAU HOI: {question}
+TRA LOI:"""
+
+
+def _fallback_answer(hits: list[dict], question: str) -> str:
+    lines = [f"Cau hoi: {question}", "",
+             "Tai lieu co cac doan lien quan nhat (Ollama chua chay nen tra loi trich doan):", ""]
+    for i, h in enumerate(hits[:5], 1):
+        snippet = h["text"][:600].replace("\n", " ")
+        lines.append(f"{i}. [trang {h['page']}] {snippet}")
+    lines += ["", "Bat Ollama (ollama serve + ollama pull qwen3:8b) roi bam Chat that de co cau tra loi tong hop."]
+    return "\n".join(lines)
 
 
 def _embed(texts: list[str]) -> list[list[float]]:
-    response = requests.post(f"{OLLAMA_URL}/api/embed", json={"model": EMBED_MODEL, "input": texts}, timeout=300)
+    response = requests.post(f"{OLLAMA_URL}/api/embed", json={"model": EMBED_MODEL, "input": texts}, timeout=60)
     response.raise_for_status()
     vectors = response.json()["embeddings"]
     return [[value / max(math.sqrt(sum(item * item for item in vector)), 1e-12) for value in vector]
             for vector in vectors]
+
+
+def _ollama_online() -> tuple[bool, list[str]]:
+    try:
+        payload = requests.get(f"{OLLAMA_URL}/api/tags", timeout=3).json()
+        return True, [m.get("name", "") for m in payload.get("models", [])]
+    except requests.RequestException:
+        return False, []
 
 
 class MatchPdfStore:
@@ -104,18 +131,18 @@ class MatchPdfStore:
         self.docs: dict[str, dict] = {}
 
     def health(self) -> dict:
-        try:
-            payload = requests.get(f"{OLLAMA_URL}/api/tags", timeout=5).json()
-            return {"ok": True, "ollama_models": [m["name"] for m in payload.get("models", [])],
-                    "llm": DEFAULT_MODEL, "rag_engine": "ollama-embedding+tfidf", "docs": len(self.docs)}
-        except requests.RequestException as exc:
-            return {"ok": False, "ollama": f"unreachable: {exc}", "docs": len(self.docs)}
+        online, models = _ollama_online()
+        # ok=True de frontend mo chat that ngay; ollama status nam rieng
+        return {"ok": True, "ollama_online": online, "ollama_models": models,
+                "llm": DEFAULT_MODEL, "rag_engine": "ollama-embedding+tfidf" if online else "tfidf",
+                "docs": len(self.docs)}
 
     def _meta_path(self, doc_id: str) -> Path:
         return self.data_dir / f"{doc_id}.json"
 
     def _save(self, doc_id: str) -> None:
         doc = self.docs[doc_id]
+        # Path khong json-serializable -> luu str
         self._meta_path(doc_id).write_text(json.dumps({
             "name": doc["name"], "pages": doc["pages"], "ocr": doc["ocr"], "parser": doc["parser"]
         }, ensure_ascii=False), encoding="utf-8")
@@ -123,7 +150,7 @@ class MatchPdfStore:
     def _index(self, doc_id: str, name: str, pdf_path: Path, pages: list[str], ocr: bool, parser: str) -> dict:
         chunks = _safe_chunks(pages)
         if not chunks:
-            raise ValueError("Không trích được chữ nào từ PDF (kể cả OCR).")
+            raise ValueError("Khong trich duoc chu nao tu PDF (ke ca OCR).")
         vectorizer = TfidfVectorizer(max_features=8000, ngram_range=(1, 2),
                                      token_pattern=r"(?u)\b\w+(?:\.\w+)*\b")
         matrix = vectorizer.fit_transform([chunk["text"] for chunk in chunks])
@@ -173,11 +200,11 @@ class MatchPdfStore:
                 run_mineru(doc["file"], out_dir)
                 content_list = find_content_list(out_dir)
                 if not content_list:
-                    raise RuntimeError("MinerU không tạo content list")
+                    raise RuntimeError("MinerU khong tao content list")
                 blocks = normalize_blocks(load_raw(content_list, None), doc["name"], doc_id)
                 pages = _pages_from_blocks(blocks, len(doc["pages"]))
             if not any(pages):
-                raise RuntimeError("MinerU không trích được chữ")
+                raise RuntimeError("MinerU khong trich duoc chu")
             self._index(doc_id, doc["name"], doc["file"], pages, doc["ocr"], "mineru")
         except (FileNotFoundError, RuntimeError, OSError) as exc:
             doc["parser"] = "mineru_failed"
@@ -193,9 +220,12 @@ class MatchPdfStore:
                 if 1 <= page <= len(doc["pages"])]
         scores = cosine_similarity(doc["vectorizer"].transform([query]), doc["matrix"])[0]
         if doc.get("embeddings"):
-            query_vector = _embed([f"Instruct: Given a question, retrieve passages that answer it\nQuery: {query}"])[0]
-            scores = [0.7 * sum(value * query_value for value, query_value in zip(vector, query_vector))
-                      + 0.3 * float(scores[index]) for index, vector in enumerate(doc["embeddings"])]
+            try:
+                query_vector = _embed([f"Instruct: Given a question, retrieve passages that answer it\nQuery: {query}"])[0]
+                scores = [0.7 * sum(value * query_value for value, query_value in zip(vector, query_vector))
+                          + 0.3 * float(scores[index]) for index, vector in enumerate(doc["embeddings"])]
+            except requests.RequestException:
+                scores = list(scores)
         else:
             scores = list(scores)
         for index in sorted(range(len(scores)), key=lambda item: scores[item], reverse=True):
@@ -207,11 +237,11 @@ class MatchPdfStore:
         return hits, question
 
     def warm(self, model: str) -> None:
-        self._request(model, "Trả lời đúng một từ: OK", stream=False)
+        self._request(model, "Tra loi dung mot tu: OK", stream=False)
 
     def _request(self, model: str, prompt: str, stream: bool):
         if model not in ALLOWED_MODELS:
-            raise ValueError("Model không được phép dùng.")
+            raise ValueError("Model khong duoc phep dung.")
         return requests.post(f"{OLLAMA_URL}/api/generate", json={"model": model, "prompt": prompt,
             "stream": stream, "think": False, "options": {"temperature": 0.2, "num_ctx": 8192}},
             stream=stream, timeout=300)
@@ -219,14 +249,28 @@ class MatchPdfStore:
     def stream_chat(self, doc_id: str, question: str, history: list[dict], top_k: int, model: str):
         hits, question = self.retrieve(doc_id, question, history, top_k)
         started = time.time()
-        response = self._request(model, _prompt(hits, question, history), stream=True)
-        response.raise_for_status()
-        for line in response.iter_lines():
-            if not line:
-                continue
-            item = json.loads(line)
-            token = re.sub(r"<think>.*?</think>", "", item.get("response", ""), flags=re.S)
-            if token:
-                yield {"t": token}
+        try:
+            response = self._request(model, _prompt(hits, question, history), stream=True)
+            response.raise_for_status()
+        except (requests.RequestException, ValueError) as exc:
+            # Ollama tat / thieu model -> tra loi trich doan ngay, van co citation
+            text = _fallback_answer(hits, question) + f"\n(ly do fallback: {str(exc)[:160]})"
+            for i in range(0, len(text), 120):
+                yield {"t": text[i:i + 120]}
+                time.sleep(0.01)
+            yield {"done": True, "citations": sorted({hit["page"] for hit in hits}),
+                   "elapsed_s": round(time.time() - started, 1)}
+            return
+        try:
+            for line in response.iter_lines():
+                if not line:
+                    continue
+                item = json.loads(line)
+                token = re.sub(r"<think>.*?</think>", "", item.get("response", ""), flags=re.S)
+                if token:
+                    yield {"t": token}
+        except requests.RequestException as exc:
+            yield {"error": f"Ollama ngat giua chung: {str(exc)[:200]}"}
+            return
         yield {"done": True, "citations": sorted({hit["page"] for hit in hits}),
                "elapsed_s": round(time.time() - started, 1)}

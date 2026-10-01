@@ -135,8 +135,8 @@ def chat_stream(payload: ChatStreamRequest, db: DbSession):
                     yield f"data: {json.dumps({'t': data['text']}, ensure_ascii=False)}\n\n"
                 elif kind == "done":
                     elapsed = round(time.perf_counter() - start, 1)
-                    nums = [c.get("index", i + 1) for i, c in enumerate(data["citations"])]
-                    payload_out = {"done": True, "elapsed_s": elapsed, "citations": nums}
+                    pages = sorted({c["page"] for c in data["citations"] if c.get("page") is not None})
+                    payload_out = {"done": True, "elapsed_s": elapsed, "citations": pages}
                     yield f"data: {json.dumps(payload_out, ensure_ascii=False)}\n\n"
                 elif kind == "error":
                     yield f"data: {json.dumps({'error': data['message']}, ensure_ascii=False)}\n\n"

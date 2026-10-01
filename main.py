@@ -19,15 +19,15 @@ import json
 import shutil
 from pathlib import Path
 
-from llm.build_docx import md_to_docx, prepare_work_md
-from llm.chunking import build_chunks
+from llm.src.build_docx import md_to_docx, prepare_work_md
+from llm.src.chunking import build_chunks
 from llm.latex_norm import fix_vni, normalize_math_in_text
-from llm.config import (EMBED_MODEL, INPUT_DIR, LLM_NAME, MAX_CHARS,
+from llm.src.config import (EMBED_MODEL, INPUT_DIR, LLM_NAME, MAX_CHARS,
                         MINERU_BACKEND, MINERU_TIER, OVERLAP, RUNS_DIR, TOP_K)
-from llm.run_mineru import (find_content_list, find_mineru_outputs,
+from llm.src.run_mineru import (find_content_list, find_mineru_outputs,
                             prepare_run_dir, run_mineru)
-from llm.structured import load_raw, normalize_blocks, save_structured
-from llm.validate import validate_chunks
+from llm.src.structured import load_raw, normalize_blocks, save_structured
+from llm.src.validate import validate_chunks
 
 
 def main():
@@ -100,7 +100,7 @@ def main():
               f"xem {run_dir / 'validation.json'}")
 
     # 4. LlamaIndex (E5) — retrieval kèm score/source/page
-    from llm.llama_rag import build_index, chunks_to_nodes, retrieve
+    from llm.src.llama_rag import build_index, chunks_to_nodes, retrieve
     nodes = chunks_to_nodes(chunks)
     index = build_index(nodes, EMBED_MODEL, run_dir / "index")
 
@@ -111,7 +111,7 @@ def main():
 
     # 5. Qwen optional
     if not args.skip_llm:
-        from llm.ask_rag import ask_rag, load_llm
+        from llm.src.ask_rag import ask_rag, load_llm
         tok, model = load_llm(LLM_NAME)
         ans, srcs = ask_rag(
             "Hãy giải thích một định nghĩa quan trọng trong tài liệu.",

@@ -23,7 +23,7 @@ class LLMBackend(ABC):
 
 class QwenLocal(LLMBackend):
     def __init__(self, model_name: str, max_new_tokens: int = 768):
-        from src.ask_rag import load_llm      # tái dùng loader của pipeline gốc
+        from llm.src.ask_rag import load_llm     # tái dùng loader của pipeline gốc
         self.name = f"Qwen local ({model_name})"
         self.tok, self.model = load_llm(model_name)
         self.max_new_tokens = max_new_tokens
@@ -104,7 +104,7 @@ def get_llm() -> Optional[LLMBackend]:
         s = get_settings()
         try:
             if s.llm_backend == "qwen_local":
-                from src.config import LLM_NAME
+                from llm.src.config import LLM_NAME
                 _llm = QwenLocal(s.llm_name or LLM_NAME)
             elif s.llm_backend == "ollama":
                 _llm = OllamaClient(s.ollama_url, s.ollama_model)

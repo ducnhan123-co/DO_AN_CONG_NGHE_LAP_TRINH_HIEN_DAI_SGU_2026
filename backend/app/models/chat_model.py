@@ -1,8 +1,7 @@
-"""Nghiệp vụ chat: truy xuất RAG, gọi LLM, phát 'suy nghĩ', lưu và dùng lại lịch sử hội thoại."""
+"""Nghiệp vụ chat: truy xuất RAG (LlamaIndex, có trang thật), gọi LLM, phát 'suy nghĩ', lưu hội thoại."""
 import logging
 from typing import Iterator, List, Optional, Tuple
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import get_settings
@@ -18,7 +17,7 @@ SYSTEM_PROMPT = (
     "Bạn là trợ lý hỏi đáp tài liệu toán học. Chỉ trả lời dựa trên NGỮ CẢNH được cung cấp. "
     "Nếu ngữ cảnh không đủ thông tin, hãy nói rõ tài liệu không đề cập. "
     "Giữ nguyên công thức LaTeX (trong $...$ hoặc $$...$$). "
-    "Khi dùng thông tin từ đoạn nào, ghi chú số đoạn dạng [1], [2]. "
+    "Khi dùng thông tin từ trang nào, ghi chú ngay sau ý đó dạng [số trang], ví dụ [12]. "
     "Nếu câu hỏi tiếp nối lịch sử hội thoại phía trên, hãy trả lời nối tiếp cho phù hợp. "
     "Trả lời bằng ngôn ngữ của câu hỏi."
 )
@@ -48,6 +47,7 @@ def _recent_history(document_id: str, turns: int = 3) -> List[dict]:
     """Lấy tối đa `turns` lượt hỏi-đáp gần nhất (cũ -> mới) để giữ ngữ cảnh hội thoại."""
     if turns <= 0:
         return []
+    from sqlalchemy import select
     with SessionLocal() as db:
         rows = db.scalars(select(Message).where(Message.document_id == document_id)
                           .order_by(Message.created_at.desc()).limit(turns * 2)).all()
@@ -56,8 +56,7 @@ def _recent_history(document_id: str, turns: int = 3) -> List[dict]:
 
 
 def _search_query(question: str, history: List[dict]) -> str:
-    """Gộp câu hỏi user gần nhất vào câu hỏi hiện tại để FAISS không mất ngữ cảnh
-    (vd. câu 1 "định nghĩa LSTM", câu 2 "còn công thức 3.1 thì sao" vẫn tìm đúng phần LSTM)."""
+    """Gộp câu hỏi user gần nhất vào câu hỏi hiện tại để tìm kiếm không mất ngữ cảnh."""
     prev_questions = [h["content"] for h in history if h["role"] == "user"]
     if not prev_questions:
         return question
@@ -65,8 +64,9 @@ def _search_query(question: str, history: List[dict]) -> str:
 
 
 def _build_prompt(question: str, hits: List[dict], history: List[dict]) -> str:
-    ctx = "\n\n".join(f"[{i}] {h['heading'] or 'Đoạn không tiêu đề'}\n{h['text']}"
-                      for i, h in enumerate(hits, 1))
+    ctx = "\n\n".join(
+        f"[trang {h['page'] if h.get('page') is not None else '?'}] {h.get('section') or ''}\n{h['text']}"
+        for h in hits)
     hist_text = ""
     if history:
         lines = [f"{'Người dùng' if h['role']=='user' else 'Trợ lý'}: {h['content']}" for h in history]
@@ -75,8 +75,8 @@ def _build_prompt(question: str, hits: List[dict], history: List[dict]) -> str:
 
 
 def _extractive_answer(hits: List[dict]) -> str:
-    parts = [f"[{i}] {h['heading'] or 'Đoạn không tiêu đề'}\n{h['text'][:600].strip()}"
-             for i, h in enumerate(hits[:3], 1)]
+    parts = [f"[trang {h['page'] if h.get('page') is not None else '?'}] {h.get('section') or ''}\n"
+             f"{h['text'][:600].strip()}" for h in hits[:3]]
     return "Các đoạn liên quan nhất trong tài liệu:\n\n" + "\n\n".join(parts)
 
 
@@ -91,17 +91,11 @@ def _save_messages(document_id: str, question: str, answer_text: str,
         return assistant.id
 
 
-def stream_events(document_id: str, question: str, top_k: Optional[int] = None,
-                  client_history: Optional[List[dict]] = None) -> Iterator[Event]:
-    """Sinh chuỗi sự kiện: thinking* -> token* -> citations -> done (hoặc error).
-
-    client_history: nếu frontend tự quản lý và gửi kèm lịch sử hội thoại (không lấy từ DB),
-    truyền vào đây để ưu tiên dùng thay cho lịch sử lưu server-side.
-    """
+def stream_events(document_id: str, question: str, top_k: Optional[int] = None) -> Iterator[Event]:
+    """Sinh chuỗi sự kiện: thinking* -> token* -> citations -> done (hoặc error)."""
     settings = get_settings()
     k = top_k or settings.top_k
-    history = client_history if client_history is not None else \
-        _recent_history(document_id, settings.chat_history_turns)
+    history = _recent_history(document_id, settings.chat_history_turns)
     thinking: list = []
 
     def think(step: str, text: str) -> Event:
@@ -114,8 +108,8 @@ def stream_events(document_id: str, question: str, top_k: Optional[int] = None,
         search_q = _search_query(question, history)
         hits = pipeline_model.search(document_id, search_q, k)
 
-        citations = [{"index": i, "chunk_id": h["chunk_id"], "heading": h["heading"],
-                      "score": round(h["score"], 4), "snippet": _snippet(h["text"])}
+        citations = [{"index": i, "page": h.get("page"), "section": h.get("section") or "",
+                      "score": round(h.get("score") or 0.0, 4), "snippet": _snippet(h["text"])}
                      for i, h in enumerate(hits, 1)]
 
         if not hits:
@@ -123,9 +117,9 @@ def stream_events(document_id: str, question: str, top_k: Optional[int] = None,
             answer_text = NO_RESULT
             yield "token", {"text": answer_text}
         else:
-            headings = ", ".join(dict.fromkeys(h["heading"] for h in hits if h["heading"]))
+            pages = sorted({h["page"] for h in hits if h.get("page") is not None})
             yield think("retrieved", f"Tìm thấy {len(hits)} đoạn liên quan"
-                        + (f": {headings[:200]}" if headings else "."))
+                        + (f", trang {', '.join(map(str, pages))}" if pages else "."))
             model = get_llm()
             if model is None:
                 yield think("generate", "Chưa bật mô hình ngôn ngữ, trích trực tiếp đoạn liên quan nhất.")
