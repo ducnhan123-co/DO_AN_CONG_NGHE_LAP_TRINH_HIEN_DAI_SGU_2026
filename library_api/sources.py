@@ -11,6 +11,10 @@ BE_BASE = os.getenv("BE_BASE_URL", "http://127.0.0.1:8001").rstrip("/")
 DOC_ID_RE = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
 
+def pdf_path(doc_id: str) -> Path:
+    return DATA_DIR / f"{doc_id}.pdf"
+
+
 def docx_path(doc_id: str) -> Path:
     return DATA_DIR / f"{doc_id}.docx"
 
