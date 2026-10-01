@@ -36,6 +36,18 @@ python3 -m http.server 5173 --directory frontend
 
 Mo `http://127.0.0.1:5173`, upload PDF va doi trang thai `San sang hoi dap`. Dat `ENABLE_LOCAL_LLM=1` khi muon Qwen tong hop; mac dinh API chi tra cac doan E5 co trich dan de khong tai model 3B tren may khong co GPU.
 
+## Library API (SQLite, cong 8002)
+
+Luu tai lieu/phien chat/cong thuc/lich su DOCX. Khong them dependency (chi sqlite3 + FastAPI co san).
+
+```bash
+uvicorn library_api.main:app --port 8002          # DB: runtime/library.db (doi bang LIBRARY_DB)
+python3 -m pytest tests/test_library_api.py        # test API
+python3 tests/e2e_library.py                       # e2e trinh duyet (can BE 8001 + FE 8080 + 8002 + Ollama)
+```
+
+Chi tiet thiet ke: `docs/superpowers/specs/2026-10-01-library-service-design.md`; ghi chu cong viec: `docs/NOTE_2026-10-01_library-service.md`.
+
 ## Test
 
 ```bash
