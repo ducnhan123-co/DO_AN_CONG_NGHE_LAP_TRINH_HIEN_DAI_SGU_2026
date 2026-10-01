@@ -143,7 +143,7 @@ from backend.app.models import pipeline_model
 logger = logging.getLogger(__name__)
 
 DESCRIPTION = """
-Upload PDF toán → MinerU → DOCX (Equation thật) → RAG hỏi đáp có trích dẫn.
+Upload PDF toán → MinerU → DOCX → RAG hỏi đáp có trích dẫn.
 
 **Luồng dùng:** `POST /documents` → theo dõi `GET /jobs/{id}` đến khi `succeeded`
 → `POST /documents/{id}/chat` → `GET /documents/{id}/export/docx`.
