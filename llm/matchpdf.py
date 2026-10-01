@@ -3,6 +3,7 @@
 Fast-load: chi dung pypdf + TF-IDF o startup, Ollama/embedding lazy.
 Khong Ollama van chay duoc (tra loi trich doan + citation).
 """
+import hashlib
 import json
 import math
 import os
@@ -11,6 +12,7 @@ import threading
 import time
 from pathlib import Path
 
+import numpy as np
 import requests
 from pypdf import PdfReader
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -39,6 +41,8 @@ ALLOWED_MODELS = set(os.getenv(
     "OLLAMA_ALLOWED_MODELS", "qwen2.5:1.5b,qwen3:8b,qwen3:14b"
 ).split(","))
 MINERU_LOCK = threading.Lock()
+EMBED_LOCK = threading.Lock()  # một lúc chỉ 1 tài liệu embed, tránh dồn Ollama
+EMBED_BATCH = 32  # 32 chunk ~ vài giây/lô; 1 request cho cả sách >60s là timeout
 PAGE_REF = re.compile(r"(?:trang|page|tr\.)\s*(\d{1,4})", re.I)
 
 
@@ -118,6 +122,21 @@ def _embed(texts: list[str]) -> list[list[float]]:
             for vector in vectors]
 
 
+def _embed_all(texts: list[str]) -> list[list[float]]:
+    out: list[list[float]] = []
+    for start in range(0, len(texts), EMBED_BATCH):
+        out.extend(_embed(texts[start:start + EMBED_BATCH]))
+    return out
+
+
+def _chunks_signature(chunks: list[dict]) -> str:
+    digest = hashlib.sha1(EMBED_MODEL.encode())
+    for chunk in chunks:
+        digest.update(chunk["text"].encode())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
 def _ollama_online() -> tuple[bool, list[str]]:
     try:
         payload = requests.get(f"{OLLAMA_URL}/api/tags", timeout=3).json()
@@ -186,13 +205,52 @@ class MatchPdfStore:
         self.docs[doc_id] = {"file": pdf_path, "name": name, "pages": pages, "chunks": chunks,
                              "ocr": ocr, "parser": parser, "vectorizer": vectorizer, "matrix": matrix,
                              "docx": self.docs.get(doc_id, {}).get("docx", "unavailable")}
-        try:
-            self.docs[doc_id]["embeddings"] = _embed([chunk["text"] for chunk in chunks])
-        except requests.RequestException as exc:
-            self.docs[doc_id]["embeddings"] = None
-            print(f"[embedding] fallback TF-IDF: {exc}")
+        doc = self.docs[doc_id]
+        cached = self._load_embeddings(doc_id, chunks)
+        doc["embeddings"], doc["embed"] = cached, ("ready" if cached is not None else "building")
+        if cached is None:  # embed ở nền: TF-IDF chat được ngay, ngữ nghĩa bật khi xong
+            thread = threading.Thread(target=self._embed_worker, args=(doc_id, doc, chunks), daemon=True)
+            doc["_embed_thread"] = thread
+            thread.start()
         self._save(doc_id)
         return self.info(doc_id)
+
+    def _emb_path(self, doc_id: str) -> Path:
+        return self.data_dir / f"{doc_id}.emb.npz"
+
+    def _load_embeddings(self, doc_id: str, chunks: list[dict]):
+        try:
+            with np.load(self._emb_path(doc_id)) as data:
+                if str(data["sig"]) == _chunks_signature(chunks) and len(data["emb"]) == len(chunks):
+                    return data["emb"].tolist()
+        except (OSError, ValueError, KeyError):
+            pass
+        return None
+
+    def _embed_worker(self, doc_id: str, doc: dict, chunks: list[dict]) -> None:
+        with EMBED_LOCK:
+            if self.docs.get(doc_id) is not doc:  # đã bị index lại (vd. MinerU) -> bỏ bản cũ
+                return
+            try:
+                vectors = _embed_all([chunk["text"] for chunk in chunks])
+            except requests.RequestException as exc:
+                doc["embed"] = "failed"
+                print(f"[embedding] {doc_id} fallback TF-IDF: {exc}")
+                return
+        if self.docs.get(doc_id) is not doc:
+            return
+        doc["embeddings"], doc["embed"] = vectors, "ready"
+        tmp = self.data_dir / f"{doc_id}.emb.tmp.npz"
+        try:
+            np.savez_compressed(tmp, emb=np.asarray(vectors, dtype=np.float32), sig=_chunks_signature(chunks))
+            tmp.replace(self._emb_path(doc_id))
+        except OSError as exc:
+            print(f"[embedding] {doc_id} không lưu được cache: {exc}")
+
+    def wait_embeddings(self, doc_id: str, timeout: float = 60) -> None:
+        thread = self.docs.get(doc_id, {}).get("_embed_thread")
+        if thread:
+            thread.join(timeout)
 
     def index_upload(self, doc_id: str, name: str, pdf_path: Path) -> dict:
         embedded = [(page.extract_text() or "").strip() for page in PdfReader(str(pdf_path)).pages]
@@ -218,7 +276,7 @@ class MatchPdfStore:
         doc = self.docs[doc_id]
         return {"doc_id": doc_id, "name": doc["name"], "status": "ready", "ocr": doc["ocr"], "parser": doc["parser"],
                 "docx": doc.get("docx", "unavailable"),
-                "num_pages": len(doc["pages"]), "num_chunks": len(doc["chunks"]),
+                "embed": doc.get("embed", "tfidf"), "num_pages": len(doc["pages"]), "num_chunks": len(doc["chunks"]),
                 "total_chars": sum(map(len, doc["pages"])), "file_url": f"/api/file/{doc_id}",
                 "docx_url": f"/api/docx/{doc_id}"}
 

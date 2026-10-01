@@ -26,7 +26,8 @@ CLIENT_ID_RE = re.compile(r"[A-Za-z0-9_-]{8,64}")
 app = FastAPI(title="SGU Library API", version="1.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=ORIGINS,
                    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-                   allow_headers=["Content-Type", "X-Client-Id"])
+                   allow_headers=["Content-Type", "X-Client-Id", "Range"],
+                   expose_headers=["Content-Range", "Accept-Ranges", "Content-Length"])
 
 
 @app.exception_handler(sqlite3.OperationalError)
@@ -157,6 +158,16 @@ def delete_doc(doc_id: str, cid: str = Depends(client_id), conn=Depends(get_db))
         conn.execute("UPDATE documents SET deleted_at=? WHERE client_id=? AND doc_id=?", (time.time(), cid, doc_id))
     shutil.rmtree(db.LIBRARY_DIR / "docx" / cid / doc_id, ignore_errors=True)
     return {"library": "deleted", "pdf": pdf}
+
+
+@app.get("/api/lib/docs/{doc_id}/file")
+def pdf_file(doc_id: str, cid: str = Depends(client_id), conn=Depends(get_db)):
+    """PDF gốc đọc thẳng từ đĩa (hỗ trợ Range) — mở tài liệu không phải chờ BE nạp chỉ mục."""
+    _doc(conn, cid, doc_id)
+    path = sources.pdf_path(doc_id)
+    if not path.exists():
+        raise HTTPException(404, "PDF không có trên đĩa.")
+    return FileResponse(path, media_type="application/pdf", content_disposition_type="inline")
 
 
 # ---------------- phiên chat ----------------

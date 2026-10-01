@@ -21,7 +21,7 @@
     try{ const r=await fetch(BASE+path,{headers:{'X-Client-Id':cid()}}); if(!r.ok) return {ok:false,status:r.status}; return {ok:true,blob:await r.blob()}; }
     catch(e){ return {ok:false,status:0}; }
   }
-  window.LIB={cid,blob,
+  window.LIB={cid,blob,fileUrl:id=>BASE+'/docs/'+id+'/file',
     get:p=>call('GET',p), post:(p,b)=>call('POST',p,b===undefined?{}:b), put:(p,b)=>call('PUT',p,b),
     patch:(p,b)=>call('PATCH',p,b), del:p=>call('DELETE',p)};
 })();

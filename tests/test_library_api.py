@@ -161,3 +161,15 @@ def test_delete_document_cascades_and_blocks_reregister(env, monkeypatch):
     assert reg(client).status_code == 410
     import library_api.db as db
     assert not list((db.LIBRARY_DIR).rglob("*.docx"))                      # bản chụp đã dọn
+
+
+def test_pdf_served_from_disk_with_range_and_isolation(env):
+    client, docs = env
+    reg(client)
+    assert client.get("/api/lib/docs/doc1/file", headers=A).status_code == 404       # chưa có file
+    (docs / "doc1.pdf").write_bytes(b"%PDF-1.4 " + b"x" * 1000)
+    r = client.get("/api/lib/docs/doc1/file", headers=A)
+    assert r.status_code == 200 and r.headers["content-type"] == "application/pdf" and len(r.content) == 1009
+    part = client.get("/api/lib/docs/doc1/file", headers={**A, "Range": "bytes=0-9"})
+    assert part.status_code == 206 and part.content == b"%PDF-1.4 x"                 # pdf.js đọc theo đoạn được
+    assert client.get("/api/lib/docs/doc1/file", headers=B).status_code == 404
