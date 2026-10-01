@@ -12,6 +12,7 @@ runs/
 .DS_Store
 backend/runtime/
 backend/data/
+runtime/
 pdf_chat_demo/
 src_update_fixed_new_2/
 candidates/

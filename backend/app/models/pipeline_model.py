@@ -1,6 +1,6 @@
-"""Chạy nền 1 job/lần, gọi pipeline gốc src/ (MinerU -> DOCX -> FAISS), lưu và tìm chỉ mục.
+"""Chạy nền 1 job/lần, gọi pipeline llm/src/* (MinerU -> structured -> chunk block -> LlamaIndex).
 
-Đây là file DUY NHẤT import trực tiếp src/.
+Đây là file DUY NHẤT import trực tiếp llm/.
 """
 import json
 import logging
@@ -18,82 +18,37 @@ from backend.app.models.database import (Document, DocumentStatus, Job,
 
 logger = logging.getLogger(__name__)
 
-INDEX_FILE = "index.faiss"
-CHUNKS_FILE = "chunks.json"
-
 _lock = threading.Lock()
-_cache: Dict[str, Tuple[Any, list]] = {}
-_embedder: Optional[Any] = None
+_index_cache: Dict[str, Any] = {}          # doc_id -> LlamaIndex VectorStoreIndex đã nạp
 _executor: Optional[ThreadPoolExecutor] = None
 
 
-#  lưu / nạp / tìm FAISS
-def set_embedder(embedder: Any) -> None:
-    global _embedder
-    if embedder is not None:
-        with _lock:
-            _embedder = embedder
-
-
-def get_embedder() -> Any:
-    global _embedder
-    with _lock:
-        if _embedder is None:
-            from sentence_transformers import SentenceTransformer
-            from src.config import EMBED_MODEL
-            _embedder = SentenceTransformer(EMBED_MODEL)
-        return _embedder
-
-
-def save_index(doc_id: str, index: Any, chunks: list) -> None:
-    import faiss
-    d = get_settings().rag_dir(doc_id)
-    d.mkdir(parents=True, exist_ok=True)
-    faiss.write_index(index, str(d / INDEX_FILE))
-    (d / CHUNKS_FILE).write_text(json.dumps(chunks, ensure_ascii=False), encoding="utf-8")
-    with _lock:
-        _cache.pop(doc_id, None)
-
-
+#  nạp / tìm chỉ mục
 def clear_cache() -> None:
     with _lock:
-        _cache.clear()
+        _index_cache.clear()
 
 
-def load_index(doc_id: str) -> Tuple[Any, list]:
+def load_index(doc_id: str) -> Any:
     with _lock:
-        if doc_id in _cache:
-            return _cache[doc_id]
-    d = get_settings().rag_dir(doc_id)
-    if not (d / INDEX_FILE).exists() or not (d / CHUNKS_FILE).exists():
+        if doc_id in _index_cache:
+            return _index_cache[doc_id]
+    rag_dir = get_settings().rag_dir(doc_id)
+    if not rag_dir.exists() or not any(rag_dir.iterdir()):
         raise AppError(500, "INDEX_NOT_FOUND", "Không tìm thấy chỉ mục của tài liệu.")
-    import faiss
-    index = faiss.read_index(str(d / INDEX_FILE))
-    chunks = json.loads((d / CHUNKS_FILE).read_text(encoding="utf-8"))
+    from llm.src.config import EMBED_MODEL
+    from llm.src.llama_rag import load_index as _load_index
+    idx = _load_index(rag_dir, EMBED_MODEL)
     with _lock:
-        _cache[doc_id] = (index, chunks)
-    return index, chunks
-
-
-def _text_of(chunk: Any) -> str:
-    return chunk.get("text", "") if isinstance(chunk, dict) else str(chunk)
+        _index_cache[doc_id] = idx
+    return idx
 
 
 def search(doc_id: str, question: str, top_k: int) -> List[dict]:
-    """Trả về list dict: chunk_id, heading, text, score."""
-    from src.build_rag import retrieve
-
-    index, chunks = load_index(doc_id)
-    results = retrieve(question, get_embedder(), index, chunks, top_k)
-    hits = []
-    for r in results:
-        text = r.get("text", "")
-        chunk_id = r.get("chunk_id", r.get("id"))
-        if chunk_id is None:
-            chunk_id = next((i for i, c in enumerate(chunks) if _text_of(c) == text), None)
-        hits.append({"chunk_id": chunk_id, "heading": r.get("heading") or "",
-                     "text": text, "score": float(r.get("score", 0.0))})
-    return hits
+    """Trả về list dict: node_id, score, source, page, section, formula_latex, text."""
+    from llm.src.llama_rag import retrieve
+    idx = load_index(doc_id)
+    return retrieve(idx, question, top_k)
 
 
 #  trạng thái job
@@ -165,55 +120,73 @@ def run_pipeline(document_id: str, job_id: str) -> None:
             logger.error("Không tìm thấy document/job (%s, %s)", document_id, job_id)
             return
         try:
-            # Import muộn: tránh nạp MinerU/torch khi chỉ chạy API hoặc test.
-            from src.build_docx import md_to_docx, prepare_work_md
-            from src.build_rag import (build_index, make_chunks,
-                                       split_markdown_sections)
-            from src.config import EMBED_MODEL, MAX_CHARS, MINERU_BACKEND, OVERLAP
-            from src.run_mineru import find_mineru_outputs, run_mineru
+            # Import muộn: tránh nạp MinerU/torch/LlamaIndex khi chỉ chạy API hoặc test.
+            from llm.latex_norm import fix_vni, normalize_math_in_text
+            from llm.src.build_docx import md_to_docx, prepare_work_md
+            from llm.src.chunking import build_chunks
+            from llm.src.config import EMBED_MODEL, MAX_CHARS, MINERU_TIER, OVERLAP
+            from llm.src.llama_rag import build_index, chunks_to_nodes
+            from llm.src.run_mineru import (find_content_list,
+                                            find_mineru_outputs, run_mineru)
+            from llm.src.structured import (load_raw, normalize_blocks,
+                                            save_structured)
+            from llm.src.validate import validate_chunks
 
             pdf_path = settings.pdf_path(doc.id)
             mineru_dir = settings.mineru_dir(doc.id)
             rag_dir = settings.rag_dir(doc.id)
             docx_path = settings.docx_path(doc.id)
+            doc_dir = settings.doc_dir(doc.id)
             for d in (mineru_dir, rag_dir):
                 d.mkdir(parents=True, exist_ok=True)
 
-            # 1. MinerU: PDF -> Markdown (bỏ qua nếu đã có kết quả từ lần chạy trước, vd. sau retry)
+            # 1. MinerU (mineru-kit parse). Tự bỏ qua nếu run này đã có output (vd. sau retry).
             _running(db, doc, job, DocumentStatus.mineru_parsing, 5)
-            try:
-                md_path, _, _ = find_mineru_outputs(mineru_dir)
-                markdown_text = md_path.read_text(encoding="utf-8", errors="ignore")
-                logger.info("Bỏ qua MinerU: đã có Markdown từ lần chạy trước (%s)", doc.id)
-            except Exception:
-                run_mineru(pdf_path, mineru_dir, backend=MINERU_BACKEND)
-                md_path, _, _ = find_mineru_outputs(mineru_dir)
-                markdown_text = md_path.read_text(encoding="utf-8", errors="ignore")
+            run_mineru(pdf_path, mineru_dir, tier=MINERU_TIER)
+            content_list_path = find_content_list(mineru_dir)
+            md_path, _, _ = find_mineru_outputs(mineru_dir)
+            # Sửa VNI + chuẩn hoá công thức để Pandoc ra Equation, và để structured/RAG
+            # dùng chung một bản Markdown sạch (không lệch giữa DOCX và chat).
+            markdown_text = normalize_math_in_text(fix_vni(
+                md_path.read_text(encoding="utf-8", errors="ignore")))
             if not markdown_text.strip():
                 raise PipelineError("EMPTY_MARKDOWN", "MinerU không trích xuất được nội dung.")
 
-            # 2. Markdown -> DOCX (bỏ qua nếu output.docx đã tồn tại)
+            # 2. Markdown -> DOCX
             _running(db, doc, job, DocumentStatus.building_docx, 40)
-            if not docx_path.exists():
-                work_md = settings.doc_dir(doc.id) / "work_for_docx.md"
-                prepare_work_md(markdown_text, md_path, work_md)
-                md_to_docx(work_md, docx_path, md_path.parent)
+            work_md = doc_dir / "work_for_docx.md"
+            prepare_work_md(markdown_text, md_path, work_md)
+            md_to_docx(work_md, docx_path, md_path.parent)
             if not docx_path.exists():
                 raise PipelineError("DOCX_NOT_CREATED", "Không tạo được file DOCX.")
 
-            # 3. Chunk + embedding + FAISS
+            # 3. Structured blocks + chunk theo BLOCK (có trang thật, không base64,
+            #    công thức/table không bị cắt đôi)
             _running(db, doc, job, DocumentStatus.indexing, 65)
-            sections = split_markdown_sections(markdown_text)
-            chunks = make_chunks(sections, max_chars=MAX_CHARS, overlap=OVERLAP)
+            raw = load_raw(content_list_path, md_path, md_text=markdown_text)
+            blocks = normalize_blocks(raw, source=doc.filename, doc_id=doc.id)
+            save_structured(blocks, doc_dir / "structured_data.json")
+            chunks = build_chunks(blocks, MAX_CHARS, OVERLAP)
             if not chunks:
                 raise PipelineError("NO_CHUNKS", "Tài liệu không có nội dung để lập chỉ mục.")
-            index, embedder, _, _ = build_index(chunks, EMBED_MODEL, rag_dir)
-            set_embedder(embedder)
-            save_index(doc.id, index, chunks)
 
-            _succeeded(db, doc, job, len(sections), len(chunks))
+            report = validate_chunks(chunks, doc.filename, doc.id)
+            (doc_dir / "validation.json").write_text(
+                json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+            if not report["ok"]:
+                logger.warning("Tài liệu %s: %d vấn đề validate_chunks (%s)",
+                               doc.id, len(report["problems"]), report["problems"][:5])
+
+            # 4. LlamaIndex (E5) — tự lưu persist_dir, không cần tự ghi file như FAISS trước
+            nodes = chunks_to_nodes(chunks)
+            build_index(nodes, EMBED_MODEL, rag_dir)
+            with _lock:
+                _index_cache.pop(doc.id, None)   # xoá cache cũ nếu đây là lần retry
+
+            n_sections = len({c["section"] for c in chunks})
+            _succeeded(db, doc, job, n_sections, len(chunks))
             logger.info("Hoàn tất tài liệu %s: %d sections, %d chunks",
-                        doc.id, len(sections), len(chunks))
+                        doc.id, n_sections, len(chunks))
         except PipelineError as e:
             db.rollback()
             _failed(db, doc, job, e.code, e.message)
@@ -223,8 +196,9 @@ def run_pipeline(document_id: str, job_id: str) -> None:
             _failed(db, doc, job, "PIPELINE_FAILED", str(e)[:500])
 
 
-#  hàng đợi nền
+# hàng đợi nền
 def submit_pipeline(document_id: str, job_id: str):
+    """MinerU rất nặng: chỉ cho chạy 1 job tại một thời điểm."""
     global _executor
     with _lock:
         if _executor is None:

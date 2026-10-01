@@ -56,7 +56,8 @@ def run_mineru(pdf_path: Path, out_dir: Path, backend: str = "pipeline",
         return
     cmd = ["mineru-kit", "parse", str(pdf_path), "-o", str(out_dir), "--tier", tier]
     print("Running:", " ".join(cmd))
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True,
+                            encoding="utf-8", errors="replace")
     print(result.stdout)
     if result.returncode != 0:
         print(result.stderr)
