@@ -198,13 +198,11 @@ def run_pipeline(document_id: str, job_id: str) -> None:
 
 # hàng đợi nền
 def submit_pipeline(document_id: str, job_id: str):
-    """MinerU rất nặng: chỉ cho chạy 1 job tại một thời điểm."""
+    """Cho phép tối đa 3 PDF xử lý song song"""
     global _executor
     with _lock:
         if _executor is None:
-            _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="pipeline")
-        ex = _executor
-    return ex.submit(run_pipeline, document_id, job_id)
+            _executor = ThreadPoolExecutor(max_workers=3, thread_name_prefix="pipeline")
 
 
 def shutdown() -> None:

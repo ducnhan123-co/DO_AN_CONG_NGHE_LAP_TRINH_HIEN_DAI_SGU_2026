@@ -6,18 +6,21 @@ from typing import List, Optional, Tuple
 
 from fastapi import UploadFile
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import get_settings
 from backend.app.core.errors import AppError, document_not_found, job_not_found
 from backend.app.models import pipeline_model
-from backend.app.models.database import Document, DocumentStatus, Job, JobStatus, Message
+from backend.app.models.database import (DOC_ID_LEN, Document, DocumentStatus, Job,
+                                         JobStatus, Message)
 from backend.app.views.schemas import DocumentOut, ErrorInfo, JobOut
 
 logger = logging.getLogger(__name__)
 
 CHUNK = 1024 * 1024
 PDF_TYPES = {"application/pdf", "application/x-pdf", "application/octet-stream"}
+DOC_ID_RETRIES = 5   # số lần sinh lại doc_id nếu trùng (ID chỉ 10 ký tự hex = 40 bit)
 
 
 #  document
@@ -52,9 +55,17 @@ def create_document(db: Session, upload: UploadFile) -> Tuple[Document, Job]:
     if not first.startswith(b"%PDF-"):
         raise AppError(415, "INVALID_FILE_TYPE", "Nội dung file không phải PDF hợp lệ.")
 
-    doc = Document(filename=filename)
-    db.add(doc)
-    db.flush()                                    # để có doc.id
+    for _ in range(DOC_ID_RETRIES):
+        doc = Document(filename=filename)         # id = new_doc_id(): 10 ký tự hex
+        db.add(doc)
+        try:
+            db.flush()                            # để có doc.id (và phát hiện trùng khoá chính)
+            break
+        except IntegrityError:
+            db.rollback()                         # trùng id (cực hiếm) -> sinh id khác
+    else:
+        raise AppError(500, "DOC_ID_GENERATION_FAILED",
+                       f"Không sinh được doc_id {DOC_ID_LEN} ký tự không trùng, vui lòng thử lại.")
     pdf_path = settings.pdf_path(doc.id)
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -141,6 +152,13 @@ def list_messages(db: Session, document_id: str) -> List[Message]:
     get_document(db, document_id)      # 404 nếu document không tồn tại
     return db.scalars(select(Message).where(Message.document_id == document_id)
                       .order_by(Message.created_at.asc())).all()
+
+
+def delete_document(db: Session, document_id: str) -> None:
+    doc = get_document(db, document_id)
+    shutil.rmtree(get_settings().doc_dir(doc.id), ignore_errors=True)
+    db.delete(doc)   # cascade xóa luôn Job, Message liên quan (đã khai báo ondelete="CASCADE")
+    db.commit()
 
 
 #  job
