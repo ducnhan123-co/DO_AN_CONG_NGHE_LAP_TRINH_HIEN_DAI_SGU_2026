@@ -90,7 +90,7 @@ async def upload(db: DbSession, f: UploadFile = File(...)) -> dict:
     return _compat_info(doc)
 
 
-@router.get("/doc/{doc_id}", summary="[Tương thích] Thông tin tài liệu (4 trục trạng thái)")
+@router.get("/lib/doc/{doc_id}", summary="[Tương thích] Thông tin tài liệu (4 trục trạng thái)")
 def doc_info(doc_id: str, db: DbSession) -> dict:
     try:
         doc = document_model.get_document(db, doc_id)
@@ -99,7 +99,7 @@ def doc_info(doc_id: str, db: DbSession) -> dict:
     return _compat_info(doc)
 
 
-@router.delete("/doc/{doc_id}", summary="[Tương thích] Xóa tài liệu")
+@router.delete("/lib/doc/{doc_id}", summary="[Tương thích] Xóa tài liệu")
 def delete_doc(doc_id: str, db: DbSession):
     try:
         document_model.delete_document(db, doc_id)
@@ -108,7 +108,7 @@ def delete_doc(doc_id: str, db: DbSession):
     return {"ok": True}
 
 
-@router.get("/file/{doc_id}", summary="[Tương thích] Xem PDF gốc (inline)")
+@router.get("/lib/file/{doc_id}", summary="[Tương thích] Xem PDF gốc (inline)")
 def file(doc_id: str, db: DbSession):
     try:
         doc = document_model.get_document(db, doc_id)
@@ -121,7 +121,7 @@ def file(doc_id: str, db: DbSession):
                         content_disposition_type="inline")
 
 
-@router.get("/docx/{doc_id}", summary="[Tương thích] Tải file DOCX (endpoint riêng, khớp docx_url)")
+@router.get("/lib/docx/{doc_id}", summary="[Tương thích] Tải file DOCX (endpoint riêng, khớp docx_url)")
 def docx_file(doc_id: str, db: DbSession):
     try:
         doc = document_model.get_document(db, doc_id)

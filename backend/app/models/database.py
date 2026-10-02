@@ -1,4 +1,5 @@
 """Kết nối CSDL và 3 bảng: documents, jobs, messages."""
+import secrets
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
@@ -34,8 +35,18 @@ class Base(DeclarativeBase):
     pass
 
 
+DOC_ID_LEN = 10   # phải khớp matchpdf.py (regex [0-9a-f]{10}) và run_mineru.compute_doc_id (sha1[:10])
+
+
 def new_id() -> str:
+    """ID 32 ký tự hex cho Job / Message (không dùng chung với module khác)."""
     return uuid.uuid4().hex
+
+
+def new_doc_id() -> str:
+    """ID tài liệu: đúng 10 ký tự hex thường [0-9a-f], 40 bit ngẫu nhiên.
+    token_hex(5) -> 5 byte -> 10 ký tự. create_document() thử lại nếu trùng khoá chính."""
+    return secrets.token_hex(DOC_ID_LEN // 2)
 
 
 def utcnow() -> datetime:
@@ -61,7 +72,7 @@ class JobStatus(str, Enum):
 class Document(Base):
     __tablename__ = "documents"
 
-    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    id: Mapped[str] = mapped_column(String(DOC_ID_LEN), primary_key=True, default=new_doc_id)
     filename: Mapped[str] = mapped_column(String(255))
     status: Mapped[str] = mapped_column(String(32), default=DocumentStatus.queued.value, index=True)
     error_code: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
@@ -82,7 +93,8 @@ class Job(Base):
     __tablename__ = "jobs"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
-    document_id: Mapped[str] = mapped_column(ForeignKey("documents.id", ondelete="CASCADE"),
+    document_id: Mapped[str] = mapped_column(String(DOC_ID_LEN),
+                                             ForeignKey("documents.id", ondelete="CASCADE"),
                                              index=True)
     status: Mapped[str] = mapped_column(String(16), default=JobStatus.queued.value)
     stage: Mapped[str] = mapped_column(String(32), default=DocumentStatus.queued.value)
@@ -101,7 +113,8 @@ class Message(Base):
     __tablename__ = "messages"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
-    document_id: Mapped[str] = mapped_column(ForeignKey("documents.id", ondelete="CASCADE"),
+    document_id: Mapped[str] = mapped_column(String(DOC_ID_LEN),
+                                             ForeignKey("documents.id", ondelete="CASCADE"),
                                              index=True)
     role: Mapped[str] = mapped_column(String(16))          # user | assistant
     content: Mapped[str] = mapped_column(Text)

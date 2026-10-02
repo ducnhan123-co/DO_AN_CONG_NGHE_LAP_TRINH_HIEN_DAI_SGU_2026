@@ -51,3 +51,9 @@ def retry_document(document_id: str, response: Response, db: DbSession):
     response.headers["Location"] = job_url
     return DocumentCreated(document_id=doc.id, job_id=job.id, filename=doc.filename,
                            status=doc.status, job_url=job_url)
+
+
+@router.delete("/documents/{document_id}", tags=["documents"], status_code=204,
+               summary="Xóa tài liệu và toàn bộ dữ liệu liên quan", responses=errors(404))
+def delete_document(document_id: str, db: DbSession):
+    document_model.delete_document(db, document_id)

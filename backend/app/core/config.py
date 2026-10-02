@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     cors_origins: List[str] = ["*"]
     api_prefix: str = "/api" 
 
-    max_queued_jobs: int = 3        # số job (queued+running) tối đa, vượt thì từ chối upload (429)
+    max_queued_jobs: int = 6        # số job (queued+running) tối đa, vượt thì từ chối upload (429)
     chat_history_turns: int = 3     # số lượt hỏi-đáp gần nhất đưa vào ngữ cảnh chat
 
     llm_backend: str = "none"          # none | qwen_local | ollama

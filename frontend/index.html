@@ -211,7 +211,7 @@ window.addEventListener('dragover',e=>e.preventDefault());
 window.addEventListener('drop',e=>{e.preventDefault();dragN=0;const o=document.getElementById('dropOverlay');o.classList.add('hidden');o.classList.remove('flex');if(e.target.closest&&e.target.closest('#uploadDlg'))return;if(e.dataTransfer.files.length){openUpload();handleFiles(e.dataTransfer.files);}});
 /* ---- upload THẬT lên server Python (8001) -> sang reader chat bằng model local ----
    Server tắt thì tự rơi về chế độ demo cũ. */
-const API_BASE=(window.MATCHPDF_API_BASE||'http://127.0.0.1:8001').replace(/\/$/,'');
+const API_BASE=(window.MATCHPDF_API_BASE||'http://127.0.0.1:8000').replace(/\/$/,'');
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 async function serverOnline(){ try{ const r=await fetch(API_BASE+'/api/health'); return (await r.json()).ok; }catch(e){ return false; } }
 const uploadedByName={}, uploadingNames=new Set(); // chống upload trùng 1 file

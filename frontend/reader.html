@@ -385,7 +385,7 @@ async function downloadVersion(vid,ver){ toast('Đang tải DOCX v'+ver+'…'); 
    chat gọi /api/chat, trích dẫn [N] bấm để nhảy trang PDF gốc.
    Server tắt thì tự rơi về chat mock demo.
    ================================================================ */
-const API={base:(window.MATCHPDF_API_BASE||'http://127.0.0.1:8001').replace(/\/$/,''),docId:null,fileUrl:null,online:false,ready:false,sess:null,history:[]}; // history: các lượt hỏi-đáp gửi kèm để model nhớ ngữ cảnh
+const API={base:(window.MATCHPDF_API_BASE||'http://127.0.0.1:8000').replace(/\/$/,''),docId:null,fileUrl:null,online:false,ready:false,sess:null,history:[]}; // history: các lượt hỏi-đáp gửi kèm để model nhớ ngữ cảnh
 function curModel(){ const s=document.getElementById('modelSel'); return s?s.value:'qwen3:8b'; }
 const warmed=new Set();
 function warmOnce(){ const m=curModel(); if(warmed.has(m)) return; warmed.add(m); warmModel(); }
@@ -459,7 +459,7 @@ function showParser(j){
   updateDocxBtn(j); libSync(j);
   clearTimeout(parserPoll);
   const pending=j.status==='indexing'||j.embed==='building'||j.parser==='mineru_running'||j.docx==='building';
-  if(API.docId&&pending) parserPoll=setTimeout(async()=>{ try{ const r=await fetch(API.base+'/api/doc/'+API.docId); const n=await r.json();
+  if(API.docId&&pending) parserPoll=setTimeout(async()=>{ try{ const r=await fetch(API.base+'/api/lib/doc/'+API.docId); const n=await r.json();
     if(n.parser==='mineru'&&j.parser!=='mineru') toast('MinerU xong: chat giờ đọc được công thức chuẩn'); showParser(n); }catch(e){ showParser(j); } },j.status==='indexing'?2000:5000);
 }
 /* câu trả lời: công thức $..$ / $$..$$ vẽ bằng KaTeX, [n] thành nút nhảy trang */
@@ -518,7 +518,7 @@ async function streamAnswer(q){
 
 /* mở tài liệu tại chỗ (không tải lại trang): bấm PDF khác là đổi ngay, không dồn tin */
 let openToken=0, opening=null, recentsP=Promise.resolve();
-async function fetchInfo(id){ const r=await fetch(API.base+'/api/doc/'+id); if(!r.ok) throw new Error('doc '+r.status); return r.json(); }
+async function fetchInfo(id){ const r=await fetch(API.base+'/api/lib/doc/'+id); if(!r.ok) throw new Error('doc '+r.status); return r.json(); }
 /* Mở tài liệu: PDF + chat hiện NGAY từ thư viện (8002); trạng thái chỉ mục của BE nạp nền (BE có thể chậm sau restart).
    openToken/opening chống bấm nhiều lần tạo lời chào lặp và ghi đè nhau. */
 async function openDoc(id, pre){
@@ -595,7 +595,7 @@ document.getElementById('btnDownload').onclick = () => {
   window.open(API.base + '/api/documents/' + id + '/export/docx', '_blank');
 };
 
-let toastT;
+var toastT;
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.remove('opacity-0','translate-y-4'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.add('opacity-0','translate-y-4'),2400); }
 window.toast=toast;
 </script>
