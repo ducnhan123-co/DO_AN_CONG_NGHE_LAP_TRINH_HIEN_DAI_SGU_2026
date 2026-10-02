@@ -3,6 +3,7 @@
 Fast-load: chi dung pypdf + TF-IDF o startup, Ollama/embedding lazy.
 Khong Ollama van chay duoc (tra loi trich doan + citation).
 """
+import hashlib
 import json
 import math
 import os
@@ -11,6 +12,7 @@ import threading
 import time
 from pathlib import Path
 
+import numpy as np
 import requests
 from pypdf import PdfReader
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -20,11 +22,15 @@ from llm.latex_norm import normalize_latex
 from llm.ocr import extract_pages
 
 try:
-    from llm.src.run_mineru import find_content_list, run_mineru
+    from llm.src.run_mineru import find_content_list, find_mineru_outputs, run_mineru
     from llm.src.structured import load_raw, normalize_blocks
+    from llm.src.build_docx import md_to_docx, prepare_work_md
+    from llm.latex_norm import fix_vni, normalize_math_in_text
 except ImportError:  # fallback khi chay tu thu muc llm/
-    from src.run_mineru import find_content_list, run_mineru  # type: ignore
+    from src.run_mineru import find_content_list, find_mineru_outputs, run_mineru  # type: ignore
     from src.structured import load_raw, normalize_blocks  # type: ignore
+    from src.build_docx import md_to_docx, prepare_work_md  # type: ignore
+    from latex_norm import fix_vni, normalize_math_in_text  # type: ignore
 
 TOP_K = 5
 MAX_CHARS = 1500
@@ -35,6 +41,8 @@ ALLOWED_MODELS = set(os.getenv(
     "OLLAMA_ALLOWED_MODELS", "qwen2.5:1.5b,qwen3:8b,qwen3:14b"
 ).split(","))
 MINERU_LOCK = threading.Lock()
+EMBED_LOCK = threading.Lock()  # một lúc chỉ 1 tài liệu embed, tránh dồn Ollama
+EMBED_BATCH = 32  # 32 chunk ~ vài giây/lô; 1 request cho cả sách >60s là timeout
 PAGE_REF = re.compile(r"(?:trang|page|tr\.)\s*(\d{1,4})", re.I)
 
 
@@ -114,6 +122,21 @@ def _embed(texts: list[str]) -> list[list[float]]:
             for vector in vectors]
 
 
+def _embed_all(texts: list[str]) -> list[list[float]]:
+    out: list[list[float]] = []
+    for start in range(0, len(texts), EMBED_BATCH):
+        out.extend(_embed(texts[start:start + EMBED_BATCH]))
+    return out
+
+
+def _chunks_signature(chunks: list[dict]) -> str:
+    digest = hashlib.sha1(EMBED_MODEL.encode())
+    for chunk in chunks:
+        digest.update(chunk["text"].encode())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
 def _ollama_online() -> tuple[bool, list[str]]:
     try:
         payload = requests.get(f"{OLLAMA_URL}/api/tags", timeout=3).json()
@@ -129,6 +152,30 @@ class MatchPdfStore:
         self.data_dir = data_dir
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.docs: dict[str, dict] = {}
+        self.pending: dict[str, dict] = {}  # PDF đã nhận, đang đọc chữ/embedding nền
+
+    def begin_upload(self, doc_id: str, name: str, pdf_path: Path) -> dict:
+        """Nhận PDF ngay (chỉ đếm trang); phần nặng chạy ở index_background."""
+        pages = len(PdfReader(str(pdf_path)).pages)
+        self.pending[doc_id] = {"name": name, "file": pdf_path, "num_pages": pages, "status": "indexing"}
+        return self.pending_info(doc_id)
+
+    def pending_info(self, doc_id: str) -> dict:
+        job = self.pending[doc_id]
+        return {"doc_id": doc_id, "name": job["name"], "status": job["status"], "error": job.get("error"),
+                "parser": "indexing", "docx": "unavailable", "num_pages": job["num_pages"],
+                "file_url": f"/api/file/{doc_id}", "docx_url": f"/api/docx/{doc_id}"}
+
+    def index_background(self, doc_id: str) -> None:
+        job = self.pending[doc_id]
+        try:
+            self.index_upload(doc_id, job["name"], job["file"])
+            self.docs[doc_id]["parser"] = "mineru_running"  # upgrade_mineru chạy ngay sau
+            self._save(doc_id)
+            del self.pending[doc_id]
+        except Exception as exc:
+            print(f"[index] {doc_id} failed: {exc}")
+            job.update(status="failed", error=f"Không đọc được nội dung PDF: {str(exc)[:200]}")
 
     def health(self) -> dict:
         online, models = _ollama_online()
@@ -144,7 +191,8 @@ class MatchPdfStore:
         doc = self.docs[doc_id]
         # Path khong json-serializable -> luu str
         self._meta_path(doc_id).write_text(json.dumps({
-            "name": doc["name"], "pages": doc["pages"], "ocr": doc["ocr"], "parser": doc["parser"]
+            "name": doc["name"], "pages": doc["pages"], "ocr": doc["ocr"], "parser": doc["parser"],
+            "docx": doc.get("docx", "unavailable")
         }, ensure_ascii=False), encoding="utf-8")
 
     def _index(self, doc_id: str, name: str, pdf_path: Path, pages: list[str], ocr: bool, parser: str) -> dict:
@@ -155,14 +203,54 @@ class MatchPdfStore:
                                      token_pattern=r"(?u)\b\w+(?:\.\w+)*\b")
         matrix = vectorizer.fit_transform([chunk["text"] for chunk in chunks])
         self.docs[doc_id] = {"file": pdf_path, "name": name, "pages": pages, "chunks": chunks,
-                             "ocr": ocr, "parser": parser, "vectorizer": vectorizer, "matrix": matrix}
-        try:
-            self.docs[doc_id]["embeddings"] = _embed([chunk["text"] for chunk in chunks])
-        except requests.RequestException as exc:
-            self.docs[doc_id]["embeddings"] = None
-            print(f"[embedding] fallback TF-IDF: {exc}")
+                             "ocr": ocr, "parser": parser, "vectorizer": vectorizer, "matrix": matrix,
+                             "docx": self.docs.get(doc_id, {}).get("docx", "unavailable")}
+        doc = self.docs[doc_id]
+        cached = self._load_embeddings(doc_id, chunks)
+        doc["embeddings"], doc["embed"] = cached, ("ready" if cached is not None else "building")
+        if cached is None:  # embed ở nền: TF-IDF chat được ngay, ngữ nghĩa bật khi xong
+            thread = threading.Thread(target=self._embed_worker, args=(doc_id, doc, chunks), daemon=True)
+            doc["_embed_thread"] = thread
+            thread.start()
         self._save(doc_id)
         return self.info(doc_id)
+
+    def _emb_path(self, doc_id: str) -> Path:
+        return self.data_dir / f"{doc_id}.emb.npz"
+
+    def _load_embeddings(self, doc_id: str, chunks: list[dict]):
+        try:
+            with np.load(self._emb_path(doc_id)) as data:
+                if str(data["sig"]) == _chunks_signature(chunks) and len(data["emb"]) == len(chunks):
+                    return data["emb"].tolist()
+        except (OSError, ValueError, KeyError):
+            pass
+        return None
+
+    def _embed_worker(self, doc_id: str, doc: dict, chunks: list[dict]) -> None:
+        with EMBED_LOCK:
+            if self.docs.get(doc_id) is not doc:  # đã bị index lại (vd. MinerU) -> bỏ bản cũ
+                return
+            try:
+                vectors = _embed_all([chunk["text"] for chunk in chunks])
+            except requests.RequestException as exc:
+                doc["embed"] = "failed"
+                print(f"[embedding] {doc_id} fallback TF-IDF: {exc}")
+                return
+        if self.docs.get(doc_id) is not doc:
+            return
+        doc["embeddings"], doc["embed"] = vectors, "ready"
+        tmp = self.data_dir / f"{doc_id}.emb.tmp.npz"
+        try:
+            np.savez_compressed(tmp, emb=np.asarray(vectors, dtype=np.float32), sig=_chunks_signature(chunks))
+            tmp.replace(self._emb_path(doc_id))
+        except OSError as exc:
+            print(f"[embedding] {doc_id} không lưu được cache: {exc}")
+
+    def wait_embeddings(self, doc_id: str, timeout: float = 60) -> None:
+        thread = self.docs.get(doc_id, {}).get("_embed_thread")
+        if thread:
+            thread.join(timeout)
 
     def index_upload(self, doc_id: str, name: str, pdf_path: Path) -> dict:
         embedded = [(page.extract_text() or "").strip() for page in PdfReader(str(pdf_path)).pages]
@@ -180,13 +268,17 @@ class MatchPdfStore:
             return False
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
         self._index(doc_id, meta["name"], pdf_path, meta["pages"], meta.get("ocr", False), meta.get("parser", "pypdf"))
+        # trạng thái docx tính lại từ đĩa (trung thực sau restart)
+        self.docs[doc_id]["docx"] = "ready" if (self.data_dir / f"{doc_id}.docx").exists() else "unavailable"
         return True
 
     def info(self, doc_id: str) -> dict:
         doc = self.docs[doc_id]
-        return {"doc_id": doc_id, "name": doc["name"], "ocr": doc["ocr"], "parser": doc["parser"],
-                "num_pages": len(doc["pages"]), "num_chunks": len(doc["chunks"]),
-                "total_chars": sum(map(len, doc["pages"])), "file_url": f"/api/file/{doc_id}"}
+        return {"doc_id": doc_id, "name": doc["name"], "status": "ready", "ocr": doc["ocr"], "parser": doc["parser"],
+                "docx": doc.get("docx", "unavailable"),
+                "embed": doc.get("embed", "tfidf"), "num_pages": len(doc["pages"]), "num_chunks": len(doc["chunks"]),
+                "total_chars": sum(map(len, doc["pages"])), "file_url": f"/api/file/{doc_id}",
+                "docx_url": f"/api/docx/{doc_id}"}
 
     def upgrade_mineru(self, doc_id: str) -> None:
         if not self.load(doc_id):
@@ -206,10 +298,67 @@ class MatchPdfStore:
             if not any(pages):
                 raise RuntimeError("MinerU khong trich duoc chu")
             self._index(doc_id, doc["name"], doc["file"], pages, doc["ocr"], "mineru")
+            self._build_docx_rich(doc_id, out_dir)
         except (FileNotFoundError, RuntimeError, OSError) as exc:
             doc["parser"] = "mineru_failed"
             self._save(doc_id)
             print(f"[MinerU] {doc_id} failed: {exc}")
+
+    def _docx_path(self, doc_id: str) -> Path:
+        return self.data_dir / f"{doc_id}.docx"
+
+    def _set_docx(self, doc_id: str, status: str) -> None:
+        if doc_id in self.docs:
+            self.docs[doc_id]["docx"] = status
+            try:
+                self._save(doc_id)
+            except OSError:
+                pass
+
+    def build_docx_fast(self, doc_id: str) -> None:
+        """DOCX nhanh từ bản đọc pypdf/OCR (xong trong vài giây)."""
+        if not self.load(doc_id):
+            return
+        if self.docs[doc_id].get("docx") == "ready" and self._docx_path(doc_id).exists():
+            return
+        self._set_docx(doc_id, "building")
+        try:
+            doc = self.docs[doc_id]
+            parts = [f"# {doc['name']}", ""]
+            for i, page in enumerate(doc["pages"], start=1):
+                text = (page or "").strip()
+                if not text:
+                    continue
+                parts += [f"## Trang {i}", "", normalize_math_in_text(text), ""]
+            work_md = self.data_dir / f"{doc_id}.work.md"
+            prepare_work_md("\n".join(parts), self.data_dir, work_md)
+            md_to_docx(work_md, self._docx_path(doc_id), self.data_dir)
+            self._set_docx(doc_id, "ready")
+        except Exception as exc:
+            print(f"[DOCX] {doc_id} fast failed: {exc}")
+            self._set_docx(doc_id, "failed")
+        finally:
+            try:
+                (self.data_dir / f"{doc_id}.work.md").unlink(missing_ok=True)
+            except OSError:
+                pass
+
+    def _build_docx_rich(self, doc_id: str, out_dir: Path) -> None:
+        """DOCX đẹp từ Markdown MinerU (công thức thành Equation)."""
+        self._set_docx(doc_id, "building")
+        try:
+            doc = self.docs[doc_id]
+            md_path, _, _ = find_mineru_outputs(out_dir)
+            text = normalize_math_in_text(
+                fix_vni(md_path.read_text(encoding="utf-8", errors="ignore")))
+            work_md = out_dir / "source_for_docx.md"
+            prepare_work_md(text, md_path, work_md)
+            md_to_docx(work_md, self._docx_path(doc_id), md_path.parent)
+            self._set_docx(doc_id, "ready")
+        except Exception as exc:
+            print(f"[DOCX] {doc_id} rich failed: {exc}")
+            # giữ bản nhanh (nếu có) thay vì đánh failed
+            self._set_docx(doc_id, "ready" if self._docx_path(doc_id).exists() else "failed")
 
     def retrieve(self, doc_id: str, question: str, history: list[dict], top_k: int) -> tuple[list[dict], str]:
         doc = self.docs[doc_id]

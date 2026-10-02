@@ -6,6 +6,7 @@
 <title>MatchPDF — Tài liệu của tôi</title>
 <meta name="description" content="MatchPDF: quản lý tài liệu, upload nhanh, chat với PDF kèm trích dẫn số trang." />
 <script src="config.js"></script>
+<script src="lib.js"></script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23EA580C'/><text x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>P</text></svg>" />
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
@@ -21,7 +22,9 @@ tailwind.config = {
 </script>
 <style>
   html{scroll-behavior:smooth}
-  body{background:#FAFAF9;color:#1C1917;-webkit-font-smoothing:antialiased}
+  body{background:#E9E2D6;color:#1C1917;-webkit-font-smoothing:antialiased}
+  body::before{content:"";position:fixed;inset:0;z-index:-2;background:#E9E2D6 url('sgu-bg.jpg') center top / 100% auto no-repeat;filter:blur(1px) saturate(1.05);opacity:.8}
+  body::after{content:"";position:fixed;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(250,250,249,.12),rgba(250,250,249,.28))}
   .card-hover{transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s,border-color .25s}
   .card-hover:hover{transform:translateY(-3px);box-shadow:0 18px 40px -18px rgba(28,25,23,.25);border-color:#FDBA74!important}
   .card-hover:active{transform:translateY(0) scale(.99)}
@@ -35,6 +38,10 @@ tailwind.config = {
   .nav-item{display:flex;align-items:center;gap:.7rem;padding:.6rem .8rem;border-radius:.75rem;font-size:.875rem;font-weight:500;color:#57534E;transition:all .18s}
   .nav-item:hover{background:#F5F5F4;color:#1C1917}
   .nav-item.active{background:#1C1917;color:#fff}
+  #sidebar{transition:margin-left .28s cubic-bezier(.2,.8,.2,1)}
+  body.side-collapsed #sidebar{margin-left:-248px}
+  #sideToggle i{transition:transform .25s}
+  body.side-collapsed #sideToggle i{transform:rotate(180deg)}
   ::-webkit-scrollbar{width:10px;height:10px}
   ::-webkit-scrollbar-thumb{background:#D6D3D1;border-radius:8px;border:2px solid #FAFAF9}
   #dropOverlay{transition:opacity .2s}
@@ -47,13 +54,13 @@ tailwind.config = {
   <div class="bg-white rounded-3xl px-12 py-10 text-center border-2 border-dashed border-brand-500">
     <i class="ph-duotone ph-cloud-arrow-up text-5xl text-brand-500"></i>
     <p class="mt-3 font-bold text-lg">Thả file để tải lên</p>
-    <p class="text-sm text-stone-500">PDF · tối đa 50MB · xử lý ngay trên trình duyệt (demo)</p>
+    <p class="text-sm text-stone-500">PDF · tối đa 50MB · mở ngay, xử lý nền</p>
   </div>
 </div>
 
 <div class="flex min-h-[100dvh]">
   <!-- ============ SIDEBAR ============ -->
-  <aside class="hidden lg:flex w-[248px] shrink-0 flex-col border-r border-stone-200 bg-white px-4 py-5 sticky top-0 h-[100dvh]">
+  <aside id="sidebar" class="hidden lg:flex w-[248px] shrink-0 flex-col border-r border-stone-200 bg-white px-4 py-5 sticky top-0 h-[100dvh]">
     <a href="index.html" class="flex items-center gap-2.5 px-2">
       <span class="grid h-9 w-9 place-items-center rounded-xl bg-brand-500 text-white text-lg font-extrabold shadow-[0_8px_20px_-8px_rgba(234,88,12,.7)]">P</span>
       <span class="font-extrabold text-[17px] tracking-tight">Match<span class="text-brand-500">PDF</span> <span class="ml-1 rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-bold text-stone-500 align-middle whitespace-nowrap">SGU DEMO</span></span>
@@ -61,26 +68,13 @@ tailwind.config = {
     <button onclick="openUpload()" class="mt-6 flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-stone-700 active:translate-y-[1px]">
       <i class="ph-bold ph-plus"></i> Tài liệu mới
     </button>
-    <nav class="mt-6 space-y-1">
-      <a href="index.html" class="nav-item active"><i class="ph-duotone ph-files text-lg"></i> Tài liệu của tôi</a>
-      <a href="reader.html" class="nav-item"><i class="ph-duotone ph-chats-circle text-lg"></i> Đoạn chat gần đây</a>
-      <a href="#" class="nav-item"><i class="ph-duotone ph-star text-lg"></i> Được gắn sao</a>
-      <a href="#" class="nav-item"><i class="ph-duotone ph-trash text-lg"></i> Thùng rác</a>
-    </nav>
-    <div class="mt-6 rounded-2xl bg-stone-50 border border-stone-200 p-3.5">
-      <p class="text-xs font-semibold text-stone-500 uppercase tracking-wider">Thư mục</p>
-      <div class="mt-2 space-y-1 text-sm">
-        <a href="#" class="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-white"><i class="ph-duotone ph-folder text-amber-500"></i> Luận văn SGU <span class="ml-auto text-xs text-stone-400">4</span></a>
-        <a href="#" class="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-white"><i class="ph-duotone ph-folder text-sky-500"></i> Giáo trình <span class="ml-auto text-xs text-stone-400">3</span></a>
-        <a href="#" class="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-white"><i class="ph-duotone ph-folder text-emerald-500"></i> Bài báo NCKH <span class="ml-auto text-xs text-stone-400">2</span></a>
-      </div>
+    <div class="mt-auto rounded-2xl border border-orange-100 bg-gradient-to-br from-brand-50 to-amber-50 p-4 text-center">
+      <span class="mx-auto grid h-10 w-10 place-items-center rounded-2xl bg-brand-500 text-white text-xl shadow-[0_8px_20px_-8px_rgba(234,88,12,.8)]"><i class="ph-duotone ph-heart"></i></span>
+      <p class="mt-2 text-sm font-extrabold tracking-tight">Ủng hộ MatchPDF</p>
+      <p class="mt-0.5 text-[11px] leading-snug text-stone-500">Mời nhóm ly cà phê để duy trì server.</p>
+      <a href="#" onclick="return false" class="mt-2.5 flex items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-3 py-2 text-xs font-bold text-white transition hover:bg-brand-600 active:translate-y-[1px]"><i class="ph-duotone ph-coffee"></i> Ủng hộ</a>
     </div>
-    <div class="mt-auto rounded-2xl border border-stone-200 p-4">
-      <div class="flex items-center justify-between text-xs font-semibold"><span>Dung lượng demo</span><span class="font-mono">38 / 100 MB</span></div>
-      <div class="mt-2 h-2 overflow-hidden rounded-full bg-stone-100"><div class="h-full w-[38%] rounded-full bg-gradient-to-r from-brand-500 to-amber-400"></div></div>
-      <p class="mt-2 text-xs text-stone-500">Gói <b>Sinh viên</b> · mock data, không giới hạn.</p>
-    </div>
-    <div class="mt-3 flex items-center gap-2.5 px-1">
+    <div class="mt-2 flex items-center gap-2.5 px-1">
       <span class="grid h-9 w-9 place-items-center rounded-full bg-stone-900 text-white text-xs font-bold">SV</span>
       <div class="text-xs"><p class="font-bold">Sinh viên SGU</p><p class="text-stone-500">sv@sgu.edu.vn</p></div>
     </div>
@@ -91,6 +85,7 @@ tailwind.config = {
     <!-- topbar -->
     <header class="sticky top-0 z-30 border-b border-stone-200 bg-[#FAFAF9]/85 backdrop-blur-md">
       <div class="mx-auto flex h-16 max-w-[1200px] items-center gap-3 px-4 sm:px-6">
+        <button id="sideToggle" title="Ẩn/hiện sidebar" class="hidden lg:grid h-9 w-9 place-items-center rounded-xl border border-stone-200 bg-white text-stone-600 transition hover:border-brand-500 hover:text-brand-600"><i class="ph-bold ph-caret-left text-lg"></i></button>
         <span class="lg:hidden grid h-9 w-9 place-items-center rounded-xl bg-brand-500 text-white font-extrabold">P</span>
         <h1 class="text-[17px] font-extrabold tracking-tight">Tài liệu của tôi</h1>
         <span id="docCount" class="rounded-full bg-stone-200/70 px-2.5 py-0.5 text-xs font-bold text-stone-600">9</span>
@@ -117,18 +112,6 @@ tailwind.config = {
     </header>
 
     <div class="mx-auto max-w-[1200px] px-4 sm:px-6 pb-20">
-      <!-- filter row -->
-      <div class="mt-5 flex flex-wrap items-center gap-2 text-sm">
-        <button data-filter="all" class="fbtn rounded-full bg-stone-900 px-4 py-1.5 font-semibold text-white">Tất cả</button>
-        <button data-filter="luanvan" class="fbtn rounded-full border border-stone-200 bg-white px-4 py-1.5 font-medium text-stone-600 hover:border-stone-400">Luận văn</button>
-        <button data-filter="giaotrinh" class="fbtn rounded-full border border-stone-200 bg-white px-4 py-1.5 font-medium text-stone-600 hover:border-stone-400">Giáo trình</button>
-        <button data-filter="baibao" class="fbtn rounded-full border border-stone-200 bg-white px-4 py-1.5 font-medium text-stone-600 hover:border-stone-400">Bài báo</button>
-        <button data-filter="star" class="fbtn rounded-full border border-stone-200 bg-white px-4 py-1.5 font-medium text-stone-600 hover:border-stone-400"><i class="ph-fill ph-star text-amber-500"></i> Đã sao</button>
-        <span class="ml-auto flex items-center gap-1.5 text-xs text-stone-500">
-          <i class="ph-duotone ph-lightning"></i> Mở tài liệu là đọc + chat ngay, không chờ server
-        </span>
-      </div>
-
       <!-- grid -->
       <div id="grid" class="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"></div>
       <div id="empty" class="hidden py-20 text-center">
@@ -141,12 +124,17 @@ tailwind.config = {
   </main>
 </div>
 
+<div id="cardMenu" class="hidden fixed z-[70] w-48 rounded-xl border border-stone-200 bg-white p-1 text-[13px] shadow-xl">
+  <button onclick="renameDoc()" class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left hover:bg-stone-100">✏️ Đổi tên</button>
+  <button onclick="deleteDoc()" class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-red-600 hover:bg-red-50">🗑 Xóa tài liệu + PDF</button>
+</div>
+
 <!-- ============ UPLOAD MODAL ============ -->
 <dialog id="uploadDlg" class="rounded-3xl p-0 w-[min(560px,92vw)] shadow-2xl">
   <div class="p-6">
     <div class="flex items-center gap-3">
       <span class="grid h-10 w-10 place-items-center rounded-2xl bg-brand-50 text-brand-600 text-xl"><i class="ph-duotone ph-upload-simple"></i></span>
-      <div><h3 class="font-extrabold text-lg tracking-tight">Tải tài liệu lên</h3><p class="text-xs text-stone-500">Demo chạy 100% phía trình duyệt, file không rời máy bạn.</p></div>
+      <div><h3 class="font-extrabold text-lg tracking-tight">Tải tài liệu lên</h3><p class="text-xs text-stone-500">File được gửi tới server local của bạn; mở đọc ngay, AI đọc nội dung ở nền.</p></div>
       <button onclick="document.getElementById('uploadDlg').close()" class="ml-auto grid h-9 w-9 place-items-center rounded-full hover:bg-stone-100"><i class="ph-bold ph-x"></i></button>
     </div>
     <label id="dropzone" class="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-stone-300 bg-stone-50 px-6 py-10 text-center transition hover:border-brand-500 hover:bg-brand-50/50">
@@ -156,55 +144,23 @@ tailwind.config = {
       <input id="fileInput" type="file" accept="application/pdf" class="hidden" multiple />
     </label>
     <div id="uploadList" class="mt-3 space-y-2"></div>
-    <div class="mt-4 flex justify-end gap-2">
-      <button onclick="document.getElementById('uploadDlg').close()" class="rounded-xl px-4 py-2.5 text-sm font-semibold text-stone-600 hover:bg-stone-100">Đóng</button>
-      <button onclick="finishUpload()" class="rounded-xl bg-brand-500 px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-600">Xong, mở thư viện</button>
-    </div>
   </div>
 </dialog>
 
 <script>
-/* ================= MOCK DATA (giả lập như đã có tài liệu thật) ================= */
-const DOCS = [
-  {id:'luanvan-ai', title:'Luận văn: Ứng dụng AI trong phân tích tài liệu học thuật', cat:'luanvan', pages:86, size:'12.4 MB', updated:'2 giờ trước', chats:24, star:true, color:'#EA580C', pct:72,
-   excerpt:'Chương 2 trình bày mô hình RAG kết hợp trích xuất bố cục văn bản…'},
-  {id:'gt-csdl', title:'Giáo trình Cơ sở dữ liệu — Chương 1-6 (SGU)', cat:'giaotrinh', pages:214, size:'28.1 MB', updated:'Hôm qua', chats:51, star:true, color:'#0284C7', pct:35,
-   excerpt:'Chuẩn hóa lược đồ, phụ thuộc hàm và dạng chuẩn 3NF với ví dụ quản lý sinh viên…'},
-  {id:'gt-xstk', title:'Giáo trình Xác suất thống kê (bản 2024)', cat:'giaotrinh', pages:168, size:'19.7 MB', updated:'3 ngày trước', chats:18, star:false, color:'#059669', pct:12,
-   excerpt:'Biến ngẫu nhiên rời rạc, phân phối nhị thức và ước lượng khoảng tin cậy…'},
-  {id:'bb-rag', title:'Bài báo: Retrieval-Augmented Generation cho QA tiếng Việt', cat:'baibao', pages:12, size:'1.8 MB', updated:'Tuần trước', chats:9, star:false, color:'#7C3AED', pct:90,
-   excerpt:'So sánh BM25 + rerank với dense retrieval trên bộ ViQuAD mở rộng…'},
-  {id:'luanvan-tmdt', title:'Khóa luận: Website thương mại điện tử (Laravel + React)', cat:'luanvan', pages:112, size:'15.2 MB', updated:'Tuần trước', chats:33, star:false, color:'#DB2777', pct:58,
-   excerpt:'Thiết kế giỏ hàng, thanh toán VNPay sandbox và đánh giá tải với k6…'},
-  {id:'gt-ctdl', title:'Giáo trình Cấu trúc dữ liệu & Giải thuật', cat:'giaotrinh', pages:196, size:'22.5 MB', updated:'2 tuần trước', chats:42, star:false, color:'#0D9488', pct:44,
-   excerpt:'Cây AVL, bảng băm và phân tích độ phức tạp amortized…'},
-  {id:'bb-ocr', title:'Bài báo: Trích xuất bảng biểu từ PDF scan bằng OCR', cat:'baibao', pages:9, size:'1.2 MB', updated:'2 tuần trước', chats:6, star:false, color:'#B45309', pct:100,
-   excerpt:'Pipeline tiền xử lý ảnh, Tesseract fine-tune và đối sánh cấu trúc bảng…'},
-  {id:'luanvan-kt', title:'Luận văn: Kế toán doanh thu trong DN vừa và nhỏ', cat:'luanvan', pages:98, size:'9.6 MB', updated:'Tháng trước', chats:11, star:false, color:'#4D7C0F', pct:20,
-   excerpt:'Ghi nhận doanh thu theo VAS 14 và minh họa trên số liệu thực tế…'},
-  {id:'luanvan-mkt', title:'Khóa luận: Chiến lược marketing cho quán cà phê Gen Z', cat:'luanvan', pages:74, size:'8.3 MB', updated:'Tháng trước', chats:15, star:true, color:'#E11D48', pct:66,
-   excerpt:'Khảo sát 312 đáp viên, mô hình 4P áp dụng cho F&B quy mô nhỏ…'},
-];
+/* ================= THƯ VIỆN THẬT (mock đã xóa, upload file để thêm tài liệu) ================= */
+let DOCS = [];
 let filter='all', query='', view='grid';
 const grid = document.getElementById('grid');
 
 function thumbHTML(d, i){
-  return `<div class="thumb-paper h-36 border-b border-stone-200 p-4">
-    <div class="flex items-start justify-between">
-      <span class="rounded-lg px-2 py-1 text-[11px] font-extrabold text-white" style="background:${d.color}">PDF</span>
-      <i class="ph-duotone ph-file-pdf text-2xl text-stone-300"></i>
-    </div>
-    <p class="mt-2 font-mono text-[11px] leading-relaxed text-stone-500 line-clamp-2">${d.excerpt}</p>
-    <div class="thumb-lines absolute inset-x-4 bottom-3 top-24 rounded"></div>
-    <div class="absolute bottom-3 left-4 right-4 flex items-center gap-2">
-      <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-stone-200/70"><div class="h-full rounded-full" style="width:${d.pct}%;background:${d.color}"></div></div>
-      <span class="font-mono text-[10px] text-stone-500">${d.pct}%</span>
-    </div>
+  return `<div class="flex items-center justify-between border-b border-stone-100 px-4 py-3">
+    <span class="rounded-lg px-2 py-1 text-[11px] font-extrabold text-white" style="background:${d.color}">PDF</span>
+    <i class="ph-duotone ph-file-pdf text-xl text-stone-300"></i>
   </div>`;
 }
 function render(){
   const list = DOCS.filter(d =>
-    (filter==='all' || (filter==='star' ? d.star : d.cat===filter)) &&
     d.title.toLowerCase().includes(query.toLowerCase()));
   document.getElementById('docCount').textContent = list.length;
   document.getElementById('empty').classList.toggle('hidden', list.length>0);
@@ -212,43 +168,27 @@ function render(){
     ? 'mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3'
     : 'mt-5 flex flex-col gap-3';
   grid.innerHTML = list.map((d,i)=> view==='grid' ? `
-    <article class="card-hover fade-up overflow-hidden rounded-2xl border border-stone-200 bg-white" style="animation-delay:${i*40}ms">
-      ${thumbHTML(d,i)}
+    <article class="card-hover fade-up overflow-hidden rounded-2xl border border-stone-200 bg-white/85 backdrop-blur-sm" style="animation-delay:${i*40}ms">
       <div class="p-4">
-        <div class="flex items-start gap-2">
-          <h3 class="min-w-0 flex-1 truncate-2 font-bold text-[14px] leading-snug" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${d.title}</h3>
-          <button onclick="toggleStar('${d.id}',event)" class="shrink-0 text-lg ${d.star?'text-amber-400':'text-stone-300 hover:text-amber-400'}"><i class="ph-fill ph-star"></i></button>
-        </div>
-        <p class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px] text-stone-500">
-          <span>${d.pages} trang</span>·<span>${d.size}</span>·<span>${d.updated}</span>
-        </p>
-        <div class="mt-3 flex items-center gap-2">
-          <a href="reader.html?id=${d.id}" class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-3 py-2 text-[13px] font-bold text-white transition hover:bg-brand-600 active:translate-y-[1px]">
+        <div class="flex items-start gap-2"><h3 class="min-w-0 flex-1 font-bold text-[14px] leading-snug" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(d.title)}</h3>
+          <button onclick="event.stopPropagation();cardMenu('${d.id}',this)" class="shrink-0 rounded-md px-1.5 py-0.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700" title="Tùy chọn"><i class="ph-bold ph-dots-three"></i></button></div>
+        <div class="mt-3">
+          <a href="reader.html?doc_id=${d.id}" class="flex items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-3 py-2 text-[13px] font-bold text-white transition hover:bg-brand-600 active:translate-y-[1px]">
             <i class="ph-duotone ph-chats-circle"></i> Chat ngay
           </a>
-          <a href="reader.html?id=${d.id}" title="Đọc PDF" class="grid h-9 w-9 place-items-center rounded-xl border border-stone-200 text-stone-600 transition hover:border-brand-500 hover:text-brand-600"><i class="ph-bold ph-book-open"></i></a>
-          <button title="Thêm" class="grid h-9 w-9 place-items-center rounded-xl border border-stone-200 text-stone-400 transition hover:border-stone-400 hover:text-stone-700"><i class="ph-bold ph-dots-three"></i></button>
         </div>
-        <p class="mt-2.5 flex items-center gap-1.5 text-[11px] text-stone-400"><i class="ph-duotone ph-chat-centered-text"></i> ${d.chats} đoạn chat · mở là đọc được ngay</p>
       </div>
     </article>` : `
-    <article class="card-hover fade-up flex items-center gap-4 rounded-2xl border border-stone-200 bg-white p-3" style="animation-delay:${i*30}ms">
-      <span class="grid h-12 w-12 shrink-0 place-items-center rounded-xl text-white font-extrabold" style="background:${d.color}">PDF</span>
+    <article class="card-hover fade-up flex items-center gap-4 rounded-2xl border border-stone-200 bg-white/85 backdrop-blur-sm p-3" style="animation-delay:${i*30}ms">
       <div class="min-w-0 flex-1">
-        <h3 class="truncate font-bold text-sm">${d.title}</h3>
-        <p class="font-mono text-[11px] text-stone-500">${d.pages} trang · ${d.size} · ${d.updated} · ${d.chats} chats</p>
+        <h3 class="truncate font-bold text-sm">${esc(d.title)}</h3>
       </div>
-      <a href="reader.html?id=${d.id}" class="shrink-0 rounded-xl bg-stone-900 px-4 py-2 text-[13px] font-bold text-white hover:bg-brand-600 transition">Chat ngay</a>
+      <a href="reader.html?doc_id=${d.id}" class="shrink-0 rounded-xl bg-stone-900 px-4 py-2 text-[13px] font-bold text-white hover:bg-brand-600 transition">Chat ngay</a>
+      <button onclick="event.stopPropagation();cardMenu('${d.id}',this)" class="shrink-0 rounded-md px-1.5 py-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700" title="Tùy chọn"><i class="ph-bold ph-dots-three"></i></button>
     </article>`).join('');
 }
-function toggleStar(id, e){ e.stopPropagation(); const d=DOCS.find(x=>x.id===id); d.star=!d.star; render(); }
-document.querySelectorAll('.fbtn').forEach(b=>b.onclick=()=>{
-  filter=b.dataset.filter;
-  document.querySelectorAll('.fbtn').forEach(x=>x.className='fbtn rounded-full border border-stone-200 bg-white px-4 py-1.5 font-medium text-stone-600 hover:border-stone-400');
-  b.className='fbtn rounded-full bg-stone-900 px-4 py-1.5 font-semibold text-white';
-  render();
-});
 const onQ=v=>{query=v;render();};
+document.getElementById('sideToggle').onclick=()=>document.body.classList.toggle('side-collapsed');
 document.getElementById('search').oninput=e=>onQ(e.target.value);
 document.getElementById('searchM').oninput=e=>onQ(e.target.value);
 document.getElementById('viewGrid').onclick=()=>{view='grid';render();
@@ -260,26 +200,30 @@ document.getElementById('viewList').onclick=()=>{view='list';render();
 
 /* ---- upload giả lập: đọc tên file thật + mở reader ngay ---- */
 function openUpload(){ document.getElementById('uploadDlg').showModal(); }
-document.getElementById('dropzone').onclick=()=>document.getElementById('fileInput').click();
-document.getElementById('fileInput').onchange=e=>handleFiles(e.target.files);
+document.getElementById('fileInput').onchange=e=>{handleFiles(e.target.files);e.target.value='';};
 ['dragover','dragenter'].forEach(ev=>document.getElementById('dropzone').addEventListener(ev,e=>{e.preventDefault();e.currentTarget.classList.add('border-brand-500','bg-brand-50/60');}));
-['dragleave','drop'].forEach(ev=>document.getElementById('dropzone').addEventListener(ev,e=>{e.preventDefault();e.currentTarget.classList.remove('border-brand-500','bg-brand-50/60');}));
-document.getElementById('dropzone').addEventListener('drop',e=>handleFiles(e.dataTransfer.files));
+document.getElementById('dropzone').addEventListener('dragleave',e=>{e.currentTarget.classList.remove('border-brand-500','bg-brand-50/60');});
+document.getElementById('dropzone').addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();e.currentTarget.classList.remove('border-brand-500','bg-brand-50/60');handleFiles(e.dataTransfer.files);});
 let dragN=0;
 window.addEventListener('dragenter',e=>{e.preventDefault();dragN++;const o=document.getElementById('dropOverlay');o.classList.remove('hidden');o.classList.add('flex');});
 window.addEventListener('dragleave',e=>{e.preventDefault();if(--dragN<=0){dragN=0;const o=document.getElementById('dropOverlay');o.classList.add('hidden');o.classList.remove('flex');}});
 window.addEventListener('dragover',e=>e.preventDefault());
-window.addEventListener('drop',e=>{e.preventDefault();dragN=0;const o=document.getElementById('dropOverlay');o.classList.add('hidden');o.classList.remove('flex');if(e.dataTransfer.files.length){openUpload();handleFiles(e.dataTransfer.files);}});
+window.addEventListener('drop',e=>{e.preventDefault();dragN=0;const o=document.getElementById('dropOverlay');o.classList.add('hidden');o.classList.remove('flex');if(e.target.closest&&e.target.closest('#uploadDlg'))return;if(e.dataTransfer.files.length){openUpload();handleFiles(e.dataTransfer.files);}});
 /* ---- upload THẬT lên server Python (8001) -> sang reader chat bằng model local ----
    Server tắt thì tự rơi về chế độ demo cũ. */
 const API_BASE=(window.MATCHPDF_API_BASE||'http://127.0.0.1:8001').replace(/\/$/,'');
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 async function serverOnline(){ try{ const r=await fetch(API_BASE+'/api/health'); return (await r.json()).ok; }catch(e){ return false; } }
-async function handleFiles(files){
+const uploadedByName={}, uploadingNames=new Set(); // chống upload trùng 1 file
+let lastFiles=[];
+function retryLast(){ if(lastFiles.length) handleFiles(lastFiles); else toast('Chưa có file nào để thử lại'); }
+async function handleFiles(fileList){
+  const files=[...fileList]; // chụp ngay: input.value='' / DataTransfer làm rỗng FileList gốc trước khi await xong
   const box=document.getElementById('uploadList'); box.innerHTML='';
   if(!files.length){ box.innerHTML='<p class="text-sm text-stone-400 text-center py-2">Chưa có file nào. Thử kéo 1 file PDF vào.</p>'; return; }
+  lastFiles=files;
   const online=await serverOnline();
-  [...files].slice(0,5).forEach((f)=>{
+  files.slice(0,5).forEach((f)=>{
     const row=document.createElement('div');
     row.className='flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 text-sm fade-up';
     row.innerHTML=`<span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-500 text-white font-extrabold text-xs">PDF</span>
@@ -287,52 +231,69 @@ async function handleFiles(files){
       <p class="st-status font-mono text-[11px] text-stone-500">Đang chờ…</p></div>
       <span class="st-action shrink-0"></span>`;
     box.appendChild(row);
+    const done=uploadedByName[f.name];
+    if(done&&done.docId){ // file này đã tải rồi: mở lại bản cũ, không POST nữa
+      row.querySelector('.st-status').textContent='File này đã tải rồi — mở lại bản cũ';
+      row.querySelector('.st-action').innerHTML=`<a href="reader.html?doc_id=${done.docId}" class="shrink-0 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Mở tài liệu →</a>`;
+      if(files.length===1) location.replace('reader.html?doc_id='+done.docId);
+      return;
+    }
+    if(uploadingNames.has(f.name)){ row.querySelector('.st-status').textContent='Đang tải lên…'; return; }
     if(online) uploadOne(f,row,files.length===1);
-    else{ row.querySelector('.st-status').textContent='Server tắt — chỉ mở được demo';
-      row.querySelector('.st-action').innerHTML=`<a href="reader.html?name=${encodeURIComponent(f.name)}" class="shrink-0 rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Mở demo →</a>`; }
+    else{ row.querySelector('.st-status').textContent='Server chưa chạy — bật server rồi bấm Thử lại';
+      row.querySelector('.st-action').innerHTML=`<button onclick="retryLast()" class="shrink-0 rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Thử lại →</button>`; }
   });
 }
 async function uploadOne(f,row,autoOpen){
   const st=row.querySelector('.st-status'), act=row.querySelector('.st-action');
-  st.innerHTML='<span class="text-brand-600 font-bold">Đang tải lên & đọc chữ… (PDF scan cần OCR: ~1–2 phút, đừng tắt)</span>';
+  uploadingNames.add(f.name);
+  st.innerHTML='<span class="text-brand-600 font-bold">Đang tải lên…</span>';
   try{
     const fd=new FormData(); fd.append('f',f);
     const r=await fetch(API_BASE+'/api/upload',{method:'POST',body:fd});
     if(!r.ok) throw new Error(await r.text());
     const j=await r.json();
-    st.textContent=`${j.num_pages} trang · ${j.num_chunks} chunks · sẵn sàng chat thật`;
-    if(autoOpen){ location.href='reader.html?doc_id='+j.doc_id; return; } // 1 file: mở luôn
-    act.innerHTML=`<a href="reader.html?doc_id=${j.doc_id}" class="shrink-0 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Mở chat thật →</a>`;
-  }catch(e){ const msg=String(e&&e.message||e);
+    uploadingNames.delete(f.name);
+    uploadedByName[f.name]={docId:j.doc_id};
+    st.textContent=`${j.num_pages} trang · đã nhận, đang đọc nội dung ở nền`;
+    if(autoOpen){ location.replace('reader.html?doc_id='+j.doc_id); return; } // 1 file: mở đúng file vừa tải, replace để nút lui sạch
+    act.innerHTML=`<a href="reader.html?doc_id=${j.doc_id}" class="shrink-0 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Mở tài liệu →</a>`;
+  }catch(e){ uploadingNames.delete(f.name); const msg=String(e&&e.message||e);
     st.innerHTML=`<span class="text-red-600 font-bold">Upload lỗi: ${esc(msg.slice(0,160))}</span>`;
-    act.innerHTML=`<a href="reader.html?name=${encodeURIComponent(f.name)}" class="shrink-0 rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-bold text-white">Mở demo →</a>`; }
+    act.innerHTML=`<button onclick="retryLast()" class="shrink-0 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Thử lại →</button>`; }
 }
-function finishUpload(){ document.getElementById('uploadDlg').close(); render(); }
-(async function loadRealDocs(){
-  try{
-    const r = await fetch(API_BASE + '/api/documents?limit=20');
-    if(!r.ok) return;
-    const { items } = await r.json();
-    if(!items || !items.length) return;
-
-    const box = document.createElement('div');
-    box.className = 'mb-6';
-    box.innerHTML = `<h2 class="text-sm font-extrabold text-stone-500 uppercase tracking-wider mb-2">
-      Tài liệu đã tải lên (${items.length})</h2>
-      <div class="flex flex-col gap-2">${items.map(d => `
-        <a href="reader.html?doc_id=${d.id}"
-           class="flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 hover:border-brand-500 transition">
-          <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-emerald-600 text-white font-extrabold text-xs">PDF</span>
-          <div class="min-w-0 flex-1">
-            <p class="truncate font-bold text-sm">${esc(d.filename)}</p>
-            <p class="font-mono text-[11px] text-stone-500">${esc(d.status)} · ${d.message_count} tin nhắn · ${new Date(d.created_at).toLocaleString('vi-VN')}</p>
-          </div>
-          <span class="shrink-0 rounded-lg bg-stone-900 px-3 py-1.5 text-[11px] font-bold text-white">Mở →</span>
-        </a>`).join('')}</div>`;
-    document.getElementById('grid').insertAdjacentElement('beforebegin', box);
-  }catch(e){ /* server tắt: bỏ qua, chỉ hiện demo như cũ */ }
-})();
-render();
+/* ---- thư viện lưu trên server (SQLite, cổng 8002) ---- */
+const mapDocs=rows=>rows.map(d=>({id:d.doc_id,title:d.display_name||d.name}));
+async function migrateLegacy(){ // một lần: đưa danh sách "tài liệu gần đây" cũ (localStorage) lên server nếu BE còn file
+  try{ if(localStorage.getItem('matchpdf_migrated')) return;
+    const old=JSON.parse(localStorage.getItem('matchpdf_recents2')||'[]');
+    for(const d of old){ const info=await fetch(API_BASE+'/api/doc/'+d.doc_id).then(r=>r.ok?r.json():null).catch(()=>null);
+      if(info) await LIB.put('/docs/'+d.doc_id,{name:info.name||d.name,num_pages:info.num_pages,parser:info.parser}); }
+    localStorage.setItem('matchpdf_migrated','1'); }catch(e){}
+}
+async function loadDocs(){
+  let r=await LIB.get('/docs');
+  if(r.ok){ await migrateLegacy(); r=await LIB.get('/docs'); DOCS=mapDocs(r.data||[]); }
+  else { try{ DOCS=JSON.parse(localStorage.getItem('matchpdf_recents2')||'[]').map(d=>({id:d.doc_id,title:d.name})); }catch(e){ DOCS=[]; }
+    toast('Chưa kết nối thư viện (cổng 8002) — đang hiện danh sách cũ trong trình duyệt'); }
+  render();
+}
+let menuId=null;
+function cardMenu(id,btn){ const m=document.getElementById('cardMenu');
+  if(menuId===id&&!m.classList.contains('hidden')){ m.classList.add('hidden'); menuId=null; return; }
+  menuId=id; const r=btn.getBoundingClientRect(); m.classList.remove('hidden');
+  m.style.left=Math.min(r.left,window.innerWidth-200)+'px'; m.style.top=(r.bottom+4)+'px'; }
+document.addEventListener('click',e=>{ const m=document.getElementById('cardMenu'); if(m&&menuId&&!m.classList.contains('hidden')&&!m.contains(e.target)){ m.classList.add('hidden'); menuId=null; } });
+async function renameDoc(){ const id=menuId; document.getElementById('cardMenu').classList.add('hidden'); menuId=null;
+  const d=DOCS.find(x=>x.id===id); if(!d) return; const n=prompt('Tên mới:',d.title); if(!n||!n.trim()) return;
+  const r=await LIB.patch('/docs/'+id,{display_name:n.trim().slice(0,120)}); if(!r.ok){ toast('Không đổi được tên (thư viện chưa kết nối)'); return; } loadDocs(); }
+async function deleteDoc(){ const id=menuId; document.getElementById('cardMenu').classList.add('hidden'); menuId=null;
+  const d=DOCS.find(x=>x.id===id); if(!d||!confirm('Xóa “'+d.title+'” khỏi thư viện, kèm phiên chat, công thức và các bản DOCX?')) return;
+  const r=await LIB.del('/docs/'+id); if(!r.ok){ toast('Không xóa được (thư viện chưa kết nối)'); return; }
+  toast(r.data&&r.data.pdf==='deleted'?'Đã xóa tài liệu và PDF':'Đã xóa khỏi thư viện — PDF trên server chưa xóa được (BE chưa hỗ trợ)'); loadDocs(); }
+let toastT; function toast(msg){ let t=document.getElementById('toast'); if(!t){ t=document.createElement('div'); t.id='toast'; t.className='fixed bottom-6 left-1/2 z-[95] -translate-x-1/2 rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white shadow-2xl transition-opacity'; document.body.appendChild(t); }
+  t.textContent=msg; t.style.opacity=1; clearTimeout(toastT); toastT=setTimeout(()=>t.style.opacity=0,3200); }
+render(); loadDocs();
 </script>
 </body>
 </html>
