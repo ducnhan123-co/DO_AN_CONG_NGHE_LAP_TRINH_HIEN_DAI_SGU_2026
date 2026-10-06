@@ -4,7 +4,7 @@ import threading
 import pytest
 import requests
 
-import llm.matchpdf as mp
+import DO_AN_CONG_NGHE_LAP_TRINH_HIEN_DAI_SGU_2026.llm.matchpdf as mp
 
 PAGES = [f"Nội dung trang {i} nói về chủ đề số {i} " * 4 for i in range(1, 71)]  # ~70 chunk
 

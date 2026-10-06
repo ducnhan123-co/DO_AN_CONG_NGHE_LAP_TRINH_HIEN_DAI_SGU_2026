@@ -144,6 +144,10 @@ tailwind.config = {
       <input id="fileInput" type="file" accept="application/pdf" class="hidden" multiple />
     </label>
     <div id="uploadList" class="mt-3 space-y-2"></div>
+    <div id="uploadFooter" class="mt-4 hidden items-center gap-2">
+      <button onclick="clearStaged()" class="rounded-xl border border-stone-200 px-3 py-2 text-xs font-bold text-stone-500 hover:bg-stone-100">Xóa hết</button>
+      <button id="openBtn" onclick="openStaged()" class="ml-auto rounded-xl bg-brand-500 px-5 py-2.5 text-sm font-bold text-white shadow-[0_10px_24px_-10px_rgba(234,88,12,.8)] transition hover:bg-brand-600 active:translate-y-[1px] disabled:opacity-50">Mở tài liệu →</button>
+    </div>
   </div>
 </dialog>
 
@@ -199,68 +203,143 @@ document.getElementById('viewList').onclick=()=>{view='list';render();
   document.getElementById('viewGrid').className='rounded-lg px-2.5 py-1.5 text-stone-500 hover:bg-stone-100';};
 
 /* ---- upload giả lập: đọc tên file thật + mở reader ngay ---- */
-function openUpload(){ document.getElementById('uploadDlg').showModal(); }
-document.getElementById('fileInput').onchange=e=>{handleFiles(e.target.files);e.target.value='';};
+// function openUpload(){ document.getElementById('uploadDlg').showModal(); }
+// document.getElementById('fileInput').onchange=e=>{handleFiles(e.target.files);e.target.value='';};
+// ['dragover','dragenter'].forEach(ev=>document.getElementById('dropzone').addEventListener(ev,e=>{e.preventDefault();e.currentTarget.classList.add('border-brand-500','bg-brand-50/60');}));
+// document.getElementById('dropzone').addEventListener('dragleave',e=>{e.currentTarget.classList.remove('border-brand-500','bg-brand-50/60');});
+// document.getElementById('dropzone').addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();e.currentTarget.classList.remove('border-brand-500','bg-brand-50/60');handleFiles(e.dataTransfer.files);});
+// let dragN=0;
+// window.addEventListener('dragenter',e=>{e.preventDefault();dragN++;const o=document.getElementById('dropOverlay');o.classList.remove('hidden');o.classList.add('flex');});
+// window.addEventListener('dragleave',e=>{e.preventDefault();if(--dragN<=0){dragN=0;const o=document.getElementById('dropOverlay');o.classList.add('hidden');o.classList.remove('flex');}});
+// window.addEventListener('dragover',e=>e.preventDefault());
+// window.addEventListener('drop',e=>{e.preventDefault();dragN=0;const o=document.getElementById('dropOverlay');o.classList.add('hidden');o.classList.remove('flex');if(e.target.closest&&e.target.closest('#uploadDlg'))return;if(e.dataTransfer.files.length){openUpload();handleFiles(e.dataTransfer.files);}});
+// /* ---- upload THẬT lên server Python (8001) -> sang reader chat bằng model local ----
+//    Server tắt thì tự rơi về chế độ demo cũ. */
+// const API_BASE=(window.MATCHPDF_API_BASE||'http://127.0.0.1:8000').replace(/\/$/,'');
+// const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+// async function serverOnline(){ try{ const r=await fetch(API_BASE+'/api/health'); return (await r.json()).ok; }catch(e){ return false; } }
+// const uploadedByName={}, uploadingNames=new Set(); // chống upload trùng 1 file
+// let lastFiles=[];
+// function retryLast(){ if(lastFiles.length) handleFiles(lastFiles); else toast('Chưa có file nào để thử lại'); }
+// async function handleFiles(fileList){
+//   const files=[...fileList]; // chụp ngay: input.value='' / DataTransfer làm rỗng FileList gốc trước khi await xong
+//   const box=document.getElementById('uploadList'); box.innerHTML='';
+//   if(!files.length){ box.innerHTML='<p class="text-sm text-stone-400 text-center py-2">Chưa có file nào. Thử kéo 1 file PDF vào.</p>'; return; }
+//   lastFiles=files;
+//   const online=await serverOnline();
+//   files.slice(0,5).forEach((f)=>{
+//     const row=document.createElement('div');
+//     row.className='flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 text-sm fade-up';
+//     row.innerHTML=`<span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-500 text-white font-extrabold text-xs">PDF</span>
+//       <div class="min-w-0 flex-1"><p class="truncate font-bold">${esc(f.name)}</p>
+//       <p class="st-status font-mono text-[11px] text-stone-500">Đang chờ…</p></div>
+//       <span class="st-action shrink-0"></span>`;
+//     box.appendChild(row);
+//     const done=uploadedByName[f.name];
+//     if(done&&done.docId){ // file này đã tải rồi: mở lại bản cũ, không POST nữa
+//       row.querySelector('.st-status').textContent='File này đã tải rồi — mở lại bản cũ';
+//       row.querySelector('.st-action').innerHTML=`<a href="reader.html?doc_id=${done.docId}" class="shrink-0 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Mở tài liệu →</a>`;
+//       if(files.length===1) location.replace('reader.html?doc_id='+done.docId);
+//       return;
+//     }
+//     if(uploadingNames.has(f.name)){ row.querySelector('.st-status').textContent='Đang tải lên…'; return; }
+//     if(online) uploadOne(f,row,files.length===1);
+//     else{ row.querySelector('.st-status').textContent='Server chưa chạy — bật server rồi bấm Thử lại';
+//       row.querySelector('.st-action').innerHTML=`<button onclick="retryLast()" class="shrink-0 rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Thử lại →</button>`; }
+//   });
+// }
+// async function uploadOne(f,row,autoOpen){
+//   const st=row.querySelector('.st-status'), act=row.querySelector('.st-action');
+//   uploadingNames.add(f.name);
+//   st.innerHTML='<span class="text-brand-600 font-bold">Đang tải lên…</span>';
+//   try{
+//     const fd=new FormData(); fd.append('f',f);
+//     const r=await fetch(API_BASE+'/api/upload',{method:'POST',body:fd});
+//     if(!r.ok) throw new Error(await r.text());
+//     const j=await r.json();
+//     uploadingNames.delete(f.name);
+//     uploadedByName[f.name]={docId:j.doc_id};
+//     st.textContent=`${j.num_pages} trang · đã nhận, đang đọc nội dung ở nền`;
+//     if(autoOpen){ location.replace('reader.html?doc_id='+j.doc_id); return; } // 1 file: mở đúng file vừa tải, replace để nút lui sạch
+//     act.innerHTML=`<a href="reader.html?doc_id=${j.doc_id}" class="shrink-0 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Mở tài liệu →</a>`;
+//   }catch(e){ uploadingNames.delete(f.name); const msg=String(e&&e.message||e);
+//     st.innerHTML=`<span class="text-red-600 font-bold">Upload lỗi: ${esc(msg.slice(0,160))}</span>`;
+//     act.innerHTML=`<button onclick="retryLast()" class="shrink-0 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Thử lại →</button>`; }
+// }
+const API_BASE=(window.MATCHPDF_API_BASE||'http://127.0.0.1:8000').replace(/\/$/,'');
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+async function serverOnline(){ try{ const r=await fetch(API_BASE+'/api/health'); return (await r.json()).ok; }catch(e){ return false; } }
+const MAX_FILES=10, MAX_MB=50;
+let staged=[];            // {key,file,status:'wait'|'up'|'done'|'err',docId,pages,msg}
+let uploading=false;
+const uploadedByKey={};   // key -> {docId,pages}: file đã tải rồi thì không POST lại
+const fkey=f=>f.name+'|'+f.size+'|'+f.lastModified;
+const kbText=n=>n>1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
+ 
+function openUpload(){ document.getElementById('uploadDlg').showModal(); renderStaged(); }
+function handleFiles(list){ addFiles(list); }
+document.getElementById('fileInput').onchange=e=>{ addFiles(e.target.files); e.target.value=''; };
 ['dragover','dragenter'].forEach(ev=>document.getElementById('dropzone').addEventListener(ev,e=>{e.preventDefault();e.currentTarget.classList.add('border-brand-500','bg-brand-50/60');}));
 document.getElementById('dropzone').addEventListener('dragleave',e=>{e.currentTarget.classList.remove('border-brand-500','bg-brand-50/60');});
-document.getElementById('dropzone').addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();e.currentTarget.classList.remove('border-brand-500','bg-brand-50/60');handleFiles(e.dataTransfer.files);});
+document.getElementById('dropzone').addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();e.currentTarget.classList.remove('border-brand-500','bg-brand-50/60');addFiles(e.dataTransfer.files);});
 let dragN=0;
 window.addEventListener('dragenter',e=>{e.preventDefault();dragN++;const o=document.getElementById('dropOverlay');o.classList.remove('hidden');o.classList.add('flex');});
 window.addEventListener('dragleave',e=>{e.preventDefault();if(--dragN<=0){dragN=0;const o=document.getElementById('dropOverlay');o.classList.add('hidden');o.classList.remove('flex');}});
 window.addEventListener('dragover',e=>e.preventDefault());
-window.addEventListener('drop',e=>{e.preventDefault();dragN=0;const o=document.getElementById('dropOverlay');o.classList.add('hidden');o.classList.remove('flex');if(e.target.closest&&e.target.closest('#uploadDlg'))return;if(e.dataTransfer.files.length){openUpload();handleFiles(e.dataTransfer.files);}});
-/* ---- upload THẬT lên server Python (8001) -> sang reader chat bằng model local ----
-   Server tắt thì tự rơi về chế độ demo cũ. */
-const API_BASE=(window.MATCHPDF_API_BASE||'http://127.0.0.1:8000').replace(/\/$/,'');
-const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-async function serverOnline(){ try{ const r=await fetch(API_BASE+'/api/health'); return (await r.json()).ok; }catch(e){ return false; } }
-const uploadedByName={}, uploadingNames=new Set(); // chống upload trùng 1 file
-let lastFiles=[];
-function retryLast(){ if(lastFiles.length) handleFiles(lastFiles); else toast('Chưa có file nào để thử lại'); }
-async function handleFiles(fileList){
-  const files=[...fileList]; // chụp ngay: input.value='' / DataTransfer làm rỗng FileList gốc trước khi await xong
-  const box=document.getElementById('uploadList'); box.innerHTML='';
-  if(!files.length){ box.innerHTML='<p class="text-sm text-stone-400 text-center py-2">Chưa có file nào. Thử kéo 1 file PDF vào.</p>'; return; }
-  lastFiles=files;
-  const online=await serverOnline();
-  files.slice(0,5).forEach((f)=>{
-    const row=document.createElement('div');
-    row.className='flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 text-sm fade-up';
-    row.innerHTML=`<span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-500 text-white font-extrabold text-xs">PDF</span>
-      <div class="min-w-0 flex-1"><p class="truncate font-bold">${esc(f.name)}</p>
-      <p class="st-status font-mono text-[11px] text-stone-500">Đang chờ…</p></div>
-      <span class="st-action shrink-0"></span>`;
-    box.appendChild(row);
-    const done=uploadedByName[f.name];
-    if(done&&done.docId){ // file này đã tải rồi: mở lại bản cũ, không POST nữa
-      row.querySelector('.st-status').textContent='File này đã tải rồi — mở lại bản cũ';
-      row.querySelector('.st-action').innerHTML=`<a href="reader.html?doc_id=${done.docId}" class="shrink-0 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Mở tài liệu →</a>`;
-      if(files.length===1) location.replace('reader.html?doc_id='+done.docId);
-      return;
-    }
-    if(uploadingNames.has(f.name)){ row.querySelector('.st-status').textContent='Đang tải lên…'; return; }
-    if(online) uploadOne(f,row,files.length===1);
-    else{ row.querySelector('.st-status').textContent='Server chưa chạy — bật server rồi bấm Thử lại';
-      row.querySelector('.st-action').innerHTML=`<button onclick="retryLast()" class="shrink-0 rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Thử lại →</button>`; }
-  });
+window.addEventListener('drop',e=>{e.preventDefault();dragN=0;const o=document.getElementById('dropOverlay');o.classList.add('hidden');o.classList.remove('flex');if(e.target.closest&&e.target.closest('#uploadDlg'))return;if(e.dataTransfer.files.length){openUpload();addFiles(e.dataTransfer.files);}});
+ 
+function addFiles(list){
+  if(uploading) return;
+  for(const f of [...list]){ // chụp ngay: input.value='' làm rỗng FileList gốc
+    if(!/\.pdf$/i.test(f.name)&&f.type!=='application/pdf'){ toast('Bỏ qua “'+f.name+'” (không phải PDF)'); continue; }
+    if(f.size>MAX_MB*1048576){ toast('“'+f.name+'” lớn hơn '+MAX_MB+'MB'); continue; }
+    if(staged.length>=MAX_FILES){ toast('Tối đa '+MAX_FILES+' file mỗi lần'); break; }
+    const key=fkey(f); if(staged.some(s=>s.key===key)) continue;
+    const old=uploadedByKey[key];
+    staged.push({key,file:f,status:old?'done':'wait',docId:old&&old.docId,pages:old&&old.pages});
+  }
+  renderStaged();
 }
-async function uploadOne(f,row,autoOpen){
-  const st=row.querySelector('.st-status'), act=row.querySelector('.st-action');
-  uploadingNames.add(f.name);
-  st.innerHTML='<span class="text-brand-600 font-bold">Đang tải lên…</span>';
-  try{
-    const fd=new FormData(); fd.append('f',f);
-    const r=await fetch(API_BASE+'/api/upload',{method:'POST',body:fd});
-    if(!r.ok) throw new Error(await r.text());
-    const j=await r.json();
-    uploadingNames.delete(f.name);
-    uploadedByName[f.name]={docId:j.doc_id};
-    st.textContent=`${j.num_pages} trang · đã nhận, đang đọc nội dung ở nền`;
-    if(autoOpen){ location.replace('reader.html?doc_id='+j.doc_id); return; } // 1 file: mở đúng file vừa tải, replace để nút lui sạch
-    act.innerHTML=`<a href="reader.html?doc_id=${j.doc_id}" class="shrink-0 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Mở tài liệu →</a>`;
-  }catch(e){ uploadingNames.delete(f.name); const msg=String(e&&e.message||e);
-    st.innerHTML=`<span class="text-red-600 font-bold">Upload lỗi: ${esc(msg.slice(0,160))}</span>`;
-    act.innerHTML=`<button onclick="retryLast()" class="shrink-0 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Thử lại →</button>`; }
+function removeStaged(i){ if(uploading) return; staged.splice(i,1); renderStaged(); }
+function clearStaged(){ if(uploading) return; staged=[]; renderStaged(); }
+function renderStaged(){
+  const box=document.getElementById('uploadList'), foot=document.getElementById('uploadFooter'), btn=document.getElementById('openBtn');
+  box.innerHTML=staged.map((s,i)=>{
+    const st=s.status==='up'?'<span class="font-bold text-brand-600">Đang tải lên…</span>'
+      :s.status==='done'?`<span class="text-emerald-700">${s.pages?s.pages+' trang · ':''}đã tải lên</span>`
+      :s.status==='err'?`<span class="font-bold text-red-600">Lỗi: ${esc((s.msg||'').slice(0,120))}</span>`
+      :'Sẵn sàng · '+kbText(s.file.size);
+    return `<div class="fade-up flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 text-sm">
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-500 text-xs font-extrabold text-white">PDF</span>
+      <div class="min-w-0 flex-1"><p class="truncate font-bold">${esc(s.file.name)}</p><p class="font-mono text-[11px] text-stone-500">${st}</p></div>
+      <button onclick="removeStaged(${i})" ${uploading?'disabled':''} title="Bỏ file này" class="grid h-8 w-8 shrink-0 place-items-center rounded-full text-stone-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-30"><i class="ph-bold ph-x"></i></button>
+    </div>`; }).join('');
+  const n=staged.length;
+  foot.classList.toggle('hidden',!n); foot.classList.toggle('flex',!!n);
+  btn.disabled=!n||uploading;
+  btn.innerHTML=uploading?'Đang tải lên…':('Mở tài liệu'+(n>1?' ('+n+' file)':'')+' →');
+}
+async function openStaged(){
+  if(uploading||!staged.length) return;
+  if(!(await serverOnline())){ toast('Server chưa chạy — bật server rồi bấm Mở tài liệu lại'); return; }
+  uploading=true; renderStaged();
+  await Promise.all(staged.map(async s=>{
+    if(s.status==='done') return;
+    s.status='up'; s.msg=''; renderStaged();
+    try{
+      const fd=new FormData(); fd.append('f',s.file);
+      const r=await fetch(API_BASE+'/api/upload',{method:'POST',body:fd});
+      if(!r.ok) throw new Error(await r.text());
+      const j=await r.json();
+      s.docId=j.doc_id; s.pages=j.num_pages; s.status='done';
+      uploadedByKey[s.key]={docId:j.doc_id,pages:j.num_pages};
+    }catch(e){ s.status='err'; s.msg=String(e&&e.message||e); }
+    renderStaged();
+  }));
+  uploading=false; renderStaged();
+  if(staged.some(s=>s.status!=='done')){ toast('Có file tải lỗi — bỏ file lỗi (✕) hoặc bấm Mở tài liệu để thử lại'); return; }
+  const ids=[...new Set(staged.map(s=>s.docId))];
+  location.replace('reader.html?'+ids.map(id=>'doc_id='+encodeURIComponent(id)).join('&')); // replace: nút lui về thư viện sạch
 }
 /* ---- thư viện lưu trên server (SQLite, cổng 8002) ---- */
 const mapDocs=rows=>rows.map(d=>({id:d.doc_id,title:d.display_name||d.name}));
@@ -268,12 +347,12 @@ async function migrateLegacy(){ // một lần: đưa danh sách "tài liệu g�
   try{ if(localStorage.getItem('matchpdf_migrated')) return;
     const old=JSON.parse(localStorage.getItem('matchpdf_recents2')||'[]');
     for(const d of old){ const info=await fetch(API_BASE+'/api/doc/'+d.doc_id).then(r=>r.ok?r.json():null).catch(()=>null);
-      if(info) await LIB.put('/docs/'+d.doc_id,{name:info.name||d.name,num_pages:info.num_pages,parser:info.parser}); }
+      if(info) await LIB.put('/doc/'+d.doc_id,{name:info.name||d.name,num_pages:info.num_pages,parser:info.parser}); }
     localStorage.setItem('matchpdf_migrated','1'); }catch(e){}
 }
 async function loadDocs(){
-  let r=await LIB.get('/docs');
-  if(r.ok){ await migrateLegacy(); r=await LIB.get('/docs'); DOCS=mapDocs(r.data||[]); }
+  let r=await LIB.get('/doc');
+  if(r.ok){ await migrateLegacy(); r=await LIB.get('/doc'); DOCS=mapDocs(r.data||[]); }
   else { try{ DOCS=JSON.parse(localStorage.getItem('matchpdf_recents2')||'[]').map(d=>({id:d.doc_id,title:d.name})); }catch(e){ DOCS=[]; }
     toast('Chưa kết nối thư viện (cổng 8002) — đang hiện danh sách cũ trong trình duyệt'); }
   render();
@@ -286,10 +365,10 @@ function cardMenu(id,btn){ const m=document.getElementById('cardMenu');
 document.addEventListener('click',e=>{ const m=document.getElementById('cardMenu'); if(m&&menuId&&!m.classList.contains('hidden')&&!m.contains(e.target)){ m.classList.add('hidden'); menuId=null; } });
 async function renameDoc(){ const id=menuId; document.getElementById('cardMenu').classList.add('hidden'); menuId=null;
   const d=DOCS.find(x=>x.id===id); if(!d) return; const n=prompt('Tên mới:',d.title); if(!n||!n.trim()) return;
-  const r=await LIB.patch('/docs/'+id,{display_name:n.trim().slice(0,120)}); if(!r.ok){ toast('Không đổi được tên (thư viện chưa kết nối)'); return; } loadDocs(); }
+  const r=await LIB.patch('/doc/'+id,{display_name:n.trim().slice(0,120)}); if(!r.ok){ toast('Không đổi được tên (thư viện chưa kết nối)'); return; } loadDocs(); }
 async function deleteDoc(){ const id=menuId; document.getElementById('cardMenu').classList.add('hidden'); menuId=null;
   const d=DOCS.find(x=>x.id===id); if(!d||!confirm('Xóa “'+d.title+'” khỏi thư viện, kèm phiên chat, công thức và các bản DOCX?')) return;
-  const r=await LIB.del('/docs/'+id); if(!r.ok){ toast('Không xóa được (thư viện chưa kết nối)'); return; }
+  const r=await LIB.del('/doc/'+id); if(!r.ok){ toast('Không xóa được (thư viện chưa kết nối)'); return; }
   toast(r.data&&r.data.pdf==='deleted'?'Đã xóa tài liệu và PDF':'Đã xóa khỏi thư viện — PDF trên server chưa xóa được (BE chưa hỗ trợ)'); loadDocs(); }
 let toastT; function toast(msg){ let t=document.getElementById('toast'); if(!t){ t=document.createElement('div'); t.id='toast'; t.className='fixed bottom-6 left-1/2 z-[95] -translate-x-1/2 rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white shadow-2xl transition-opacity'; document.body.appendChild(t); }
   t.textContent=msg; t.style.opacity=1; clearTimeout(toastT); toastT=setTimeout(()=>t.style.opacity=0,3200); }

@@ -18,10 +18,11 @@ from backend.app.models.database import (Document, DocumentStatus, Job,
 
 logger = logging.getLogger(__name__)
 
-_lock = threading.Lock()
-_index_cache: Dict[str, Any] = {}          # doc_id -> LlamaIndex VectorStoreIndex đã nạp
-_executor: Optional[ThreadPoolExecutor] = None
+DOCX_FAILED_FLAG = "docx_failed.flag"
 
+_lock = threading.Lock()
+_index_cache: Dict[str, Any] = {}
+_executor: Optional[ThreadPoolExecutor] = None
 
 #  nạp / tìm chỉ mục
 def clear_cache() -> None:
@@ -45,7 +46,6 @@ def load_index(doc_id: str) -> Any:
 
 
 def search(doc_id: str, question: str, top_k: int) -> List[dict]:
-    """Trả về list dict: node_id, score, source, page, section, formula_latex, text."""
     from llm.src.llama_rag import retrieve
     idx = load_index(doc_id)
     return retrieve(idx, question, top_k)
@@ -75,7 +75,7 @@ def _succeeded(db: Session, doc: Document, job: Job, num_sections: int, num_chun
 
 
 def _failed(db: Session, doc: Document, job: Job, code: str, message: str) -> None:
-    job.status = JobStatus.failed.value      # giữ nguyên job.stage = bước bị lỗi
+    job.status = JobStatus.failed.value
     job.error_code = code
     job.error_message = message
     job.finished_at = utcnow()
@@ -86,7 +86,6 @@ def _failed(db: Session, doc: Document, job: Job, code: str, message: str) -> No
 
 
 def fail_stale_jobs(db: Session) -> int:
-    """Job đang chạy dở khi server tắt đột ngột -> đánh dấu failed."""
     stale = db.scalars(select(Job).where(
         Job.status.in_([JobStatus.queued.value, JobStatus.running.value]))).all()
     for job in stale:
@@ -97,10 +96,23 @@ def fail_stale_jobs(db: Session) -> int:
 
 
 def queue_depth(db: Session) -> int:
-    """Số job đang queued hoặc running (dùng để giới hạn hàng đợi)."""
     from sqlalchemy import func
     return db.scalar(select(func.count()).select_from(Job).where(
         Job.status.in_([JobStatus.queued.value, JobStatus.running.value]))) or 0
+
+
+#  DOCX chạy nền (không chặn chat)
+def _build_docx_background(doc_id: str, work_md, docx_path, images_dir, flag_path) -> None:
+    """Chạy trong thread riêng. Lỗi KHÔNG làm fail cả tài liệu — chỉ ghi cờ
+    docx_failed.flag để compat_controller báo docx='failed', chat vẫn dùng được."""
+    try:
+        flag_path.unlink(missing_ok=True)
+        from llm.src.build_docx import md_to_docx
+        md_to_docx(work_md, docx_path, images_dir)
+        logger.info("DOCX xong (nền): %s", docx_path)
+    except Exception as e:                            # noqa: BLE001
+        logger.exception("Xuất DOCX lỗi (doc=%s)", doc_id)
+        flag_path.write_text(str(e)[:500], encoding="utf-8")
 
 
 #  chạy pipeline
@@ -120,9 +132,7 @@ def run_pipeline(document_id: str, job_id: str) -> None:
             logger.error("Không tìm thấy document/job (%s, %s)", document_id, job_id)
             return
         try:
-            # Import muộn: tránh nạp MinerU/torch/LlamaIndex khi chỉ chạy API hoặc test.
-            from llm.latex_norm import fix_vni, normalize_math_in_text
-            from llm.src.build_docx import md_to_docx, prepare_work_md
+            from llm.src.build_docx import fix_legacy_tex_bf, prepare_work_md
             from llm.src.chunking import build_chunks
             from llm.src.config import EMBED_MODEL, MAX_CHARS, MINERU_TIER, OVERLAP
             from llm.src.llama_rag import build_index, chunks_to_nodes
@@ -137,32 +147,36 @@ def run_pipeline(document_id: str, job_id: str) -> None:
             rag_dir = settings.rag_dir(doc.id)
             docx_path = settings.docx_path(doc.id)
             doc_dir = settings.doc_dir(doc.id)
+            docx_flag = doc_dir / DOCX_FAILED_FLAG
             for d in (mineru_dir, rag_dir):
                 d.mkdir(parents=True, exist_ok=True)
 
-            # 1. MinerU (mineru-kit parse). Tự bỏ qua nếu run này đã có output (vd. sau retry).
-            _running(db, doc, job, DocumentStatus.mineru_parsing, 5)
+            # 1. MinerU (tự bỏ qua nếu run này đã có output, vd. sau retry)
+            _running(db, doc, job, DocumentStatus.mineru_parsing, 10)
             run_mineru(pdf_path, mineru_dir, tier=MINERU_TIER)
             content_list_path = find_content_list(mineru_dir)
             md_path, _, _ = find_mineru_outputs(mineru_dir)
-            # Sửa VNI + chuẩn hoá công thức để Pandoc ra Equation, và để structured/RAG
-            # dùng chung một bản Markdown sạch (không lệch giữa DOCX và chat).
-            markdown_text = normalize_math_in_text(fix_vni(
-                md_path.read_text(encoding="utf-8", errors="ignore")))
+            markdown_text = md_path.read_text(encoding="utf-8", errors="ignore")
+            # Fix `{\bf X}` -> `\mathbf{X}`: pandoc/texmath không hiểu \bf, công thức
+            # bị fallback về text thô nếu không fix -- dùng chung cho DOCX lẫn RAG.
+            markdown_text = fix_legacy_tex_bf(markdown_text)
             if not markdown_text.strip():
                 raise PipelineError("EMPTY_MARKDOWN", "MinerU không trích xuất được nội dung.")
 
-            # 2. Markdown -> DOCX
-            _running(db, doc, job, DocumentStatus.building_docx, 40)
+            # 2. Chuẩn bị Markdown cho DOCX rồi XUẤT WORD Ở NỀN -- không chặn bước 3-4.
+            # DOCX (pandoc) có thể mất vài phút với file dài; RAG index nhanh hơn nhiều
+            # -> tách luồng để chat dùng được ngay khi index xong.
+            _running(db, doc, job, DocumentStatus.building_docx, 30)
             work_md = doc_dir / "work_for_docx.md"
             prepare_work_md(markdown_text, md_path, work_md)
-            md_to_docx(work_md, docx_path, md_path.parent)
-            if not docx_path.exists():
-                raise PipelineError("DOCX_NOT_CREATED", "Không tạo được file DOCX.")
+            docx_thread = threading.Thread(
+                target=_build_docx_background,
+                args=(doc.id, work_md, docx_path, md_path.parent, docx_flag),
+                daemon=True, name=f"docx-{doc.id}")
+            docx_thread.start()
 
-            # 3. Structured blocks + chunk theo BLOCK (có trang thật, không base64,
-            #    công thức/table không bị cắt đôi)
-            _running(db, doc, job, DocumentStatus.indexing, 65)
+            # 3. Structured blocks + chunk theo BLOCK -- chạy NGAY, song song với DOCX
+            _running(db, doc, job, DocumentStatus.indexing, 55)
             raw = load_raw(content_list_path, md_path, md_text=markdown_text)
             blocks = normalize_blocks(raw, source=doc.filename, doc_id=doc.id)
             save_structured(blocks, doc_dir / "structured_data.json")
@@ -177,16 +191,18 @@ def run_pipeline(document_id: str, job_id: str) -> None:
                 logger.warning("Tài liệu %s: %d vấn đề validate_chunks (%s)",
                                doc.id, len(report["problems"]), report["problems"][:5])
 
-            # 4. LlamaIndex (E5) — tự lưu persist_dir, không cần tự ghi file như FAISS trước
+            # 4. LlamaIndex -- xong bước này là CHAT DÙNG ĐƯỢC, bất kể docx_thread
+            # (bước 2) đã xong hay chưa.
             nodes = chunks_to_nodes(chunks)
             build_index(nodes, EMBED_MODEL, rag_dir)
             with _lock:
-                _index_cache.pop(doc.id, None)   # xoá cache cũ nếu đây là lần retry
+                _index_cache.pop(doc.id, None)
 
             n_sections = len({c["section"] for c in chunks})
             _succeeded(db, doc, job, n_sections, len(chunks))
-            logger.info("Hoàn tất tài liệu %s: %d sections, %d chunks",
-                        doc.id, n_sections, len(chunks))
+            logger.info("Hoàn tất tài liệu %s: %d sections, %d chunks (DOCX %s)",
+                        doc.id, n_sections, len(chunks),
+                        "vẫn đang xuất ở nền" if docx_thread.is_alive() else "đã xong")
         except PipelineError as e:
             db.rollback()
             _failed(db, doc, job, e.code, e.message)
@@ -198,11 +214,12 @@ def run_pipeline(document_id: str, job_id: str) -> None:
 
 # hàng đợi nền
 def submit_pipeline(document_id: str, job_id: str):
-    """Cho phép tối đa 3 PDF xử lý song song"""
     global _executor
     with _lock:
         if _executor is None:
             _executor = ThreadPoolExecutor(max_workers=3, thread_name_prefix="pipeline")
+        ex = _executor
+    return ex.submit(run_pipeline, document_id, job_id)
 
 
 def shutdown() -> None:

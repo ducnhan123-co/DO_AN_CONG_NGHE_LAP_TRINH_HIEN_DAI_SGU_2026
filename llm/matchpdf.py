@@ -18,19 +18,19 @@ from pypdf import PdfReader
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from llm.latex_norm import normalize_latex
-from llm.ocr import extract_pages
+from DO_AN_CONG_NGHE_LAP_TRINH_HIEN_DAI_SGU_2026.llm.latex_norm import normalize_latex
+from DO_AN_CONG_NGHE_LAP_TRINH_HIEN_DAI_SGU_2026.llm.ocr import extract_pages
 
 try:
-    from llm.src.run_mineru import find_content_list, find_mineru_outputs, run_mineru
-    from llm.src.structured import load_raw, normalize_blocks
-    from llm.src.build_docx import md_to_docx, prepare_work_md
-    from llm.latex_norm import fix_vni, normalize_math_in_text
+    from DO_AN_CONG_NGHE_LAP_TRINH_HIEN_DAI_SGU_2026.llm.src.run_mineru import find_content_list, find_mineru_outputs, run_mineru
+    from DO_AN_CONG_NGHE_LAP_TRINH_HIEN_DAI_SGU_2026.llm.src.structured import load_raw, normalize_blocks
+    from DO_AN_CONG_NGHE_LAP_TRINH_HIEN_DAI_SGU_2026.llm.src.build_docx import md_to_docx, prepare_work_md
+    from DO_AN_CONG_NGHE_LAP_TRINH_HIEN_DAI_SGU_2026.llm.latex_norm import fix_vni, normalize_math_in_text
 except ImportError:  # fallback khi chay tu thu muc llm/
-    from src.run_mineru import find_content_list, find_mineru_outputs, run_mineru  # type: ignore
-    from src.structured import load_raw, normalize_blocks  # type: ignore
-    from src.build_docx import md_to_docx, prepare_work_md  # type: ignore
-    from latex_norm import fix_vni, normalize_math_in_text  # type: ignore
+    from DO_AN_CONG_NGHE_LAP_TRINH_HIEN_DAI_SGU_2026.llm.src.run_mineru import find_content_list, find_mineru_outputs, run_mineru  # type: ignore
+    from DO_AN_CONG_NGHE_LAP_TRINH_HIEN_DAI_SGU_2026.llm.src.structured import load_raw, normalize_blocks  # type: ignore
+    from DO_AN_CONG_NGHE_LAP_TRINH_HIEN_DAI_SGU_2026.llm.src.build_docx import md_to_docx, prepare_work_md  # type: ignore
+    from DO_AN_CONG_NGHE_LAP_TRINH_HIEN_DAI_SGU_2026.llm.latex_norm import fix_vni, normalize_math_in_text  # type: ignore
 
 TOP_K = 5
 MAX_CHARS = 1500

@@ -1,0 +1,19 @@
+﻿
+document.getElementById('demoRead').onclick=()=>document.getElementById('realFile').click();
+document.getElementById('demoChat').onclick=()=>document.getElementById('serverFile').click();
+document.getElementById('prevPage').onclick=()=>gotoPage(Math.max(1,+document.getElementById('pageInput').value-1));
+document.getElementById('nextPage').onclick=()=>gotoPage(Math.min(+document.getElementById('pageTotal').textContent,+document.getElementById('page
+Input').value+1));
+document.getElementById('zoomIn').onclick=()=>setZoom(pdfScale+.15);
+document.getElementById('zoomOut').onclick=()=>setZoom(pdfScale-.15);
+document.getElementById('zoomFit').onclick=()=>{ if(pdfViewer&&pdfViewer.pdfDocument) pdfViewer.currentScaleValue='page-width'; else 
+setZoom(1.15); };
+document.getElementById('btnThumbs').onclick=()=>document.getElementById('outline').classList.toggle('md:flex');
+document.getElementById('sendBtn').onclick=()=>send();
+document.querySelectorAll('#chips .chip').forEach(c=>c.onclick=()=>send(c.dataset.q));
+document.getElementById('btnDocx').onclick=downloadDocx;
+document.getElementById('tabPdf').onclick=()=>showTab('pdf');
+document.getElementById('tabChat').onclick=()=>showTab('chat');
+document.getElementById('btnDownload').onclick = () => {
+
+

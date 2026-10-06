@@ -10,7 +10,10 @@ Giữ nguyên chữ ký find_mineru_outputs() như bản gốc (trả 3 giá tr�
 vỡ các đoạn code debug thủ công trong HUONG_DAN_CHAY_CHI_TIET.md.
 """
 import hashlib
+import json
+import shutil
 import subprocess
+import zipfile
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -38,34 +41,80 @@ def find_content_list(mineru_dir: Path) -> Optional[Path]:
     return max(cands, key=lambda p: p.stat().st_size) if cands else None
 
 
+_SKIP = {"header", "footer", "page_number", "aside_text", "page_footnote"}
+
+
+def kit_to_content_list(structured: dict) -> List[dict]:
+    """structured_content.json của `mineru-kit` (4.x) -> danh sách phẳng kiểu *_content_list.json
+    (page_idx/type/text/text_level) để structured.normalize_blocks và Library ingest đọc như cũ."""
+    out: List[dict] = []
+    as_list = lambda v: [x if isinstance(x, str) else str(x) for x in (v or [])]
+    for page in structured.get("pages", []):
+        for b in page.get("blocks", []):
+            t, c = b.get("type"), b.get("content") or ""
+            item = {"page_idx": page.get("page_idx", 0), "bbox": b.get("bbox")}
+            if t in _SKIP:
+                continue
+            if t in ("text", "doc_title", "paragraph_title"):
+                item.update(type="text", text=c)
+                if b.get("level"):
+                    item["text_level"] = b["level"]
+            elif t == "equation":
+                item.update(type="equation", text=f"$$\n{c}\n$$", img_path=b.get("image_source"))
+            elif t == "table":
+                item.update(type="table", table_body=c, table_caption=as_list(b.get("captions")),
+                            table_footnote=as_list(b.get("footnotes")), img_path=b.get("image_source"))
+            elif t in ("image", "chart"):
+                item.update(type="image", image_caption=as_list(b.get("captions")), img_path=b.get("image_source"))
+            elif t == "code":
+                item.update(type="code", code_body=c)
+            elif c:
+                item.update(type="text", text=c)
+            else:
+                continue
+            out.append(item)
+    return out
+
+
+def _run_kit(kit: str, pdf_path: Path, out_dir: Path, tier: str) -> None:
+    """mineru-kit 4.x: parse ra zip (markdown + ảnh + structured_content), giải nén và dựng content_list."""
+    tmp = out_dir / "_kit"
+    shutil.rmtree(tmp, ignore_errors=True)
+    cmd = [kit, "parse", str(pdf_path), "-o", str(tmp), "--tier", tier, "-f", "zip"]
+    print("Running:", " ".join(cmd))
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    zips = list(tmp.glob("*.zip"))
+    if result.returncode != 0 or not zips:
+        print(result.stderr[-2000:])
+        raise RuntimeError("MinerU (mineru-kit parse) thất bại; thử --tier advanced hoặc xem `mineru-kit --help`.")
+    with zipfile.ZipFile(zips[0]) as z:
+        z.extractall(out_dir)
+    shutil.rmtree(tmp, ignore_errors=True)
+    stem = pdf_path.stem
+    (out_dir / "markdown.md").replace(out_dir / f"{stem}.md")
+    structured = json.loads((out_dir / "structured_content.json").read_text(encoding="utf-8"))
+    (out_dir / f"{stem}_content_list.json").write_text(
+        json.dumps(kit_to_content_list(structured), ensure_ascii=False), encoding="utf-8")
+
+
 def run_mineru(pdf_path: Path, out_dir: Path, backend: str = "pipeline",
                tier: str = "standard", force: bool = False) -> None:
-    """Chạy MinerU bằng CLI mới của MinerU 4.0 (`mineru-kit parse`), giống notebook.
-
-    Lệnh cũ `mineru -p ... -o ... -b <backend>` đã bị loại bỏ từ MinerU 4.0.
-    Dùng lệnh cũ trên MinerU 4.x khiến bước parse PDF chạy sai/rơi vào nhánh
-    khác kém chính xác hơn -> Markdown thiếu chữ, sai chữ, mất công thức,
-    và lỗi đó lan xuống DOCX + RAG vì cả hai đều dựng từ Markdown này.
-    `backend` được giữ lại trong chữ ký hàm để không vỡ code gọi cũ, nhưng
-    không còn dùng nữa (mineru-kit tự chọn route theo --tier).
-    """
+    """Chạy MinerU. Có `mineru-kit` (MinerU 4.x) thì dùng — công thức LaTeX sạch hơn rõ rệt;
+    không có thì rơi về CLI cũ `mineru -p -o -b pipeline` (2.x) để máy chưa nâng cấp vẫn chạy."""
     out_dir.mkdir(parents=True, exist_ok=True)
     if not force and find_content_list(out_dir):
         print(f"[MinerU] Đã có output cho PDF này, bỏ qua chạy lại: {out_dir}")
-        print("         (dùng --force nếu muốn chạy lại MinerU)")
         return
-    cmd = ["mineru-kit", "parse", str(pdf_path), "-o", str(out_dir), "--tier", tier]
-    print("Running:", " ".join(cmd))
-    result = subprocess.run(cmd, capture_output=True, text=True,
-                            encoding="utf-8", errors="replace")
-    print(result.stdout)
+    kit = shutil.which("mineru-kit")
+    if kit:
+        _run_kit(kit, pdf_path, out_dir, tier)
+        return
+    cmd = ["mineru", "-p", str(pdf_path), "-o", str(out_dir), "-b", backend]
+    print("Running (legacy):", " ".join(cmd))
+    result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if result.returncode != 0:
-        print(result.stderr)
-        raise RuntimeError(
-            "MinerU (mineru-kit parse) thất bại. Thử --tier advanced nếu "
-            "công thức toán ra không chuẩn với standard, hoặc kiểm tra "
-            "`mineru-kit --help` để xem CLI có đổi tham số không."
-        )
+        print(result.stderr[-2000:])
+        raise RuntimeError("MinerU thất bại (không có mineru-kit; CLI cũ `mineru` cũng lỗi).")
 
 
 def find_mineru_outputs(mineru_dir: Path):

@@ -82,7 +82,9 @@ class Document(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
                                                  onupdate=utcnow)
-
+    parent_document_id: Mapped[Optional[str]] = mapped_column(
+        String(DOC_ID_LEN), ForeignKey("documents.id", ondelete="SET NULL"),
+        nullable=True, index=True)
     jobs: Mapped[list["Job"]] = relationship(back_populates="document",
                                              cascade="all, delete-orphan")
     messages: Mapped[list["Message"]] = relationship(back_populates="document",

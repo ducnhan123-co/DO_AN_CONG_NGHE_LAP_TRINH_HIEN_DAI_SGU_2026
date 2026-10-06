@@ -17,8 +17,9 @@ from sqlalchemy.orm import Session
 from backend.app.core.config import get_settings
 from backend.app.core.errors import AppError
 from backend.app.core.llm import LLMError, get_llm
-from backend.app.models import chat_model, document_model
+from backend.app.models import chat_model, document_model, library_model
 from backend.app.models.database import Document, DocumentStatus, get_db
+from backend.app.models.library_db import LibDb
 
 router = APIRouter(tags=["compat (frontend hiện tại)"])
 DbSession = Annotated[Session, Depends(get_db)]
@@ -40,6 +41,7 @@ def _compat_info(doc: Document) -> dict:
     """Dựng đúng 4 field trạng thái mà reader.html/index.html đọc trực tiếp."""
     settings = get_settings()
     docx_exists = settings.docx_path(doc.id).exists()
+    docx_flag = settings.doc_dir(doc.id) / "docx_failed.flag"   # MỚI
 
     if doc.status == DocumentStatus.ready.value:
         status, parser = "ready", "mineru"
@@ -50,7 +52,9 @@ def _compat_info(doc: Document) -> dict:
 
     embed = "building" if doc.status == DocumentStatus.indexing.value else None
 
-    if doc.status == DocumentStatus.failed.value:
+    if docx_flag.exists():                                     
+        docx_state = "failed"
+    elif doc.status == DocumentStatus.failed.value:
         docx_state = "failed"
     elif docx_exists:
         docx_state = "ready"
@@ -90,7 +94,7 @@ async def upload(db: DbSession, f: UploadFile = File(...)) -> dict:
     return _compat_info(doc)
 
 
-@router.get("/lib/doc/{doc_id}", summary="[Tương thích] Thông tin tài liệu (4 trục trạng thái)")
+@router.get("/doc/{doc_id}", summary="[Tương thích] Thông tin tài liệu (4 trục trạng thái)")
 def doc_info(doc_id: str, db: DbSession) -> dict:
     try:
         doc = document_model.get_document(db, doc_id)
@@ -99,16 +103,24 @@ def doc_info(doc_id: str, db: DbSession) -> dict:
     return _compat_info(doc)
 
 
-@router.delete("/lib/doc/{doc_id}", summary="[Tương thích] Xóa tài liệu")
-def delete_doc(doc_id: str, db: DbSession):
+@router.delete("/doc/{doc_id}", summary="[Tương thích] Xóa tài liệu (cả dữ liệu backend lẫn thư viện)")
+def delete_doc(doc_id: str, db: DbSession, lib: LibDb):
+    """Gộp 2 nghiệp vụ xóa: backend (PDF + index + DB) rồi thư viện (phiên chat, công thức, DOCX...).
+    Chỉ 404 khi CẢ HAI bên đều không biết tài liệu này."""
+    pdf = "deleted"
     try:
         document_model.delete_document(db, doc_id)
     except AppError as exc:
-        _raise_as_http(exc)
-    return {"ok": True}
+        if exc.status_code != 404:
+            _raise_as_http(exc)
+        pdf = "missing"
+    had_library = library_model.delete_document(lib, doc_id)
+    if pdf == "missing" and not had_library:
+        raise HTTPException(404, "Tài liệu không tồn tại.")
+    return {"ok": True, "pdf": pdf, "library": "deleted" if had_library else "none"}
 
 
-@router.get("/lib/file/{doc_id}", summary="[Tương thích] Xem PDF gốc (inline)")
+@router.get("/file/{doc_id}", summary="[Tương thích] Xem PDF gốc (inline)")
 def file(doc_id: str, db: DbSession):
     try:
         doc = document_model.get_document(db, doc_id)
@@ -121,7 +133,7 @@ def file(doc_id: str, db: DbSession):
                         content_disposition_type="inline")
 
 
-@router.get("/lib/docx/{doc_id}", summary="[Tương thích] Tải file DOCX (endpoint riêng, khớp docx_url)")
+@router.get("/docx/{doc_id}", summary="[Tương thích] Tải file DOCX (endpoint riêng, khớp docx_url)")
 def docx_file(doc_id: str, db: DbSession):
     try:
         doc = document_model.get_document(db, doc_id)
@@ -172,7 +184,7 @@ def chat_stream(payload: ChatStreamRequest, db: DbSession):
         try:
             for kind, data in chat_model.stream_events(
                 payload.doc_id, payload.question, payload.top_k,
-                client_history=payload.history or None,
+                client_history=payload.history or None, persist=False,
             ):
                 if kind == "token":
                     yield f"data: {json.dumps({'t': data['text']}, ensure_ascii=False)}\n\n"

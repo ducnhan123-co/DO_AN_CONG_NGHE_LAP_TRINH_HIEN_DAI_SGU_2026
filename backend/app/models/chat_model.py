@@ -91,8 +91,9 @@ def _save_messages(document_id: str, question: str, answer_text: str,
         return assistant.id
 
 
-def stream_events(document_id: str, question: str, top_k: Optional[int] = None) -> Iterator[Event]:
-    """Sinh chuỗi sự kiện: thinking* -> token* -> citations -> done (hoặc error)."""
+def stream_events(document_id: str, question: str, top_k: Optional[int] = None,
+                  client_history: Optional[List[dict]] = None,
+                  persist: bool = True) -> Iterator[Event]:
     settings = get_settings()
     k = top_k or settings.top_k
     history = _recent_history(document_id, settings.chat_history_turns)
@@ -134,7 +135,11 @@ def stream_events(document_id: str, question: str, top_k: Optional[int] = None) 
                 answer_text = "".join(parts).strip() or NO_RESULT
 
         yield "citations", {"items": citations}
-        message_id = _save_messages(document_id, question, answer_text, thinking, citations)
+        if persist:
+            message_id = _save_messages(document_id, question, answer_text, thinking, citations)
+        else:
+            import uuid
+            message_id = uuid.uuid4().hex   # chỉ để điền schema, không ghi DB
         yield "done", ChatResponse(message_id=message_id, document_id=document_id,
                                    answer=answer_text, citations=citations,
                                    thinking=thinking).model_dump()
