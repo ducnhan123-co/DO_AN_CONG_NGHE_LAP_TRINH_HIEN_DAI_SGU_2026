@@ -1,0 +1,47 @@
+﻿
+> async function handleFiles(fileList){
+    const files=[...fileList]; // chụp ngay: input.value='' / DataTransfer làm rỗng FileList gốc trước khi await xong
+    const box=document.getElementById('uploadList'); box.innerHTML='';
+    if(!files.length){ box.innerHTML='<p class="text-sm text-stone-400 text-center py-2">Chưa có file nào. Thử kéo 1 file PDF vào.</p>'; return; }
+    lastFiles=files;
+    const online=await serverOnline();
+    files.slice(0,5).forEach((f)=>{
+      const row=document.createElement('div');
+      row.className='flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 text-sm fade-up';
+      row.innerHTML=`<span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-500 text-white font-extrabold text-xs">PDF</span>
+        <div class="min-w-0 flex-1"><p class="truncate font-bold">${esc(f.name)}</p>
+        <p class="st-status font-mono text-[11px] text-stone-500">Đang chờ…</p></div>
+        <span class="st-action shrink-0"></span>`;
+      box.appendChild(row);
+      const done=uploadedByName[f.name];
+      if(done&&done.docId){ // file này đã tải rồi: mở lại bản cũ, không POST nữa
+        row.querySelector('.st-status').textContent='File này đã tải rồi — mở lại bản cũ';
+        row.querySelector('.st-action').innerHTML=`<a href="reader.html?doc_id=${done.docId}" class="shrink-0 rounded-lg bg-brand-500 px-3 py-1.5 
+text-xs font-bold text-white hover:bg-brand-600">Mở tài liệu →</a>`;
+        if(files.length===1) location.replace('reader.html?doc_id='+done.docId);
+        return;
+      }
+      if(uploadingNames.has(f.name)){ row.querySelector('.st-status').textContent='Đang tải lên…'; return; }
+      if(online) uploadOne(f,row,files.length===1);
+      else{ row.querySelector('.st-status').textContent='Server chưa chạy — bật server rồi bấm Thử lại';
+        row.querySelector('.st-action').innerHTML=`<button onclick="retryLast()" class="shrink-0 rounded-lg bg-stone-900 px-3 py-1.5 text-xs 
+font-bold text-white hover:bg-brand-600">Thử lại →</button>`; }
+    });
+  }
+  async function uploadOne(f,row,autoOpen){
+    const st=row.querySelector('.st-status'), act=row.querySelector('.st-action');
+    uploadingNames.add(f.name);
+    st.innerHTML='<span class="text-brand-600 font-bold">Đang tải lên…</span>';
+    try{
+      const fd=new FormData(); fd.append('f',f);
+      const r=await fetch(API_BASE+'/api/upload',{method:'POST',body:fd});
+      if(!r.ok) throw new Error(await r.text());
+      const j=await r.json();
+      uploadingNames.delete(f.name);
+      uploadedByName[f.name]={docId:j.doc_id};
+      st.textContent=`${j.num_pages} trang · đã nhận, đang đọc nội dung ở nền`;
+      if(autoOpen){ location.replace('reader.html?doc_id='+j.doc_id); return; } // 1 file: mở đúng file vừa tải, replace để nút lui sạch
+      act.innerHTML=`<a href="reader.html?doc_id=${j.doc_id}" class="shrink-0 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-bold text-white 
+hover:bg-brand-600">Mở tài liệu →</a>`;
+
+

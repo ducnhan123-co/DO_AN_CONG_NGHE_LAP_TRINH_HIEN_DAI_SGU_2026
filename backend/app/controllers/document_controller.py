@@ -8,7 +8,8 @@ from backend.app.models import document_model
 from backend.app.models.database import get_db
 from backend.app.views.schemas import (DocumentCreated, DocumentListItem,
                                        DocumentListOut, DocumentOut,
-                                       MessageListOut, MessageOut, errors)
+                                       MessageListOut, MessageOut,
+                                       SplitRequest, SplitResponse, SplitResultItem, errors)
 
 router = APIRouter()
 DbSession = Annotated[Session, Depends(get_db)]
@@ -51,6 +52,17 @@ def retry_document(document_id: str, response: Response, db: DbSession):
     response.headers["Location"] = job_url
     return DocumentCreated(document_id=doc.id, job_id=job.id, filename=doc.filename,
                            status=doc.status, job_url=job_url)
+
+
+@router.post("/documents/{document_id}/split", tags=["documents"], response_model=SplitResponse,
+             status_code=202, summary="Cắt PDF thành nhiều tài liệu con theo khoảng trang",
+             responses=errors(404, 409, 422, 429))
+def split_document(document_id: str, body: SplitRequest, db: DbSession):
+    ranges = [{"from": r.from_page, "to": r.to_page, "name": r.name} for r in body.ranges]
+    results = document_model.split_document(db, document_id, ranges)
+    parts = [SplitResultItem(document_id=d.id, job_id=j.id, filename=d.filename, status=d.status)
+            for d, j in results]
+    return SplitResponse(parent_document_id=document_id, parts=parts)
 
 
 @router.delete("/documents/{document_id}", tags=["documents"], status_code=204,

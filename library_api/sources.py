@@ -1,4 +1,3 @@
-"""Điểm DUY NHẤT biết bố cục của BE (đọc file, gọi xóa). BE đổi (vd. nhánh Nghia) -> chỉ sửa file này."""
 import os
 import re
 from pathlib import Path
@@ -12,15 +11,15 @@ DOC_ID_RE = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
 
 def pdf_path(doc_id: str) -> Path:
-    return DATA_DIR / f"{doc_id}.pdf"
+    return DATA_DIR / doc_id / "input.pdf"
 
 
 def docx_path(doc_id: str) -> Path:
-    return DATA_DIR / f"{doc_id}.docx"
+    return DATA_DIR / doc_id / "output.docx"
 
 
 def content_list_path(doc_id: str) -> Path | None:
-    found = list((DATA_DIR / f"{doc_id}_mineru").rglob("*_content_list.json"))
+    found = list((DATA_DIR / doc_id / "mineru").rglob("*_content_list.json"))
     return max(found, key=lambda p: p.stat().st_size) if found else None
 
 

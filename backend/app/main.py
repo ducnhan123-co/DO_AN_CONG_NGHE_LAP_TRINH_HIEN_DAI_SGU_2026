@@ -122,45 +122,49 @@
 #     return StreamingResponse(events(), media_type="text/event-stream")
 """Điểm khởi động ứng dụng: tạo FastAPI app, gắn router, quản lý vòng đời."""
 import os
-
+ 
 # Bắt buộc đặt TRƯỚC mọi import khác: ép Python (kể cả subprocess con như MinerU)
 # đọc/ghi UTF-8, tránh UnicodeDecodeError 'charmap' khi chạy trên Windows.
 os.environ.setdefault("PYTHONUTF8", "1")
-
+ 
 import logging
 from contextlib import asynccontextmanager
-
+ 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+ 
 from backend.app.controllers import router
 from backend.app.core.config import get_settings, setup_logging
 from backend.app.core.errors import register_exception_handlers
 from backend.app.core.llm import LLMError, get_llm
 from backend.app.models import SessionLocal, init_db
-from backend.app.models import pipeline_model
-
+from backend.app.models import library_db, pipeline_model
+ 
 logger = logging.getLogger(__name__)
-
+ 
 DESCRIPTION = """
 Upload PDF toán → MinerU → DOCX → RAG hỏi đáp có trích dẫn.
-
+ 
 **Luồng dùng:** `POST /documents` → theo dõi `GET /jobs/{id}` đến khi `succeeded`
 → `POST /documents/{id}/chat` → `GET /documents/{id}/export/docx`.
-
+ 
 **Chat stream:** gửi `stream=true` để nhận SSE gồm các sự kiện `thinking`, `token`,
 `citations`, `done`, `error`.
-
+ 
 **Thử lại tài liệu lỗi:** `POST /documents/{id}/retry` dùng lại PDF đã lưu, không cần upload lại.
+ 
+**Thư viện (header `X-Client-Id`):** `/doc`, `/doc/{id}/sessions`, `/session/{sid}/messages`,
+`/doc/{id}/ingest|context|docx|activity` — tài liệu, phiên chat, công thức, lịch sử DOCX.
 """
-
-
+ 
+ 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     s = get_settings()
     setup_logging(s.log_level)
     (s.data_dir / "documents").mkdir(parents=True, exist_ok=True)
     init_db()
+    library_db.connect().close()   # tạo / migrate library.db ngay khi khởi động
     with SessionLocal() as db:
         n = pipeline_model.fail_stale_jobs(db)
         if n:
@@ -172,16 +176,17 @@ async def lifespan(_: FastAPI):
             logger.warning("Preload LLM thất bại: %s", e)
     yield
     pipeline_model.shutdown()
-
-
+ 
+ 
 def create_app() -> FastAPI:
     s = get_settings()
     app = FastAPI(title=s.app_name, description=DESCRIPTION, version="1.0.0", lifespan=lifespan)
     app.add_middleware(CORSMiddleware, allow_origins=s.cors_origins,
-                       allow_methods=["*"], allow_headers=["*"])
+                       allow_methods=["*"], allow_headers=["*"],
+                       expose_headers=["Content-Range", "Accept-Ranges", "Content-Length"])  # PDF Range
     register_exception_handlers(app)
     app.include_router(router, prefix=s.api_prefix)
     return app
-
-
+ 
+ 
 app = create_app()

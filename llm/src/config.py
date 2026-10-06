@@ -11,7 +11,8 @@ MỚI (fix lỗi tuần 2): mỗi PDF chạy trong một run dir riêng `runs/<t
 """
 from pathlib import Path
 
-BASE = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+BASE = PROJECT_ROOT / "backend" / "data" / "documents"
 INPUT_DIR = BASE / "input"
 DOCX_DIR = BASE / "docx_output"
 RUNS_DIR = BASE / "runs"

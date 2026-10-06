@@ -3,6 +3,7 @@ import logging
 import shutil
 from pathlib import Path
 from typing import List, Optional, Tuple
+from pypdf import PdfReader, PdfWriter
 
 from fastapi import UploadFile
 from sqlalchemy import func, select
@@ -123,6 +124,69 @@ def retry_document(db: Session, document_id: str) -> Tuple[Document, Job]:
     return doc, job
 
 
+def split_document(db: Session, document_id: str, ranges: List[dict]) -> List[Tuple[Document, Job]]:
+    """Cắt PDF gốc thành nhiều Document con độc lập theo khoảng trang (1-based, bao gồm cả 2 đầu).
+    ranges: [{"from": 1, "to": 20, "name": "Chương 1"}, ...]"""
+    parent = get_document(db, document_id)
+    settings = get_settings()
+    src_path = settings.pdf_path(parent.id)
+    if not src_path.exists():
+        raise AppError(409, "PDF_MISSING", "Không tìm thấy PDF gốc để cắt.")
+
+    reader = PdfReader(str(src_path))
+    total_pages = len(reader.pages)
+
+    for i, r in enumerate(ranges):
+        f, t = r.get("from"), r.get("to")
+        if not isinstance(f, int) or not isinstance(t, int) or f < 1 or t < f or t > total_pages:
+            raise AppError(422, "INVALID_RANGE",
+                           f"Khoảng trang #{i + 1} không hợp lệ (file có {total_pages} trang).",
+                           {"range": r, "total_pages": total_pages})
+
+    pending = pipeline_model.queue_depth(db)
+    if pending + len(ranges) > settings.max_queued_jobs:
+        raise AppError(429, "TOO_MANY_JOBS_QUEUED",
+                       f"Cắt thành {len(ranges)} phần sẽ vượt giới hạn hàng đợi "
+                       f"({settings.max_queued_jobs}). Giảm số phần hoặc thử lại sau.",
+                       {"pending": pending, "requested": len(ranges)})
+
+    results: List[Tuple[Document, Job]] = []
+    for i, r in enumerate(ranges):
+        name = (r.get("name") or f"{Path(parent.filename).stem} - phần {i + 1}").strip()
+        filename = name if name.lower().endswith(".pdf") else f"{name}.pdf"
+        filename = filename[:255]
+
+        for _ in range(DOC_ID_RETRIES):
+            child = Document(filename=filename, parent_document_id=parent.id)
+            db.add(child)
+            try:
+                db.flush()
+                break
+            except IntegrityError:
+                db.rollback()
+        else:
+            raise AppError(500, "DOC_ID_GENERATION_FAILED", "Không sinh được doc_id cho phần cắt.")
+
+        writer = PdfWriter()
+        for p in range(r["from"] - 1, r["to"]):
+            writer.add_page(reader.pages[p])
+        child_pdf_path = settings.pdf_path(child.id)
+        child_pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(child_pdf_path, "wb") as f:
+            writer.write(f)
+
+        job = Job(document_id=child.id)
+        db.add(job)
+        db.commit()
+
+        pipeline_model.submit_pipeline(child.id, job.id)
+        results.append((child, job))
+        logger.info("Cắt tài liệu %s -> phần %s '%s' (trang %d-%d)",
+                    parent.id, child.id, filename, r["from"], r["to"])
+
+    return results
+
+
 def list_documents(db: Session, limit: int = 20, offset: int = 0) -> Tuple[List[Document], int]:
     total = db.scalar(select(func.count()).select_from(Document)) or 0
     rows = db.scalars(select(Document).order_by(Document.created_at.desc())
@@ -138,6 +202,7 @@ def document_out(db: Session, document_id: str) -> DocumentOut:
         id=doc.id, filename=doc.filename, status=doc.status, error=err,
         num_sections=doc.num_sections, num_chunks=doc.num_chunks,
         message_count=_message_count(db, doc.id),  
+        parent_document_id=doc.parent_document_id,
         latest_job_id=job.id if job else None,
         docx_available=get_settings().docx_path(doc.id).exists(),
         created_at=doc.created_at, updated_at=doc.updated_at)

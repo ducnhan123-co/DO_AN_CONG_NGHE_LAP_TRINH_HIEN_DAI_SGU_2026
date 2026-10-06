@@ -56,6 +56,7 @@ class DocumentOut(BaseModel):
     num_sections: int
     num_chunks: int
     message_count: int = 0
+    parent_document_id: Optional[str] = None
     latest_job_id: Optional[str] = None
     docx_available: bool
     created_at: datetime
@@ -128,3 +129,26 @@ class ChatResponse(BaseModel):
     answer: str
     citations: List[Citation]
     thinking: List[ThinkingStep]
+
+
+class SplitRange(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    from_page: int = Field(..., alias="from", ge=1, description="Trang bắt đầu (1-based)")
+    to_page: int = Field(..., alias="to", ge=1, description="Trang kết thúc (bao gồm)")
+    name: Optional[str] = Field(None, max_length=200, description="Tên phần, vd 'Chương 1'")
+
+
+class SplitRequest(BaseModel):
+    ranges: List[SplitRange] = Field(..., min_length=1, max_length=20)
+
+
+class SplitResultItem(BaseModel):
+    document_id: str
+    job_id: str
+    filename: str
+    status: str
+
+
+class SplitResponse(BaseModel):
+    parent_document_id: str
+    parts: List[SplitResultItem]
