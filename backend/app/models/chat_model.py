@@ -131,7 +131,7 @@ def _page_blocks(document_id: str, pages: Set[int], max_chars: int = 4000) -> tu
             total += len(t)
         if parts:
             hits.append({"text": "\n\n".join(parts), "page": p, "section": section,
-                         "score": 1.0})
+                         "score": 1.0, "full": True})
     return hits, max_page
 
 
@@ -148,7 +148,7 @@ def _build_prompt(question: str, hits: List[dict], history: List[dict]) -> str:
 
 def _extractive_answer(hits: List[dict]) -> str:
     parts = [f"[trang {h['page'] if h.get('page') is not None else '?'}] {h.get('section') or ''}\n"
-             f"{h['text'][:600].strip()}" for h in hits[:3]]
+             f"{h['text'].strip() if h.get('full') else h['text'][:600].strip()}" for h in hits[:3]]
     return "Các đoạn liên quan nhất trong tài liệu:\n\n" + "\n\n".join(parts)
 
 
