@@ -2,11 +2,12 @@
 import os
 import sqlite3
 from pathlib import Path
-
+ 
 ROOT = Path(__file__).resolve().parents[1]
-DB_PATH = Path(os.getenv("LIBRARY_DB", ROOT / "runtime" / "library.db"))
-LIBRARY_DIR = Path(os.getenv("LIBRARY_DATA_DIR", ROOT / "runtime" / "library"))  # bản chụp DOCX
-
+# File RIÊNG, không dùng app.db của backend (trùng tên bảng documents/sessions/messages sẽ gây lỗi 503)
+DB_PATH = Path(os.getenv("LIBRARY_DB", ROOT / "backend" / "data" / "library.db"))
+LIBRARY_DIR = Path(os.getenv("LIBRARY_DATA_DIR", ROOT / "backend" / "data" / "documents"))  # bản chụp DOCX
+ 
 SCHEMA_V1 = """
 CREATE TABLE documents(
   client_id TEXT NOT NULL, doc_id TEXT NOT NULL, name TEXT NOT NULL, display_name TEXT,
@@ -37,8 +38,8 @@ CREATE TABLE activity_log(
 CREATE INDEX activity_doc ON activity_log(client_id, doc_id, id);
 """
 MIGRATIONS = [SCHEMA_V1]  # thêm phần tử mới ở cuối để nâng phiên bản
-
-
+ 
+ 
 def connect() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH, timeout=5, check_same_thread=False)

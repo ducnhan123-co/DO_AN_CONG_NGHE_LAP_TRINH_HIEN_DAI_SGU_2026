@@ -11,7 +11,8 @@ MỚI (fix lỗi tuần 2): mỗi PDF chạy trong một run dir riêng `runs/<t
 """
 from pathlib import Path
 
-BASE = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+BASE = PROJECT_ROOT / "backend" / "data" / "documents"
 INPUT_DIR = BASE / "input"
 DOCX_DIR = BASE / "docx_output"
 RUNS_DIR = BASE / "runs"
@@ -30,6 +31,13 @@ TOP_K = 5
 # không còn được run_mineru() dùng thật sự.
 MINERU_BACKEND = "pipeline"
 MINERU_TIER = "standard"  # flash / basic / standard / advanced
+# Tối ưu đường legacy (mineru 2.x, khi chưa có mineru-kit):
+# - METHOD 'auto' -> pipeline tự phát hiện text/scan từng file (txt bỏ OCR khi PDF chữ).
+# - LANG 'latin' hợp PDF tiếng Việt nhất (mặc định CLI là 'ch').
+# - DEVICE 'cpu' ổn định nhất trên Mac (không CUDA).
+MINERU_METHOD = "auto"  # auto | txt | ocr
+MINERU_LANG = "latin"
+MINERU_DEVICE = "cpu"
 
 # Pandoc: giữ math -> OMML Equation, heading/table/image
 PANDOC_FROM = "markdown+tex_math_dollars+tex_math_single_backslash"

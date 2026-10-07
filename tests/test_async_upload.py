@@ -21,7 +21,7 @@ def api(tmp_path, monkeypatch):
     monkeypatch.setattr(main.store, "index_upload", fake_index)
     monkeypatch.setattr(main.store, "build_docx_fast", lambda doc_id: None)
     monkeypatch.setattr(main.store, "upgrade_mineru", lambda doc_id: None)
-    import llm.matchpdf as mp
+    import DO_AN_CONG_NGHE_LAP_TRINH_HIEN_DAI_SGU_2026.llm.matchpdf as mp
     monkeypatch.setattr(mp, "_embed", lambda texts: [[1.0] for _ in texts])
     return main, events, TestClient(main.app)
 

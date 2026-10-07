@@ -111,14 +111,14 @@ def health() -> dict:
 
 
 # ---------------- tài liệu ----------------
-@app.get("/api/lib/docs")
+@app.get("/api/doc")
 def list_docs(cid: str = Depends(client_id), conn=Depends(get_db)) -> list[dict]:
     rows = conn.execute("SELECT doc_id,name,display_name,num_pages,parser,created_at,last_opened_at FROM documents "
                         "WHERE client_id=? AND deleted_at IS NULL ORDER BY last_opened_at DESC", (cid,)).fetchall()
     return [dict(r) for r in rows]
 
 
-@app.put("/api/lib/docs/{doc_id}")
+@app.put("/api/doc/{doc_id}")
 def upsert_doc(doc_id: str, body: DocIn, cid: str = Depends(client_id), conn=Depends(get_db)) -> dict:
     doc_id, now = _doc_id(doc_id), time.time()
     existing = conn.execute("SELECT deleted_at FROM documents WHERE client_id=? AND doc_id=?", (cid, doc_id)).fetchone()
@@ -136,7 +136,7 @@ def upsert_doc(doc_id: str, body: DocIn, cid: str = Depends(client_id), conn=Dep
     return dict(_doc(conn, cid, doc_id))
 
 
-@app.patch("/api/lib/docs/{doc_id}")
+@app.patch("/api/doc/{doc_id}")
 def rename_doc(doc_id: str, body: RenameIn, cid: str = Depends(client_id), conn=Depends(get_db)) -> dict:
     _doc(conn, cid, doc_id)
     with conn:
@@ -144,7 +144,7 @@ def rename_doc(doc_id: str, body: RenameIn, cid: str = Depends(client_id), conn=
     return dict(_doc(conn, cid, doc_id))
 
 
-@app.delete("/api/lib/docs/{doc_id}")
+@app.delete("/api/doc/{doc_id}")
 def delete_doc(doc_id: str, cid: str = Depends(client_id), conn=Depends(get_db)) -> dict:
     _doc(conn, cid, doc_id)
     pdf = sources.delete_pdf(doc_id)
@@ -160,7 +160,7 @@ def delete_doc(doc_id: str, cid: str = Depends(client_id), conn=Depends(get_db))
     return {"library": "deleted", "pdf": pdf}
 
 
-@app.get("/api/lib/docs/{doc_id}/file")
+@app.get("/api/doc/{doc_id}/file")
 def pdf_file(doc_id: str, cid: str = Depends(client_id), conn=Depends(get_db)):
     """PDF gốc đọc thẳng từ đĩa (hỗ trợ Range) — mở tài liệu không phải chờ BE nạp chỉ mục."""
     _doc(conn, cid, doc_id)
@@ -171,7 +171,7 @@ def pdf_file(doc_id: str, cid: str = Depends(client_id), conn=Depends(get_db)):
 
 
 # ---------------- phiên chat ----------------
-@app.get("/api/lib/docs/{doc_id}/sessions")
+@app.get("/api/doc/{doc_id}/sessions")
 def list_sessions(doc_id: str, cid: str = Depends(client_id), conn=Depends(get_db)) -> list[dict]:
     _doc(conn, cid, doc_id)
     rows = conn.execute(
@@ -180,7 +180,7 @@ def list_sessions(doc_id: str, cid: str = Depends(client_id), conn=Depends(get_d
     return [dict(r) for r in rows]
 
 
-@app.post("/api/lib/docs/{doc_id}/sessions")
+@app.post("/api/doc/{doc_id}/sessions")
 def create_session(doc_id: str, body: SessionIn, cid: str = Depends(client_id), conn=Depends(get_db)) -> dict:
     _doc(conn, cid, doc_id)
     now, sid = time.time(), uuid.uuid4().hex
@@ -192,7 +192,7 @@ def create_session(doc_id: str, body: SessionIn, cid: str = Depends(client_id), 
     return {"id": sid, "title": title, "created_at": now, "updated_at": now, "message_count": 0}
 
 
-@app.patch("/api/lib/sessions/{sid}")
+@app.patch("/api/session/{sid}")
 def rename_session(sid: str, body: SessionIn, cid: str = Depends(client_id), conn=Depends(get_db)) -> dict:
     _session(conn, cid, sid)
     if not body.title.strip():
@@ -202,7 +202,7 @@ def rename_session(sid: str, body: SessionIn, cid: str = Depends(client_id), con
     return {"id": sid, "title": body.title.strip()}
 
 
-@app.delete("/api/lib/sessions/{sid}")
+@app.delete("/api/session/{sid}")
 def delete_session(sid: str, cid: str = Depends(client_id), conn=Depends(get_db)) -> dict:
     _session(conn, cid, sid)
     with conn:
@@ -216,7 +216,7 @@ def _message_row(row) -> dict:
     return out
 
 
-@app.get("/api/lib/sessions/{sid}/messages")
+@app.get("/api/session/{sid}/messages")
 def get_messages(sid: str, cid: str = Depends(client_id), conn=Depends(get_db)) -> list[dict]:
     _session(conn, cid, sid)
     rows = conn.execute("SELECT id,role,content,citations,model,elapsed_s,created_at FROM messages "
@@ -224,7 +224,7 @@ def get_messages(sid: str, cid: str = Depends(client_id), conn=Depends(get_db)) 
     return [_message_row(r) for r in rows]
 
 
-@app.post("/api/lib/sessions/{sid}/messages")
+@app.post("/api/session/{sid}/messages")
 def add_messages(sid: str, body: MessagesIn, cid: str = Depends(client_id), conn=Depends(get_db)) -> dict:
     _session(conn, cid, sid)
     now = time.time()
@@ -239,7 +239,7 @@ def add_messages(sid: str, body: MessagesIn, cid: str = Depends(client_id), conn
 
 
 # ---------------- công thức + ngữ cảnh ----------------
-@app.post("/api/lib/docs/{doc_id}/ingest")
+@app.post("/api/doc/{doc_id}/ingest")
 def ingest(doc_id: str, cid: str = Depends(client_id), conn=Depends(get_db)) -> dict:
     _doc(conn, cid, doc_id)
     path = sources.content_list_path(doc_id)
@@ -263,7 +263,7 @@ def ingest(doc_id: str, cid: str = Depends(client_id), conn=Depends(get_db)) -> 
     return {"formulas": len(formulas)}
 
 
-@app.get("/api/lib/docs/{doc_id}/context")
+@app.get("/api/doc/{doc_id}/context")
 def context(doc_id: str, q: str = "", session_id: str = "", cid: str = Depends(client_id),
             conn=Depends(get_db)) -> dict:
     _doc(conn, cid, doc_id)
@@ -286,7 +286,7 @@ def context(doc_id: str, q: str = "", session_id: str = "", cid: str = Depends(c
 
 
 # ---------------- lịch sử DOCX ----------------
-@app.post("/api/lib/docs/{doc_id}/docx/snapshot")
+@app.post("/api/doc/{doc_id}/docx/snapshot")
 def docx_snapshot(doc_id: str, body: SnapshotIn, cid: str = Depends(client_id), conn=Depends(get_db)) -> dict:
     _doc(conn, cid, doc_id)
     src = sources.docx_path(doc_id)
@@ -316,7 +316,7 @@ def _version(row) -> dict:
     return {k: row[k] for k in ("id", "doc_id", "version", "source", "size", "created_at")}
 
 
-@app.get("/api/lib/docs/{doc_id}/docx")
+@app.get("/api/doc/{doc_id}/docx")
 def docx_versions(doc_id: str, cid: str = Depends(client_id), conn=Depends(get_db)) -> list[dict]:
     _doc(conn, cid, doc_id)
     rows = conn.execute("SELECT * FROM docx_versions WHERE client_id=? AND doc_id=? ORDER BY version DESC",
@@ -324,7 +324,7 @@ def docx_versions(doc_id: str, cid: str = Depends(client_id), conn=Depends(get_d
     return [_version(r) for r in rows]
 
 
-@app.get("/api/lib/docx/{version_id}/download")
+@app.get("/api/doc/{version_id}/download")
 def docx_download(version_id: int, cid: str = Depends(client_id), conn=Depends(get_db)):
     row = conn.execute("SELECT v.*, d.name, d.display_name FROM docx_versions v JOIN documents d "
                        "ON d.client_id=v.client_id AND d.doc_id=v.doc_id WHERE v.id=? AND v.client_id=?",
@@ -336,7 +336,7 @@ def docx_download(version_id: int, cid: str = Depends(client_id), conn=Depends(g
                         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
 
-@app.get("/api/lib/docs/{doc_id}/activity")
+@app.get("/api/doc/{doc_id}/activity")
 def activity(doc_id: str, cid: str = Depends(client_id), conn=Depends(get_db)) -> list[dict]:
     _doc(conn, cid, doc_id)
     rows = conn.execute("SELECT kind,detail,created_at FROM activity_log WHERE client_id=? AND doc_id=? "

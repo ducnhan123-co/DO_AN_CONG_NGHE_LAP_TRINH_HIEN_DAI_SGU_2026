@@ -1,0 +1,94 @@
+﻿
+     Server tắt thì tự rơi về chat mock demo.
+     ================================================================ */
+> const API={base:(window.MATCHPDF_API_BASE||'http://127.0.0.1:8000').replace(/\/$/,''),docId:null,fileUrl:null,online:false,ready:false,sess:null
+,history:[]}; // history: các lượt hỏi-đáp gửi kèm để model nhớ ngữ cảnh
+  function curModel(){ const s=document.getElementById('modelSel'); return s?s.value:'qwen3:8b'; }
+  const warmed=new Set();
+  function warmOnce(){ const m=curModel(); if(warmed.has(m)) return; warmed.add(m); warmModel(); }
+  function warmModel(){ try{ 
+fetch(API.base+'/api/warm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:curModel()})}).catch(()=>{}); 
+}catch(e){} }
+  document.addEventListener('change',e=>{ if(e.target&&e.target.id==='modelSel'&&API.docId){ toast('Đang nạp model '+curModel()+'…'); 
+warmModel(); } });
+  async function apiHealth(){
+    try{ const r=await fetch(API.base+'/api/health'); const j=await r.json();
+      API.online=!!j.ok; setBadge(API.online, j.ok?('AI thật · '+(j.llm||'qwen3')):'Server lỗi');
+    }catch(e){ API.online=false; setBadge(false,'Chế độ demo'); }
+  }
+  function setBadge(online,txt){
+    const b=document.getElementById('apiBadge');
+    b.className='hidden md:flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold border '+(online?'bg-emerald-50 
+border-emerald-200 text-emerald-700':'bg-stone-100 border-stone-200 text-stone-500');
+    b.innerHTML=`<span class="h-1.5 w-1.5 rounded-full ${online?'bg-emerald-500 animate-pulse':'bg-stone-400'}"></span> ${txt}`;
+  }
+    clearTimeout(parserPoll);
+    const pending=j.status==='indexing'||j.embed==='building'||j.parser==='mineru_running'||j.docx==='building';
+>   if(API.docId&&pending) parserPoll=setTimeout(async()=>{ try{ const r=await fetch(API.base+'/api/lib/doc/'+API.docId); const n=await r.json();
+      if(n.parser==='mineru'&&j.parser!=='mineru') toast('MinerU xong: chat giờ đọc được công thức chuẩn'); showParser(n); }catch(e){ 
+showParser(j); } },j.status==='indexing'?2000:5000);
+  }
+  /* câu trả lời: công thức $..$ / $$..$$ vẽ bằng KaTeX, [n] thành nút nhảy trang */
+  function fmtAnswer(raw){
+    const esc=t=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\[(\d{1,3})\]/g,'<button class="cite" onclick="gotoPage($1)" title="Nhảy 
+tới trang $1">[$1]</button>').replace(/\n/g,'<br>');
+    if(!window.katex) return esc(raw);
+    let out='',last=0;
+    for(const m of raw.matchAll(/\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|\$([^$\n]+?)\$/g)){
+      out+=esc(raw.slice(last,m.index)); last=m.index+m[0].length;
+      const disp=m[1]!=null||m[2]!=null;
+      const tex=(m[1]??m[2]??m[3]??m[4]).replace(/\\tag\{([^}]*)\}/g,'\\qquad ($1)'); // \tag canh lề tuyệt đối, đè chữ trong khung hẹp
+      out+=katex.renderToString(tex,{displayMode:disp,throwOnError:false});
+    }
+    return out+esc(raw.slice(last));
+  }
+  /* mở tài liệu tại chỗ (không tải lại trang): bấm PDF khác là đổi ngay, không dồn tin */
+  let openToken=0, opening=null, recentsP=Promise.resolve();
+> async function fetchInfo(id){ const r=await fetch(API.base+'/api/lib/doc/'+id); if(!r.ok) throw new Error('doc '+r.status); return r.json(); }
+  /* Mở tài liệu: PDF + chat hiện NGAY từ thư viện (8002); trạng thái chỉ mục của BE nạp nền (BE có thể chậm sau restart).
+     openToken/opening chống bấm nhiều lần tạo lời chào lặp và ghi đè nhau. */
+  async function openDoc(id, pre){
+>   if(!id||(id===API.docId&&API.fileUrl)||opening===id) return;
+    opening=id; const my=++openToken, stale=()=>my!==openToken;
+    document.getElementById('docTitle').textContent='Đang tải tài liệu…';
+    try{
+      await recentsP; if(stale()) return;
+      const known=RECENTS.find(d=>d.doc_id===id);
+      let j=pre||null;
+      if(!j&&!known){ // chưa có trong thư viện (đường dẫn trực tiếp/dữ liệu cũ): phải hỏi BE
+        if(!API.online) await apiHealth();
+        if(!API.online){ toast('Server chưa chạy — bật server rồi thử lại'); document.getElementById('docTitle').textContent='Chưa mở tài liệu'; 
+return; }
+        j=await fetchInfo(id); if(stale()) return; }
+      const put=await 
+LIB.put('/docs/'+id,{name:(j&&j.name)||known.name,num_pages:(j&&j.num_pages)||known.num_pages,parser:j?j.parser:known.parser});
+      if(stale()) return;
+      if(put.status===410){ toast('Tài liệu này đã bị xóa khỏi thư viện'); document.getElementById('docTitle').textContent='Đã xóa'; 
+setTimeout(()=>location.href='index.html',1400); return; }
+      if(!put.ok){ libDown(); if(!j){ j=await fetchInfo(id); if(stale()) return; } }
+>     const viaLib=put.ok, pages=(j&&j.num_pages)||(known&&known.num_pages)||'–';
+      API.docId=id; API.ready=false; API.sess=null; API.history=[]; API.busy=false; API.sawIndexing=!j;
+>     API.fileUrl=viaLib?LIB.fileUrl(id):API.base+j.file_url;
+      try{ history.replaceState(null,'','reader.html?doc_id='+id); }catch(e){}
+      hideDemo();
+>     showPdf(API.fileUrl,viaLib?{'X-Client-Id':LIB.cid()}:null);
+      document.getElementById('pageTotal').textContent=pages;
+      document.getElementById('docTitle').textContent=(put.ok&&put.data.display_name)||(j&&j.name)||known.name;
+      const meta=document.getElementById('docMeta');
+      if(j) showParser(j);
+      else{ meta.textContent=pages+' trang · ⏳ đang nạp chỉ mục từ server — PDF đọc được ngay';
+        fetchInfo(id).then(n=>{ if(API.docId===id) showParser(n); })
+          .catch(()=>{ if(API.docId===id) meta.textContent='❌ Chưa lấy được trạng thái từ server (BE tắt hoặc đã mất dữ liệu tài liệu) — PDF vẫn 
+đọc được, chat chưa dùng được'; }); }
+      chatScroll.innerHTML='';
+      await loadRecents(); if(stale()) return;
+      await loadSessions(); if(stale()) return;
+      if(SESS.length){ await loadSession(SESS[0].id); if(stale()) return; }
+      else{ const nm=escH(document.getElementById('docTitle').textContent);
+        bubble('bot',(j&&j.status==='ready')
+          ? `Đã mở <b>“${nm}”</b> (${pages} trang) 📄<br>Bên đọc là <b>PDF gốc</b>. Cứ hỏi, mình trả lời bằng <b>model local</b> kèm số trang để 
+bấm vào kiểm chứng. Tin đầu chờ ~1 phút (model load), tin sau nhanh dần nhé.`
+          : `Đã mở <b>“${nm}”</b> (${pages} trang) 📄<br>Bạn đọc PDF được ngay. Mình đang <b>nạp nội dung ở nền</b> (tài liệu dài hoặc PDF scan 
+thì lâu hơn) — xong mình báo, lúc đó hỏi được.`); }
+
+
