@@ -134,10 +134,13 @@ def run_pipeline(document_id: str, job_id: str) -> None:
         try:
             from llm.src.build_docx import fix_legacy_tex_bf, prepare_work_md
             from llm.src.chunking import build_chunks
-            from llm.src.config import EMBED_MODEL, MAX_CHARS, MINERU_TIER, OVERLAP
+            from llm.src.config import (EMBED_MODEL, MAX_CHARS, MINERU_DEVICE,
+                                        MINERU_LANG, MINERU_METHOD, MINERU_TIER,
+                                        OVERLAP)
             from llm.src.llama_rag import build_index, chunks_to_nodes
             from llm.src.run_mineru import (find_content_list,
-                                            find_mineru_outputs, run_mineru)
+                                            find_mineru_outputs,
+                                            has_extractable_text, run_mineru)
             from llm.src.structured import (load_raw, normalize_blocks,
                                             save_structured)
             from llm.src.validate import validate_chunks
@@ -151,9 +154,16 @@ def run_pipeline(document_id: str, job_id: str) -> None:
             for d in (mineru_dir, rag_dir):
                 d.mkdir(parents=True, exist_ok=True)
 
-            # 1. MinerU (tự bỏ qua nếu run này đã có output, vd. sau retry)
+            # 1. MinerU (tự bỏ qua nếu run này đã có output, vd. sau retry).
+            # PDF chữ -> method 'txt' (bỏ OCR, nhanh gấp nhiều lần); PDF scan -> 'ocr'.
             _running(db, doc, job, DocumentStatus.mineru_parsing, 10)
-            run_mineru(pdf_path, mineru_dir, tier=MINERU_TIER)
+            _method = MINERU_METHOD
+            if _method == "auto":
+                _method = "txt" if has_extractable_text(pdf_path) else "ocr"
+                logger.info("Tài liệu %s: PDF %s -> MinerU method=%s",
+                            doc.id, "chữ" if _method == "txt" else "scan", _method)
+            run_mineru(pdf_path, mineru_dir, tier=MINERU_TIER, method=_method,
+                       lang=MINERU_LANG, device=MINERU_DEVICE)
             content_list_path = find_content_list(mineru_dir)
             md_path, _, _ = find_mineru_outputs(mineru_dir)
             markdown_text = md_path.read_text(encoding="utf-8", errors="ignore")
@@ -217,7 +227,7 @@ def submit_pipeline(document_id: str, job_id: str):
     global _executor
     with _lock:
         if _executor is None:
-            _executor = ThreadPoolExecutor(max_workers=3, thread_name_prefix="pipeline")
+            _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="pipeline")
         ex = _executor
     return ex.submit(run_pipeline, document_id, job_id)
 
