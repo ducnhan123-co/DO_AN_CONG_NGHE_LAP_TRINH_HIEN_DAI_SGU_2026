@@ -97,10 +97,38 @@ def _run_kit(kit: str, pdf_path: Path, out_dir: Path, tier: str) -> None:
         json.dumps(kit_to_content_list(structured), ensure_ascii=False), encoding="utf-8")
 
 
+def has_extractable_text(pdf_path: Path, pages_to_check: int = 3,
+                           min_chars_per_page: int = 50) -> bool:
+    """PDF chữ (text-based) hay PDF scan? True = có chữ trích xuất được -> dùng
+    `-m txt` để bỏ qua OCR, nhanh hơn nhiều. False = phải OCR."""
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(str(pdf_path))
+        checked = 0
+        for page in reader.pages[:max(1, pages_to_check)]:
+            try:
+                text = (page.extract_text() or "").strip()
+            except Exception:
+                text = ""
+            if len(text) >= min_chars_per_page:
+                return True
+            checked += 1
+        return False
+    except Exception:
+        return False  # không đọc được -> để MinerU tự quyết (auto)
+
+
 def run_mineru(pdf_path: Path, out_dir: Path, backend: str = "pipeline",
-               tier: str = "standard", force: bool = False) -> None:
+               tier: str = "standard", force: bool = False,
+               method: str = "auto", lang: str = "latin", device: str = "cpu",
+               formula: bool = True, table: bool = True) -> None:
     """Chạy MinerU. Có `mineru-kit` (MinerU 4.x) thì dùng — công thức LaTeX sạch hơn rõ rệt;
-    không có thì rơi về CLI cũ `mineru -p -o -b pipeline` (2.x) để máy chưa nâng cấp vẫn chạy."""
+    không có thì rơi về CLI cũ `mineru -p -o -b pipeline` (2.x) để máy chưa nâng cấp vẫn chạy.
+
+    method: 'auto' | 'txt' (PDF chữ, bỏ OCR — nhanh nhất) | 'ocr' (PDF scan).
+    lang: mã ngôn ngữ cho OCR ('latin' hợp PDF tiếng Việt nhất; mặc định CLI là 'ch').
+    device: 'cpu' ổn định nhất trên Mac; có CUDA thì đổi 'cuda:0'.
+    formula/table: PDF toán GIỮ True (công thức Equation cần formula=True)."""
     out_dir.mkdir(parents=True, exist_ok=True)
     if not force and find_content_list(out_dir):
         print(f"[MinerU] Đã có output cho PDF này, bỏ qua chạy lại: {out_dir}")
@@ -109,7 +137,10 @@ def run_mineru(pdf_path: Path, out_dir: Path, backend: str = "pipeline",
     if kit:
         _run_kit(kit, pdf_path, out_dir, tier)
         return
-    cmd = ["mineru", "-p", str(pdf_path), "-o", str(out_dir), "-b", backend]
+    cmd = ["mineru", "-p", str(pdf_path), "-o", str(out_dir), "-b", backend,
+           "-m", method, "-l", lang, "-d", device,
+           "-f", "true" if formula else "false",
+           "-t", "true" if table else "false"]
     print("Running (legacy):", " ".join(cmd))
     result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if result.returncode != 0:
