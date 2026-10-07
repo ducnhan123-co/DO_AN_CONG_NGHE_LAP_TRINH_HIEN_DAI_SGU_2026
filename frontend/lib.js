@@ -1,6 +1,6 @@
-/* Client dùng chung cho Library API (cổng 8002). Không bao giờ ném lỗi: trả {ok,status,data}; status 0 = server tắt. */
+/* Client dùng chung cho Library API (cùng backend, cổng 8000). Không bao giờ ném lỗi: trả {ok,status,data}; status 0 = server tắt. */
 (function(){
-  const BASE=(window.MATCHPDF_LIB_BASE||'http://127.0.0.1:8002').replace(/\/$/,'')+'/api/lib';
+  const BASE=(window.MATCHPDF_LIB_BASE||'http://127.0.0.1:8000').replace(/\/$/,'')+'/api';
   let mem=null;
   function cid(){
     try{ let v=localStorage.getItem('matchpdf_client_id');
@@ -21,7 +21,7 @@
     try{ const r=await fetch(BASE+path,{headers:{'X-Client-Id':cid()}}); if(!r.ok) return {ok:false,status:r.status}; return {ok:true,blob:await r.blob()}; }
     catch(e){ return {ok:false,status:0}; }
   }
-  window.LIB={cid,blob,fileUrl:id=>BASE+'/docs/'+id+'/file',
+  window.LIB={cid,blob,fileUrl:id=>BASE+'/doc/'+id+'/file',
     get:p=>call('GET',p), post:(p,b)=>call('POST',p,b===undefined?{}:b), put:(p,b)=>call('PUT',p,b),
     patch:(p,b)=>call('PATCH',p,b), del:p=>call('DELETE',p)};
 })();
