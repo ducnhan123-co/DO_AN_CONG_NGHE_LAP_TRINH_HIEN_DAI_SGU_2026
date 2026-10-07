@@ -99,6 +99,42 @@ def _filter_pages(hits: List[dict], pages: Set[int]) -> List[dict]:
     return [h for h in hits if _hit_pages(h) & pages]
 
 
+def _page_blocks(document_id: str, pages: Set[int], max_chars: int = 4000) -> tuple:
+    """Lấy thẳng block theo trang từ structured_data.json (không qua semantic).
+    Trả về (hits, max_page). Trang hỏi đích danh mà semantic không tìm ra
+    (vd. 'trang 5 có công thức gì') thì đường này luôn trúng."""
+    from backend.app.core.config import get_settings
+    path = get_settings().doc_dir(document_id) / "structured_data.json"
+    try:
+        import json
+        blocks = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return [], 0
+    max_page = 0
+    by_page: dict = {}
+    for b in blocks:
+        p = b.get("page")
+        if isinstance(p, int):
+            max_page = max(max_page, p)
+            if p in pages:
+                by_page.setdefault(p, []).append(b)
+    hits = []
+    for p in sorted(by_page):
+        parts, total = [], 0
+        section = ""
+        for b in by_page[p]:
+            section = section or b.get("section") or ""
+            t = (b.get("text") or "").strip()
+            if not t or total + len(t) > max_chars:
+                continue
+            parts.append(t)
+            total += len(t)
+        if parts:
+            hits.append({"text": "\n\n".join(parts), "page": p, "section": section,
+                         "score": 1.0})
+    return hits, max_page
+
+
 def _build_prompt(question: str, hits: List[dict], history: List[dict]) -> str:
     ctx = "\n\n".join(
         f"[trang {h['page'] if h.get('page') is not None else '?'}] {h.get('section') or ''}\n{h['text']}"
@@ -145,13 +181,24 @@ def stream_events(document_id: str, question: str, top_k: Optional[int] = None,
         search_q = _search_query(question, history)
         hits = pipeline_model.search(document_id, search_q, k)
         wanted = _wanted_pages(question)
+        page_reported = False
         if wanted and hits:
             # user hỏi đích danh trang -> chỉ giữ chunk thuộc trang đó;
-            # không đủ thì tìm rộng hơn rồi lọc lại.
+            # không đủ thì tìm rộng hơn, cuối cùng lấy thẳng block theo trang.
             hits = _filter_pages(hits, wanted)
             if not hits:
                 hits = _filter_pages(pipeline_model.search(document_id, search_q, k * 4), wanted)
-            if hits:
+            if not hits:
+                hits, max_page = _page_blocks(document_id, wanted)
+                page_reported = True
+                if hits:
+                    yield think("retrieved",
+                                f"Lấy trực tiếp nội dung trang {', '.join(map(str, sorted(wanted)))}.")
+                else:
+                    yield think("retrieved",
+                                f"Trang {', '.join(map(str, sorted(wanted)))} không có nội dung"
+                                + (f" (tài liệu có {max_page} trang)." if max_page else "."))
+            else:
                 yield think("retrieved", f"Đã lọc đúng trang {', '.join(map(str, sorted(wanted)))}.")
 
         citations = [{"index": i, "page": h.get("page"), "section": h.get("section") or "",
@@ -159,10 +206,14 @@ def stream_events(document_id: str, question: str, top_k: Optional[int] = None,
                      for i, h in enumerate(hits, 1)]
 
         if not hits:
-            yield think("retrieved", "Không tìm thấy đoạn nào liên quan.")
-            answer_text = (f"Không tìm thấy nội dung nào ở trang {', '.join(map(str, sorted(wanted)))} "
-                           f"khớp câu hỏi. Thử hỏi theo nội dung thay vì số trang."
-                           if wanted else NO_RESULT)
+            if not page_reported:
+                yield think("retrieved", "Không tìm thấy đoạn nào liên quan.")
+            if wanted:
+                # đã báo chi tiết ở trên (lấy trực tiếp / trang không tồn tại) -> dùng lại câu đó.
+                answer_text = (f"Trang {', '.join(map(str, sorted(wanted)))} không có nội dung khớp câu hỏi. "
+                               f"Thử hỏi theo nội dung thay vì số trang.")
+            else:
+                answer_text = NO_RESULT
             yield "token", {"text": answer_text}
         else:
             pages = sorted({h["page"] for h in hits if h.get("page") is not None})
