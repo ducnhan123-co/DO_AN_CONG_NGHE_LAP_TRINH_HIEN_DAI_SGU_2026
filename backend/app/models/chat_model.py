@@ -20,7 +20,8 @@ SYSTEM_PROMPT = (
     "Giữ nguyên công thức LaTeX (trong $...$ hoặc $$...$$). "
     "Khi dùng thông tin từ trang nào, ghi chú ngay sau ý đó dạng [số trang], ví dụ [12]. "
     "Nếu câu hỏi tiếp nối lịch sử hội thoại phía trên, hãy trả lời nối tiếp cho phù hợp. "
-    "Trả lời bằng ngôn ngữ của câu hỏi."
+    "BẮT BUỘC: luôn trả lời bằng tiếng Việt, không dùng tiếng Anh hay ngôn ngữ khác "
+    "(trừ thuật ngữ chuyên môn và công thức LaTeX giữ nguyên)."
 )
 NO_RESULT = "Không tìm thấy thông tin liên quan trong tài liệu."
 _ERROR_STATUS = {"LLM_UNAVAILABLE": 503}
