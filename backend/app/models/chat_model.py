@@ -1,6 +1,7 @@
 """Nghiệp vụ chat: truy xuất RAG (LlamaIndex, có trang thật), gọi LLM, phát 'suy nghĩ', lưu hội thoại."""
 import logging
-from typing import Iterator, List, Optional, Tuple
+import re
+from typing import Iterator, List, Optional, Set, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -63,6 +64,41 @@ def _search_query(question: str, history: List[dict]) -> str:
     return f"{prev_questions[-1]} {question}"
 
 
+_PAGE_RE = re.compile(r"(?:trang|page|p\.?)\s*(\d+)(?:\s*[-–—đến]+\s*(\d+))?", re.IGNORECASE)
+
+
+def _wanted_pages(question: str) -> Set[int]:
+    """Trang user hỏi đích danh ('trang 5', 'page 5-7', 'trang 5, 6')."""
+    pages: Set[int] = set()
+    for m in _PAGE_RE.finditer(question):
+        a = int(m.group(1))
+        b = int(m.group(2)) if m.group(2) else a
+        lo, hi = min(a, b), max(a, b)
+        if 1 <= lo <= 100000 and hi - lo <= 50:
+            pages.update(range(lo, hi + 1))
+    return pages
+
+
+def _hit_pages(hit: dict) -> Set[int]:
+    """Mọi trang mà chunk này phủ (chunk có thể spanning nhiều trang)."""
+    out: Set[int] = set()
+    if isinstance(hit.get("page"), int):
+        out.add(hit["page"])
+    for key in ("pages",):
+        val = hit.get(key)
+        if isinstance(val, (list, tuple)):
+            out.update(p for p in val if isinstance(p, int))
+    for key in ("page_end",):
+        val = hit.get(key)
+        if isinstance(val, int) and out:
+            out.update(range(min(out), val + 1))
+    return out
+
+
+def _filter_pages(hits: List[dict], pages: Set[int]) -> List[dict]:
+    return [h for h in hits if _hit_pages(h) & pages]
+
+
 def _build_prompt(question: str, hits: List[dict], history: List[dict]) -> str:
     ctx = "\n\n".join(
         f"[trang {h['page'] if h.get('page') is not None else '?'}] {h.get('section') or ''}\n{h['text']}"
@@ -108,6 +144,15 @@ def stream_events(document_id: str, question: str, top_k: Optional[int] = None,
         yield think("retrieve", f"Đang tìm {k} đoạn liên quan trong tài liệu...")
         search_q = _search_query(question, history)
         hits = pipeline_model.search(document_id, search_q, k)
+        wanted = _wanted_pages(question)
+        if wanted and hits:
+            # user hỏi đích danh trang -> chỉ giữ chunk thuộc trang đó;
+            # không đủ thì tìm rộng hơn rồi lọc lại.
+            hits = _filter_pages(hits, wanted)
+            if not hits:
+                hits = _filter_pages(pipeline_model.search(document_id, search_q, k * 4), wanted)
+            if hits:
+                yield think("retrieved", f"Đã lọc đúng trang {', '.join(map(str, sorted(wanted)))}.")
 
         citations = [{"index": i, "page": h.get("page"), "section": h.get("section") or "",
                       "score": round(h.get("score") or 0.0, 4), "snippet": _snippet(h["text"])}
@@ -115,7 +160,9 @@ def stream_events(document_id: str, question: str, top_k: Optional[int] = None,
 
         if not hits:
             yield think("retrieved", "Không tìm thấy đoạn nào liên quan.")
-            answer_text = NO_RESULT
+            answer_text = (f"Không tìm thấy nội dung nào ở trang {', '.join(map(str, sorted(wanted)))} "
+                           f"khớp câu hỏi. Thử hỏi theo nội dung thay vì số trang."
+                           if wanted else NO_RESULT)
             yield "token", {"text": answer_text}
         else:
             pages = sorted({h["page"] for h in hits if h.get("page") is not None})
