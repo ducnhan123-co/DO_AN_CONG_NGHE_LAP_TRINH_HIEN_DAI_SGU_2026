@@ -74,6 +74,15 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
   </div>
 </header>
 
+<!-- thanh tab khi mở nhiều tài liệu cùng lúc -->
+<div id="groupBar" class="hidden shrink-0 items-center gap-1 overflow-x-auto border-b border-stone-200 bg-white px-2 py-1.5">
+  <div id="groupTabs" class="flex items-center gap-1 overflow-x-auto"></div>
+  <div class="ml-auto flex shrink-0 items-center gap-1">
+    <div id="groupDocxSlot"></div>
+    <div id="groupHistSlot"></div>
+  </div>
+</div>
+
 <!-- mobile tabs -->
 <div class="flex shrink-0 gap-1 border-b border-stone-200 bg-white p-1.5 lg:hidden">
   <button id="tabPdf" class="flex-1 rounded-lg bg-stone-900 py-2 text-[13px] font-bold text-white">📄 Đọc PDF</button>
@@ -215,6 +224,17 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
   </div>
 </dialog>
 
+<dialog id="docxGroupDlg" class="w-[min(520px,92vw)] rounded-3xl p-0 shadow-2xl">
+  <div class="p-5">
+    <div class="flex items-center gap-2"><h3 class="text-base font-extrabold tracking-tight">Tải DOCX — nhóm tài liệu</h3>
+      <button onclick="document.getElementById('docxGroupDlg').close()" class="ml-auto grid h-8 w-8 place-items-center rounded-full hover:bg-stone-100"><i class="ph-bold ph-x"></i></button></div>
+    <div id="docxGroupBody" class="mt-3 max-h-[55vh] overflow-y-auto space-y-2 text-[13px]"></div>
+    <div class="mt-4 flex justify-end">
+      <button onclick="downloadAllGroupDocx()" class="rounded-xl bg-brand-500 px-4 py-2 text-sm font-bold text-white hover:bg-brand-600">⬇ Tải toàn bộ</button>
+    </div>
+  </div>
+</dialog>
+
 <script>
 /* PDF THẬT bằng PDF.js + chat AI qua server (không còn bản mẫu) */
 const params=new URLSearchParams(location.search);
@@ -310,7 +330,7 @@ document.querySelectorAll('#chips .chip').forEach(c=>c.onclick=()=>send(c.datase
 let RECENTS=[], SESS=[], libWarned=false;
 const escH=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 function libDown(){ if(!libWarned){ libWarned=true; toast('Chưa kết nối thư viện (cổng 8002) — chat vẫn chạy nhưng không được lưu'); } }
-async function loadRecents(){ const r=await LIB.get('/docs'); if(r.ok) RECENTS=r.data; renderRecents(); return r; }
+async function loadRecents(){ const r=await LIB.get('/doc'); if(r.ok) RECENTS=r.data; renderRecents(); return r; }
 function renderRecents(){ const box=document.getElementById('recentDocs'); if(!box) return; const cur=API.docId;
   box.innerHTML=RECENTS.length?RECENTS.map(d=>{ const on=d.doc_id===cur; return `<div class="flex items-center gap-0.5 rounded-lg ${on?'bg-stone-900 text-white':'hover:bg-stone-100'}">
     <button onclick="openFromSidebar('${d.doc_id}')" class="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-[13px] ${on?'font-bold':'text-stone-600'}"><i class="ph-duotone ph-file-pdf shrink-0"></i><span class="truncate">${escH(d.display_name||d.name)}</span></button>
@@ -692,7 +712,8 @@ async function openDoc(id, pre){
     API.docId=id; API.ready=false; API.sess=null; API.history=[]; API.busy=false; API.sawIndexing=!j;
     if(TABS.length<2) TABS=[id]; START_PAGE=RESUME[id]||1; renderTabs();
     API.fileUrl=viaLib?LIB.fileUrl(id):API.base+j.file_url;
-    try{ history.replaceState(null,'','reader.html?'+TABS.map(x=>'doc_id='+encodeURIComponent(x)).join('&')); }catch(e){}
+    // try{ history.replaceState(null,'','reader.html?'+TABS.map(x=>'doc_id='+encodeURIComponent(x)).join('&')); }catch(e){}
+    try{ const qs=GROUP.length>1?GROUP.map(x=>'doc_id='+encodeURIComponent(x)).join('&'):'doc_id='+encodeURIComponent(id); history.replaceState(null,'','reader.html?'+qs); }catch(e){}
     hideDemo();
     showPdf(API.fileUrl,viaLib?{'X-Client-Id':LIB.cid()}:null);
     document.getElementById('pageTotal').textContent=pages;
@@ -719,13 +740,73 @@ async function openDoc(id, pre){
 //   if(!id||API.docId) return;
 //   openDoc(id);
 // }
-async function initFromQuery(){
-  const ids=[...new Set(new URLSearchParams(location.search).getAll('doc_id'))].filter(x=>/^[A-Za-z0-9_-]{1,64}$/.test(x)).slice(0,10);
-  apiHealth(); // không chờ: health của BE có thể chậm khi Ollama bận, còn PDF/chat mở từ thư viện ngay
-  if(!ids.length||API.docId) return;
-  TABS=ids; if(ids.length>1){ setMultiMode(); prepTabs(); }
-  openDoc(ids[0]);
+// async function initFromQuery(){
+//   const ids=[...new Set(new URLSearchParams(location.search).getAll('doc_id'))].filter(x=>/^[A-Za-z0-9_-]{1,64}$/.test(x)).slice(0,10);
+//   apiHealth(); // không chờ: health của BE có thể chậm khi Ollama bận, còn PDF/chat mở từ thư viện ngay
+//   if(!ids.length||API.docId) return;
+//   TABS=ids; if(ids.length>1){ setMultiMode(); prepTabs(); }
+//   openDoc(ids[0]);
+// }
+
+/* ===== Nhóm nhiều tài liệu (reader.html?doc_id=A&doc_id=B&...) ===== */
+let GROUP=[];
+function tabLabel(id){ const d=RECENTS.find(x=>x.doc_id===id); return d?(d.display_name||d.name):id; }
+async function renderGroupTabs(){
+  const box=document.getElementById('groupTabs'); if(!box) return;
+  box.innerHTML=GROUP.map(id=>{
+    const name=tabLabel(id), on=id===API.docId, short=name.length>22?name.slice(0,20)+'…':name;
+    return `<button onclick="switchTab('${id}')" class="shrink-0 rounded-lg px-3 py-1.5 text-[13px] font-bold ${on?'bg-stone-900 text-white':'text-stone-600 hover:bg-stone-100'}" title="${escH(name)}">${escH(short)}</button>`;
+  }).join('');
 }
+async function switchTab(id){ if(id===API.docId) return; await openDoc(id); await renderGroupTabs(); }
+async function setupTabBar(){
+  const bar=document.getElementById('groupBar'); bar.classList.remove('hidden'); bar.classList.add('flex');
+  document.getElementById('btnDocx').classList.add('hidden');
+  document.getElementById('btnHist').classList.add('hidden');
+  document.getElementById('groupHistSlot').innerHTML=`<button onclick="openHistory()" class="toolbtn font-bold" title="Lịch sử của tài liệu đang xem"><i class="ph-bold ph-clock-counter-clockwise text-base"></i><span class="hidden xl:inline">Lịch sử</span></button>`;
+  document.getElementById('groupDocxSlot').innerHTML=`<button onclick="openGroupDocx()" class="toolbtn font-bold" title="Tải DOCX cả nhóm"><i class="ph-bold ph-file-doc text-base"></i><span class="hidden xl:inline">Tải DOCX</span></button>`;
+}
+let groupDocxInfo={};
+async function openGroupDocx(){
+  const dlg=document.getElementById('docxGroupDlg'), body=document.getElementById('docxGroupBody');
+  body.innerHTML='<p class="text-stone-500">Đang tải…</p>'; dlg.showModal();
+  const results=await Promise.all(GROUP.map(async id=>{
+    try{ const r=await fetch(API.base+'/api/doc/'+id); const j=await r.json();
+      return {id,name:j.name||id,ready:j.docx==='ready',url:j.docx_url}; }
+    catch(e){ return {id,name:id,ready:false,url:null}; }
+  }));
+  groupDocxInfo=Object.fromEntries(results.map(r=>[r.id,r]));
+  body.innerHTML=results.map(r=>`
+    <div class="flex items-center gap-2 rounded-xl border border-stone-200 p-2.5">
+      <i class="ph-bold ph-file-doc text-lg ${r.ready?'text-emerald-600':'text-stone-300'}"></i>
+      <p class="min-w-0 flex-1 truncate font-semibold">${escH(r.name)}</p>
+      ${r.ready?`<button onclick="downloadOneGroupDocx('${r.id}')" class="shrink-0 rounded-lg bg-brand-500 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Tải</button>`
+               :`<span class="shrink-0 text-xs text-stone-400">Đang xử lý…</span>`}
+    </div>`).join('');
+}
+async function downloadOneGroupDocx(id){
+  const info=groupDocxInfo[id]; if(!info||!info.ready||!info.url){ toast('DOCX chưa sẵn sàng'); return; }
+  const r=await fetch(API.base+info.url); if(!r.ok){ toast('Không tải được DOCX của '+info.name); return; }
+  const blob=await r.blob(); const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=(info.name||'document').replace(/\.pdf$/i,'')+'.docx';
+  document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},4000);
+}
+async function downloadAllGroupDocx(){
+  const ids=Object.keys(groupDocxInfo).filter(id=>groupDocxInfo[id].ready);
+  if(!ids.length){ toast('Chưa có DOCX nào sẵn sàng'); return; }
+  for(const id of ids){ await downloadOneGroupDocx(id); await new Promise(r=>setTimeout(r,400)); }
+  toast('Đã kích hoạt tải '+ids.length+' file DOCX');
+}
+async function initFromQuery(){
+  const all=new URLSearchParams(location.search).getAll('doc_id');
+  GROUP=[...new Set(all)];
+  apiHealth(); // không chờ: health của BE có thể chậm khi Ollama bận, còn PDF/chat mở từ thư viện ngay
+  if(!GROUP.length||API.docId) return;
+  if(GROUP.length>1) await setupTabBar();
+  await openDoc(GROUP[0]);
+  if(GROUP.length>1) await renderGroupTabs();
+}
+
 recentsP=loadRecents(); // sau khi const API đã khai báo
 initFromQuery(); setInterval(apiHealth,15000);
 function seed(){

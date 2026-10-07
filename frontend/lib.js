@@ -1,6 +1,6 @@
 /* Client dùng chung cho Library API (cùng backend, cổng 8000). Không bao giờ ném lỗi: trả {ok,status,data}; status 0 = server tắt. */
 (function(){
-  const BASE=(window.MATCHPDF_LIB_BASE||'http://127.0.0.1:8000').replace(/\/$/,'')+'/api';
+  const BASE=(window.MATCHPDF_API_BASE||'http://127.0.0.1:8000').replace(/\/$/,'')+'/api';
   let mem=null;
   function cid(){
     try{ let v=localStorage.getItem('matchpdf_client_id');
