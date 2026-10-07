@@ -76,6 +76,14 @@ class DocumentListOut(BaseModel):
     total: int
 
 
+class Citation(BaseModel):
+    index: int                    # thứ tự trong danh sách trích dẫn (1, 2, 3...)
+    page: Optional[int] = None    # số trang PDF thật, khớp [số trang] trong câu trả lời
+    section: str                  # tên mục/section trong tài liệu
+    score: float
+    snippet: str
+
+
 class MessageOut(BaseModel):
     id: str
     role: str
@@ -108,14 +116,6 @@ class ChatRequest(BaseModel):
                           examples=["Định nghĩa đạo hàm trong tài liệu là gì?"])
     top_k: Optional[int] = Field(None, ge=1, le=20, description="Số đoạn truy xuất")
     stream: bool = Field(False, description="true: trả SSE (thinking/token/citations/done)")
-
-
-class Citation(BaseModel):
-    index: int                    # thứ tự trong danh sách trích dẫn (1, 2, 3...)
-    page: Optional[int] = None    # số trang PDF thật, khớp [số trang] trong câu trả lời
-    section: str                  # tên mục/section trong tài liệu
-    score: float
-    snippet: str
 
 
 class ThinkingStep(BaseModel):

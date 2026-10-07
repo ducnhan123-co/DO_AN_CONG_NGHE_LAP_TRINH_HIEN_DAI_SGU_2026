@@ -213,7 +213,7 @@ document.getElementById('viewList').onclick=()=>{view='list';render();
 // window.addEventListener('dragleave',e=>{e.preventDefault();if(--dragN<=0){dragN=0;const o=document.getElementById('dropOverlay');o.classList.add('hidden');o.classList.remove('flex');}});
 // window.addEventListener('dragover',e=>e.preventDefault());
 // window.addEventListener('drop',e=>{e.preventDefault();dragN=0;const o=document.getElementById('dropOverlay');o.classList.add('hidden');o.classList.remove('flex');if(e.target.closest&&e.target.closest('#uploadDlg'))return;if(e.dataTransfer.files.length){openUpload();handleFiles(e.dataTransfer.files);}});
-// /* ---- upload THẬT lên server Python (8001) -> sang reader chat bằng model local ----
+// /* ---- upload THẬT lên server backend (8000) -> sang reader chat bằng model local ----
 //    Server tắt thì tự rơi về chế độ demo cũ. */
 // const API_BASE=(window.MATCHPDF_API_BASE||'http://127.0.0.1:8000').replace(/\/$/,'');
 // const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -341,7 +341,7 @@ async function openStaged(){
   const ids=[...new Set(staged.map(s=>s.docId))];
   location.replace('reader.html?'+ids.map(id=>'doc_id='+encodeURIComponent(id)).join('&')); // replace: nút lui về thư viện sạch
 }
-/* ---- thư viện lưu trên server (SQLite, cổng 8002) ---- */
+/* ---- thư viện lưu trên server (SQLite, cùng cổng 8000) ---- */
 const mapDocs=rows=>rows.map(d=>({id:d.doc_id,title:d.display_name||d.name}));
 async function migrateLegacy(){ // một lần: đưa danh sách "tài liệu gần đây" cũ (localStorage) lên server nếu BE còn file
   try{ if(localStorage.getItem('matchpdf_migrated')) return;
@@ -354,7 +354,7 @@ async function loadDocs(){
   let r=await LIB.get('/doc');
   if(r.ok){ await migrateLegacy(); r=await LIB.get('/doc'); DOCS=mapDocs(r.data||[]); }
   else { try{ DOCS=JSON.parse(localStorage.getItem('matchpdf_recents2')||'[]').map(d=>({id:d.doc_id,title:d.name})); }catch(e){ DOCS=[]; }
-    toast('Chưa kết nối thư viện (cổng 8002) — đang hiện danh sách cũ trong trình duyệt'); }
+    toast('Chưa kết nối thư viện (cùng cổng 8000) — đang hiện danh sách cũ trong trình duyệt'); }
   render();
 }
 let menuId=null;
