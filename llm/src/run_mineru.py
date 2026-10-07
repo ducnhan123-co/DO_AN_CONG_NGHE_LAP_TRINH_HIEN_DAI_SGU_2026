@@ -76,17 +76,24 @@ def kit_to_content_list(structured: dict) -> List[dict]:
     return out
 
 
-def _run_kit(kit: str, pdf_path: Path, out_dir: Path, tier: str) -> None:
+def _run_kit(kit: str, pdf_path: Path, out_dir: Path, tier: str,
+             ocr_mode: str = "auto") -> None:
     """mineru-kit 4.x: parse ra zip (markdown + ảnh + structured_content), giải nén và dựng content_list."""
     tmp = out_dir / "_kit"
     shutil.rmtree(tmp, ignore_errors=True)
-    cmd = [kit, "parse", str(pdf_path), "-o", str(tmp), "--tier", tier, "-f", "zip"]
+    cmd = [kit, "parse", str(pdf_path), "-o", str(tmp), "--tier", tier, "-f", "zip",
+           "--ocr-mode", ocr_mode]
     print("Running:", " ".join(cmd))
     result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     zips = list(tmp.glob("*.zip"))
-    if result.returncode != 0 or not zips:
+    if not zips:
+        # onnxruntime hay crash ở telemetry thread lúc thoát (returncode != 0)
+        # dù đã ghi xong zip -> chỉ lỗi thật khi không có sản phẩm.
         print(result.stderr[-2000:])
         raise RuntimeError("MinerU (mineru-kit parse) thất bại; thử --tier advanced hoặc xem `mineru-kit --help`.")
+    if result.returncode != 0:
+        print(f"[MinerU] kit thoát mã {result.returncode} nhưng đã có zip "
+              f"({zips[0].name}) — dùng tiếp. stderr: {result.stderr[-500:]}")
     with zipfile.ZipFile(zips[0]) as z:
         z.extractall(out_dir)
     shutil.rmtree(tmp, ignore_errors=True)
@@ -135,7 +142,8 @@ def run_mineru(pdf_path: Path, out_dir: Path, backend: str = "pipeline",
         return
     kit = shutil.which("mineru-kit")
     if kit:
-        _run_kit(kit, pdf_path, out_dir, tier)
+        _run_kit(kit, pdf_path, out_dir, tier,
+                 ocr_mode=method if method in ("txt", "ocr", "auto") else "auto")
         return
     cmd = ["mineru", "-p", str(pdf_path), "-o", str(out_dir), "-b", backend,
            "-m", method, "-l", lang, "-d", device,
