@@ -4,6 +4,8 @@ import re
 import subprocess
 from pathlib import Path
 
+PANDOC_TIMEOUT_S = 900   # DOCX chạy ở executor 1 worker: pandoc treo thì mọi DOCX sau bị kẹt
+
 try:
     from .config import PANDOC_FROM
 except ImportError:
@@ -798,8 +800,12 @@ def md_to_docx(work_md: Path, docx_path: Path, resource_dir: Path,
         "--toc",
     ]
     print("Running Pandoc...")
-    result = subprocess.run(cmd, capture_output=True, text=True,
-                            encoding="utf-8", errors="replace")
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True,
+                                encoding="utf-8", errors="replace",
+                                timeout=PANDOC_TIMEOUT_S)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"Pandoc quá {PANDOC_TIMEOUT_S}s, đã dừng.") from exc
     print(result.stdout)
     if result.returncode != 0:
         print(result.stderr)
@@ -815,4 +821,3 @@ def md_to_docx(work_md: Path, docx_path: Path, resource_dir: Path,
     if number_pages:
         add_page_numbers(docx_path)
     return docx_path
-

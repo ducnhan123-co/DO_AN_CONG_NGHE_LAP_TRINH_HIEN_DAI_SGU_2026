@@ -1,8 +1,8 @@
 """
 4 trục trạng thái độc lập (status/parser/embed/docx) được tính từ DocumentStatus
-nội bộ của backend MVC — vì pipeline hiện tại chạy MinerU-first tuần tự (không có
-bước "pypdf đọc nhanh trước"), field "parser" sẽ không bao giờ trả về 'pypdf',
-chỉ nhảy thẳng mineru_running -> mineru.
+nội bộ của backend MVC + file đánh dấu parser.txt. Pipeline có đường "đọc nhanh" (pypdf)
+trước MinerU: tài liệu ready sớm với parser='mineru_running' (đang dùng bản nhanh), rồi
+nhảy sang 'mineru' khi chỉ mục chuẩn thay thế xong (hoặc 'mineru_failed' nếu MinerU lỗi).
 """
 import json
 import time
@@ -11,13 +11,13 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints, model_validator
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import get_settings
 from backend.app.core.errors import AppError
 from backend.app.core.llm import LLMError, get_llm
-from backend.app.models import chat_model, document_model, library_model
+from backend.app.models import chat_model, document_model, library_model, pipeline_model
 from backend.app.models.database import Document, DocumentStatus, get_db
 from backend.app.models.library_db import LibDb
 
@@ -44,7 +44,11 @@ def _compat_info(doc: Document) -> dict:
     docx_flag = settings.doc_dir(doc.id) / "docx_failed.flag"   # MỚI
 
     if doc.status == DocumentStatus.ready.value:
-        status, parser = "ready", "mineru"
+        # ready có thể là BẢN ĐỌC NHANH (pypdf) trong lúc MinerU còn chạy ngầm -> 'mineru_running':
+        # chat đã dùng được, frontend vẫn poll và báo khi công thức chuẩn xong.
+        state = pipeline_model.parser_state(doc.id)
+        status = "ready"
+        parser = {"pypdf": "mineru_running", "mineru_failed": "mineru_failed"}.get(state, "mineru")
     elif doc.status == DocumentStatus.failed.value:
         status, parser = "failed", "mineru_failed"
     else:
@@ -77,12 +81,25 @@ class WarmRequest(BaseModel):
     model: str = Field(default="", max_length=100)
 
 
+DocIdStr = Annotated[str, StringConstraints(min_length=1, max_length=64)]
+
+
 class ChatStreamRequest(BaseModel):
-    doc_id: str = Field(min_length=1, max_length=64)
+    doc_id: str = Field(default="", max_length=64)                         # chat 1 tài liệu (cũ)
+    doc_ids: list[DocIdStr] = Field(default_factory=list, max_length=10)   # chat nhiều tài liệu cùng lúc
     question: str = Field(min_length=1, max_length=2000)
     top_k: int = Field(default=5, ge=1, le=20)
     model: str = Field(default="", max_length=100)
     history: list[dict] = Field(default_factory=list, max_length=12)
+
+    @model_validator(mode="after")
+    def _need_doc(self):
+        if not (self.doc_ids or self.doc_id):
+            raise ValueError("Cần doc_id hoặc doc_ids.")
+        return self
+
+    def ids(self) -> list[str]:
+        return list(dict.fromkeys(self.doc_ids or [self.doc_id]))
 
 
 @router.post("/upload", summary="[Tương thích] Upload PDF")
@@ -167,31 +184,57 @@ def warm(payload: WarmRequest) -> dict:
     return {"ok": True, "model": model.name}
 
 
-@router.post("/chat_stream", summary="[Tương thích] Chat SSE ({t}/{done}/{error}, 425 khi đang xử lý)")
+@router.post("/chat_stream", summary="[Tương thích] Chat SSE ({t}/{done}/{error}, 425 khi đang xử lý). "
+                                     "doc_ids: hỏi nhiều tài liệu cùng lúc")
 def chat_stream(payload: ChatStreamRequest, db: DbSession):
-    try:
-        doc = document_model.get_document(db, payload.doc_id)
-    except AppError as exc:
-        _raise_as_http(exc)
-    if doc.status != DocumentStatus.ready.value:
-        detail = (doc.error_message or "Tài liệu xử lý thất bại.") \
-            if doc.status == DocumentStatus.failed.value \
-            else "Tài liệu đang được xử lý, vài giây nữa chat được."
-        raise HTTPException(425, detail)
+    ids = payload.ids()
+    group = len(ids) > 1
+    ready: list[dict] = []          # {"n": số thứ tự trong danh sách client gửi, "id", "name"}
+    skipped: list[dict] = []
+    for n, doc_id in enumerate(ids, 1):
+        try:
+            doc = document_model.get_document(db, doc_id)
+        except AppError as exc:
+            if not group:
+                _raise_as_http(exc)
+            skipped.append({"doc_id": doc_id, "reason": "not_found"})
+            continue
+        if doc.status == DocumentStatus.ready.value:
+            ready.append({"n": n, "id": doc.id, "name": doc.filename})
+        elif not group:
+            detail = (doc.error_message or "Tài liệu xử lý thất bại.") \
+                if doc.status == DocumentStatus.failed.value \
+                else "Tài liệu đang được xử lý, vài giây nữa chat được."
+            raise HTTPException(425, detail)
+        else:   # nhóm: tài liệu chưa xong thì bỏ qua, các file còn lại vẫn chat được
+            skipped.append({"doc_id": doc.id, "reason": "failed" if doc.status == DocumentStatus.failed.value
+                            else "processing"})
+    if not ready:
+        if all(s["reason"] == "not_found" for s in skipped):
+            raise HTTPException(404, "Tài liệu không tồn tại.")
+        raise HTTPException(425, "Chưa có tài liệu nào trong nhóm sẵn sàng để chat.")
 
     def events():
         start = time.perf_counter()
         try:
-            for kind, data in chat_model.stream_events(
-                payload.doc_id, payload.question, payload.top_k,
-                client_history=payload.history or None, persist=False,
-            ):
+            history = payload.history or None
+            stream = (chat_model.stream_group_events(ready, payload.question, payload.top_k,
+                                                     client_history=history)
+                      if group else
+                      chat_model.stream_events(ready[0]["id"], payload.question, payload.top_k,
+                                               client_history=history, persist=False))
+            for kind, data in stream:
                 if kind == "token":
                     yield f"data: {json.dumps({'t': data['text']}, ensure_ascii=False)}\n\n"
                 elif kind == "done":
                     elapsed = round(time.perf_counter() - start, 1)
                     pages = sorted({c["page"] for c in data["citations"] if c.get("page") is not None})
                     out = {"done": True, "elapsed_s": elapsed, "citations": pages}
+                    if group:   # nguồn kèm số thứ tự tài liệu, để giao diện nhảy đúng file + trang
+                        pairs = sorted({(c["doc_no"], c["page"]) for c in data["citations"]
+                                        if c.get("page") is not None and c.get("doc_no")})
+                        out["sources"] = [{"n": n, "doc_id": ids[n - 1], "page": p} for n, p in pairs]
+                        out["skipped"] = skipped
                     yield f"data: {json.dumps(out, ensure_ascii=False)}\n\n"
                 elif kind == "error":
                     yield f"data: {json.dumps({'error': data['message']}, ensure_ascii=False)}\n\n"

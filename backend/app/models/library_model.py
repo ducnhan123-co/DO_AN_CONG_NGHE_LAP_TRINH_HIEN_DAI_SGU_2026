@@ -105,6 +105,14 @@ def delete_document(conn, doc_id: str) -> bool:
         conn.execute("DELETE FROM formulas WHERE doc_id=?", (doc_id,))
         conn.execute("DELETE FROM docx_versions WHERE doc_id=?", (doc_id,))
         conn.execute("DELETE FROM activity_log WHERE doc_id=?", (doc_id,))
+        # gỡ khỏi mọi nhóm; nhóm hết tài liệu thì xóa luôn (kèm phiên chat chung)
+        affected = [r["collection_id"] for r in
+                    conn.execute("SELECT DISTINCT collection_id FROM collection_docs WHERE doc_id=?", (doc_id,))]
+        conn.execute("DELETE FROM collection_docs WHERE doc_id=?", (doc_id,))
+        for coll_id in affected:
+            if not conn.execute("SELECT 1 FROM collection_docs WHERE collection_id=? LIMIT 1", (coll_id,)).fetchone():
+                conn.execute("DELETE FROM sessions WHERE collection_id=?", (coll_id,))  # messages cascade
+                conn.execute("DELETE FROM collections WHERE id=?", (coll_id,))
         conn.execute("UPDATE documents SET deleted_at=? WHERE doc_id=? AND deleted_at IS NULL", (time.time(), doc_id))
     for p in paths:                                   # cả bản chụp cũ nằm ở vị trí khác
         parent = Path(p).parent
@@ -284,3 +292,124 @@ def activity(conn, cid: str, doc_id: str) -> List[dict]:
     rows = conn.execute("SELECT kind,detail,created_at FROM activity_log WHERE client_id=? AND doc_id=? "
                         "ORDER BY id DESC LIMIT 100", (cid, doc_id)).fetchall()
     return [dict(r) for r in rows]
+
+
+# ---------------- nhóm tài liệu (chat chung nhiều file) ----------------
+MAX_COLLECTION_DOCS = 10
+
+
+def get_collection(conn: sqlite3.Connection, cid: str, coll_id: str) -> sqlite3.Row:
+    row = conn.execute("SELECT * FROM collections WHERE id=? AND client_id=?", (coll_id, cid)).fetchone()
+    if not row:
+        raise AppError(404, "COLLECTION_NOT_FOUND", "Nhóm tài liệu không tồn tại.")
+    return row
+
+
+def _collection_docs(conn, cid: str, coll_id: str) -> List[dict]:
+    rows = conn.execute(
+        "SELECT d.doc_id,d.name,d.display_name,d.num_pages,d.parser FROM collection_docs cd "
+        "JOIN documents d ON d.client_id=? AND d.doc_id=cd.doc_id "
+        "WHERE cd.collection_id=? AND d.deleted_at IS NULL ORDER BY cd.position", (cid, coll_id)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def _collection_out(conn, cid: str, row) -> dict:
+    return {"id": row["id"], "name": row["name"], "created_at": row["created_at"],
+            "updated_at": row["updated_at"], "docs": _collection_docs(conn, cid, row["id"])}
+
+
+def create_collection(conn, cid: str, doc_ids: List[str], name: str = "") -> dict:
+    """Tạo nhóm từ các tài liệu đã đăng ký trong thư viện. Cùng một tập tài liệu thì trả lại nhóm cũ
+    (idempotent) để mở link nhiều doc_id nhiều lần không sinh nhóm trùng."""
+    ids = list(dict.fromkeys(valid_doc_id(i) for i in doc_ids))
+    if not 2 <= len(ids) <= MAX_COLLECTION_DOCS:
+        raise AppError(422, "INVALID_COLLECTION",
+                       f"Nhóm cần từ 2 đến {MAX_COLLECTION_DOCS} tài liệu khác nhau.")
+    docs = [get_doc(conn, cid, i) for i in ids]
+    for r in conn.execute("SELECT id FROM collections WHERE client_id=?", (cid,)).fetchall():
+        members = {x["doc_id"] for x in conn.execute(
+            "SELECT doc_id FROM collection_docs WHERE collection_id=?", (r["id"],))}
+        if members == set(ids):
+            return {**_collection_out(conn, cid, get_collection(conn, cid, r["id"])), "created": False}
+    now, coll_id = time.time(), uuid.uuid4().hex
+    title = name.strip() or " + ".join(Path(d["display_name"] or d["name"]).stem for d in docs)[:120]
+    with conn:
+        conn.execute("INSERT INTO collections(id,client_id,name,created_at,updated_at) VALUES(?,?,?,?,?)",
+                     (coll_id, cid, title, now, now))
+        for pos, d in enumerate(docs):
+            conn.execute("INSERT INTO collection_docs(collection_id,doc_id,position) VALUES(?,?,?)",
+                         (coll_id, d["doc_id"], pos))
+    return {**_collection_out(conn, cid, get_collection(conn, cid, coll_id)), "created": True}
+
+
+def list_collections(conn, cid: str) -> List[dict]:
+    rows = conn.execute("SELECT * FROM collections WHERE client_id=? ORDER BY updated_at DESC", (cid,)).fetchall()
+    out = [_collection_out(conn, cid, r) for r in rows]
+    return [c for c in out if c["docs"]]
+
+
+def collection_detail(conn, cid: str, coll_id: str) -> dict:
+    return _collection_out(conn, cid, get_collection(conn, cid, coll_id))
+
+
+def rename_collection(conn, cid: str, coll_id: str, name: str) -> dict:
+    get_collection(conn, cid, coll_id)
+    name = name.strip()
+    if not name:
+        raise AppError(422, "EMPTY_TITLE", "Tên nhóm rỗng.")
+    with conn:
+        conn.execute("UPDATE collections SET name=? WHERE id=?", (name, coll_id))
+    return {"id": coll_id, "name": name}
+
+
+def delete_collection(conn, cid: str, coll_id: str) -> dict:
+    """Xóa nhóm + các phiên chat chung của nó. Các tài liệu bên trong KHÔNG bị xóa."""
+    get_collection(conn, cid, coll_id)
+    with conn:
+        conn.execute("DELETE FROM sessions WHERE collection_id=? AND client_id=?", (coll_id, cid))
+        conn.execute("DELETE FROM collections WHERE id=?", (coll_id,))   # collection_docs cascade
+    return {"deleted": coll_id}
+
+
+def list_collection_sessions(conn, cid: str, coll_id: str) -> List[dict]:
+    get_collection(conn, cid, coll_id)
+    rows = conn.execute(
+        "SELECT s.id,s.title,s.created_at,s.updated_at,(SELECT COUNT(*) FROM messages m WHERE m.session_id=s.id) AS message_count "
+        "FROM sessions s WHERE s.client_id=? AND s.collection_id=? ORDER BY s.updated_at DESC", (cid, coll_id)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def create_collection_session(conn, cid: str, coll_id: str, title: str) -> dict:
+    get_collection(conn, cid, coll_id)
+    now, sid = time.time(), uuid.uuid4().hex
+    count = conn.execute("SELECT COUNT(*) FROM sessions WHERE client_id=? AND collection_id=?",
+                         (cid, coll_id)).fetchone()[0]
+    title = title.strip() or f"Phiên {count + 1}"
+    with conn:
+        conn.execute("INSERT INTO sessions(id,client_id,doc_id,collection_id,title,created_at,updated_at) "
+                     "VALUES(?,?,?,?,?,?,?)", (sid, cid, "", coll_id, title, now, now))
+        conn.execute("UPDATE collections SET updated_at=? WHERE id=?", (now, coll_id))
+    return {"id": sid, "title": title, "created_at": now, "updated_at": now, "message_count": 0}
+
+
+def collection_context(conn, cid: str, coll_id: str, q: str = "", session_id: str = "") -> dict:
+    """Như context() nhưng công thức được tìm trong MỌI tài liệu của nhóm (kèm doc_id)."""
+    get_collection(conn, cid, coll_id)
+    recent: List[dict] = []
+    if session_id:
+        get_session(conn, cid, session_id)
+        rows = conn.execute("SELECT role,content FROM messages WHERE session_id=? ORDER BY id DESC LIMIT 5",
+                            (session_id,)).fetchall()
+        recent = [dict(r) for r in reversed(rows)]
+    formulas: List[dict] = []
+    match = fts_query(q)
+    ids = [d["doc_id"] for d in _collection_docs(conn, cid, coll_id)]
+    if match and ids:
+        marks = ",".join("?" * len(ids))
+        rows = conn.execute(
+            "SELECT f.doc_id,f.page,f.section,f.latex,f.ctx_before,f.ctx_after FROM formulas_fts "
+            "JOIN formulas f ON f.id=formulas_fts.rowid "
+            f"WHERE formulas_fts MATCH ? AND f.client_id=? AND f.doc_id IN ({marks}) "
+            "ORDER BY bm25(formulas_fts) LIMIT 3", (match, cid, *ids)).fetchall()
+        formulas = [dict(r) for r in rows]
+    return {"recent": recent, "formulas": formulas}

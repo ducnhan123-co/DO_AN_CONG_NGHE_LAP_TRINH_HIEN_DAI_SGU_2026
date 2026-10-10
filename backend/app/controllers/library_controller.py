@@ -12,8 +12,8 @@ from backend.app.core.config import DOCX_MIME, get_settings
 from backend.app.core.errors import AppError
 from backend.app.models import library_model
 from backend.app.models.library_db import LibDb
-from backend.app.views.library_schemas import (DocIn, MessagesIn, RenameIn, SessionIn,
-                                               SnapshotIn)
+from backend.app.views.library_schemas import (CollectionIn, CollectionRenameIn, DocIn,
+                                               MessagesIn, RenameIn, SessionIn, SnapshotIn)
 
 router = APIRouter(tags=["library"])
 
@@ -118,3 +118,44 @@ def docx_download(version_id: int, cid: Cid, conn: LibDb):
 @router.get("/doc/{doc_id}/activity", summary="Nhật ký hoạt động")
 def activity(doc_id: str, cid: Cid, conn: LibDb) -> list[dict]:
     return library_model.activity(conn, cid, doc_id)
+
+
+# ---------------- nhóm tài liệu (chat chung nhiều file) ----------------
+@router.get("/collection", summary="Danh sách nhóm tài liệu của client")
+def list_collections(cid: Cid, conn: LibDb) -> list[dict]:
+    return library_model.list_collections(conn, cid)
+
+
+@router.post("/collection", summary="Tạo nhóm từ nhiều tài liệu (cùng tập tài liệu -> trả nhóm cũ)")
+def create_collection(body: CollectionIn, cid: Cid, conn: LibDb) -> dict:
+    return library_model.create_collection(conn, cid, body.doc_ids, body.name)
+
+
+@router.get("/collection/{coll_id}", summary="Chi tiết nhóm + danh sách tài liệu theo thứ tự")
+def get_collection(coll_id: str, cid: Cid, conn: LibDb) -> dict:
+    return library_model.collection_detail(conn, cid, coll_id)
+
+
+@router.patch("/collection/{coll_id}", summary="Đổi tên nhóm")
+def rename_collection(coll_id: str, body: CollectionRenameIn, cid: Cid, conn: LibDb) -> dict:
+    return library_model.rename_collection(conn, cid, coll_id, body.name)
+
+
+@router.delete("/collection/{coll_id}", summary="Xóa nhóm + phiên chat chung (không xóa tài liệu)")
+def delete_collection(coll_id: str, cid: Cid, conn: LibDb) -> dict:
+    return library_model.delete_collection(conn, cid, coll_id)
+
+
+@router.get("/collection/{coll_id}/sessions", summary="Phiên chat chung của nhóm")
+def list_collection_sessions(coll_id: str, cid: Cid, conn: LibDb) -> list[dict]:
+    return library_model.list_collection_sessions(conn, cid, coll_id)
+
+
+@router.post("/collection/{coll_id}/sessions", summary="Tạo phiên chat chung của nhóm")
+def create_collection_session(coll_id: str, body: SessionIn, cid: Cid, conn: LibDb) -> dict:
+    return library_model.create_collection_session(conn, cid, coll_id, body.title)
+
+
+@router.get("/collection/{coll_id}/context", summary="Ngữ cảnh nhóm: tin nhắn gần đây + công thức liên quan")
+def collection_context(coll_id: str, cid: Cid, conn: LibDb, q: str = "", session_id: str = "") -> dict:
+    return library_model.collection_context(conn, cid, coll_id, q, session_id)

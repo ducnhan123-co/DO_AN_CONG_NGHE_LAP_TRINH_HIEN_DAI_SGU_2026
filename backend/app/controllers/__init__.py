@@ -23,7 +23,7 @@ def health(db: Annotated[Session, Depends(get_db)]):
  
     llm_name = None
     if s.llm_backend == "qwen_local":
-        from DO_AN_CONG_NGHE_LAP_TRINH_HIEN_DAI_SGU_2026.llm.src.config import LLM_NAME
+        from llm.src.config import LLM_NAME
         llm_name = s.llm_name or LLM_NAME
     elif s.llm_backend == "ollama":
         llm_name = s.ollama_model

@@ -76,6 +76,18 @@ class DocumentListOut(BaseModel):
     total: int
 
 
+class Citation(BaseModel):
+    index: int                    # thứ tự trong danh sách trích dẫn (1, 2, 3...)
+    page: Optional[int] = None    # số trang PDF thật, khớp [số trang] trong câu trả lời
+    section: str                  # tên mục/section trong tài liệu
+    score: float
+    snippet: str
+    # chỉ có khi chat nhiều tài liệu (nhóm)
+    doc_id: Optional[str] = None
+    doc_no: Optional[int] = None      # số thứ tự tài liệu trong nhóm (khớp nhãn [n:trang])
+    filename: Optional[str] = None
+
+
 class MessageOut(BaseModel):
     id: str
     role: str
@@ -110,14 +122,6 @@ class ChatRequest(BaseModel):
     stream: bool = Field(False, description="true: trả SSE (thinking/token/citations/done)")
 
 
-class Citation(BaseModel):
-    index: int                    # thứ tự trong danh sách trích dẫn (1, 2, 3...)
-    page: Optional[int] = None    # số trang PDF thật, khớp [số trang] trong câu trả lời
-    section: str                  # tên mục/section trong tài liệu
-    score: float
-    snippet: str
-
-
 class ThinkingStep(BaseModel):
     step: str                     # analyze | retrieve | retrieved | generate
     text: str
@@ -126,6 +130,7 @@ class ThinkingStep(BaseModel):
 class ChatResponse(BaseModel):
     message_id: str
     document_id: str
+    document_ids: List[str] = []      # chat nhóm: toàn bộ tài liệu được hỏi
     answer: str
     citations: List[Citation]
     thinking: List[ThinkingStep]

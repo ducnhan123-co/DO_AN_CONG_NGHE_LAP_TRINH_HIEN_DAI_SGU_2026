@@ -113,6 +113,11 @@ tailwind.config = {
 
     <div class="mx-auto max-w-[1200px] px-4 sm:px-6 pb-20">
       <!-- grid -->
+      <div id="collections" class="hidden mt-5">
+        <p class="font-mono text-[10px] font-bold uppercase tracking-widest text-stone-400">Nhóm tài liệu · chat chung nhiều file</p>
+        <div id="collGrid" class="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"></div>
+        <p class="mt-5 font-mono text-[10px] font-bold uppercase tracking-widest text-stone-400">Từng tài liệu</p>
+      </div>
       <div id="grid" class="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"></div>
       <div id="empty" class="hidden py-20 text-center">
         <i class="ph-duotone ph-file-dashed text-6xl text-stone-300"></i>
@@ -144,11 +149,10 @@ tailwind.config = {
       <input id="fileInput" type="file" accept="application/pdf" class="hidden" multiple />
     </label>
     <div id="uploadList" class="mt-3 space-y-2"></div>
-    <!-- <div id="uploadFooter" class="mt-4 hidden items-center gap-2">
+    <div id="uploadFooter" class="mt-4 hidden items-center gap-2">
       <button onclick="clearStaged()" class="rounded-xl border border-stone-200 px-3 py-2 text-xs font-bold text-stone-500 hover:bg-stone-100">Xóa hết</button>
       <button id="openBtn" onclick="openStaged()" class="ml-auto rounded-xl bg-brand-500 px-5 py-2.5 text-sm font-bold text-white shadow-[0_10px_24px_-10px_rgba(234,88,12,.8)] transition hover:bg-brand-600 active:translate-y-[1px] disabled:opacity-50">Mở tài liệu →</button>
-    </div> -->
-    <div id="openAllWrap" class="mt-3"></div>
+    </div>
   </div>
 </dialog>
 
@@ -165,6 +169,7 @@ function thumbHTML(d, i){
   </div>`;
 }
 function render(){
+  renderColls();
   const list = DOCS.filter(d =>
     d.title.toLowerCase().includes(query.toLowerCase()));
   document.getElementById('docCount').textContent = list.length;
@@ -214,7 +219,7 @@ document.getElementById('viewList').onclick=()=>{view='list';render();
 // window.addEventListener('dragleave',e=>{e.preventDefault();if(--dragN<=0){dragN=0;const o=document.getElementById('dropOverlay');o.classList.add('hidden');o.classList.remove('flex');}});
 // window.addEventListener('dragover',e=>e.preventDefault());
 // window.addEventListener('drop',e=>{e.preventDefault();dragN=0;const o=document.getElementById('dropOverlay');o.classList.add('hidden');o.classList.remove('flex');if(e.target.closest&&e.target.closest('#uploadDlg'))return;if(e.dataTransfer.files.length){openUpload();handleFiles(e.dataTransfer.files);}});
-// /* ---- upload THẬT lên server Python (8001) -> sang reader chat bằng model local ----
+// /* ---- upload THẬT lên server backend (8000) -> sang reader chat bằng model local ----
 //    Server tắt thì tự rơi về chế độ demo cũ. */
 // const API_BASE=(window.MATCHPDF_API_BASE||'http://127.0.0.1:8000').replace(/\/$/,'');
 // const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -288,71 +293,7 @@ window.addEventListener('dragenter',e=>{e.preventDefault();dragN++;const o=docum
 window.addEventListener('dragleave',e=>{e.preventDefault();if(--dragN<=0){dragN=0;const o=document.getElementById('dropOverlay');o.classList.add('hidden');o.classList.remove('flex');}});
 window.addEventListener('dragover',e=>e.preventDefault());
 window.addEventListener('drop',e=>{e.preventDefault();dragN=0;const o=document.getElementById('dropOverlay');o.classList.add('hidden');o.classList.remove('flex');if(e.target.closest&&e.target.closest('#uploadDlg'))return;if(e.dataTransfer.files.length){openUpload();addFiles(e.dataTransfer.files);}});
-
-// ---------------------------------------------------------------------------------------
-const uploadedByName={}, uploadingNames=new Set(); // chống upload trùng 1 file
-let lastFiles=[], batchIds=[]; // batchIds: doc_id sẽ đưa vào "Mở N tài liệu"
-function retryLast(){ if(lastFiles.length) handleFiles(lastFiles); else toast('Chưa có file nào để thử lại'); }
-function updateOpenAllBtn(){
-  const wrap=document.getElementById('openAllWrap'); if(!wrap) return;
-  if(!batchIds.length){ wrap.innerHTML=''; return; }
-  const url='reader.html?'+batchIds.map(id=>'doc_id='+encodeURIComponent(id)).join('&');
-  const label=batchIds.length>1?`Mở ${batchIds.length} tài liệu →`:'Mở tài liệu →';
-  wrap.innerHTML=`<a href="${url}" class="flex items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-brand-600 active:translate-y-[1px]"><i class="ph-duotone ph-chats-circle"></i> ${label}</a>`;
-}
-function addToBatch(id){ if(id&&!batchIds.includes(id)){ batchIds.push(id); updateOpenAllBtn(); } }
-function removeFromBatch(id,row){ batchIds=batchIds.filter(x=>x!==id); updateOpenAllBtn();
-  if(row){ row.classList.add('opacity-40'); row.querySelector('.st-status').innerHTML='<span class="line-through">Đã bỏ khỏi danh sách mở</span>'; } }
-async function handleFiles(fileList){
-  const files=[...fileList]; // chụp ngay: input.value='' / DataTransfer làm rỗng FileList gốc trước khi await xong
-  const box=document.getElementById('uploadList'); box.innerHTML=''; batchIds=[]; updateOpenAllBtn();
-  if(!files.length){ box.innerHTML='<p class="text-sm text-stone-400 text-center py-2">Chưa có file nào. Thử kéo 1 file PDF vào.</p>'; return; }
-  lastFiles=files;
-  const online=await serverOnline();
-  files.slice(0,5).forEach((f)=>{
-    const row=document.createElement('div');
-    row.className='flex items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 text-sm fade-up';
-    row.innerHTML=`<span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-500 text-white font-extrabold text-xs">PDF</span>
-      <div class="min-w-0 flex-1"><p class="truncate font-bold">${esc(f.name)}</p>
-      <p class="st-status font-mono text-[11px] text-stone-500">Đang chờ…</p></div>
-      <span class="st-action shrink-0"></span>
-      <button class="st-remove shrink-0 grid h-7 w-7 place-items-center rounded-lg text-stone-400 hover:bg-red-50 hover:text-red-600" title="Bỏ khỏi danh sách mở">✕</button>`;
-    box.appendChild(row);
-    const removeBtn=row.querySelector('.st-remove');
-    const done=uploadedByName[f.name];
-    if(done&&done.docId){ // file này đã tải rồi: dùng lại, không POST nữa
-      row.querySelector('.st-status').textContent='File này đã tải rồi — sẵn sàng mở';
-      addToBatch(done.docId);
-      removeBtn.onclick=()=>removeFromBatch(done.docId,row);
-      return;
-    }
-    if(uploadingNames.has(f.name)){ row.querySelector('.st-status').textContent='Đang tải lên…'; removeBtn.onclick=()=>removeFromBatch(null,row); return; }
-    if(online) uploadOne(f,row,removeBtn);
-    else{ row.querySelector('.st-status').textContent='Server chưa chạy — bật server rồi bấm Thử lại';
-      row.querySelector('.st-action').innerHTML=`<button onclick="retryLast()" class="shrink-0 rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Thử lại →</button>`;
-      removeBtn.onclick=()=>removeFromBatch(null,row); }
-  });
-}
-async function uploadOne(f,row,removeBtn){
-  const st=row.querySelector('.st-status'), act=row.querySelector('.st-action');
-  uploadingNames.add(f.name);
-  st.innerHTML='<span class="text-brand-600 font-bold">Đang tải lên…</span>';
-  try{
-    const fd=new FormData(); fd.append('f',f);
-    const r=await fetch(API_BASE+'/api/upload',{method:'POST',body:fd});
-    if(!r.ok) throw new Error(await r.text());
-    const j=await r.json();
-    uploadingNames.delete(f.name);
-    uploadedByName[f.name]={docId:j.doc_id};
-    st.textContent=`${j.num_pages} trang · đã nhận, đang đọc nội dung ở nền`;
-    addToBatch(j.doc_id);
-    if(removeBtn) removeBtn.onclick=()=>removeFromBatch(j.doc_id,row);
-  }catch(e){ uploadingNames.delete(f.name); const msg=String(e&&e.message||e);
-    st.innerHTML=`<span class="text-red-600 font-bold">Upload lỗi: ${esc(msg.slice(0,160))}</span>`;
-    act.innerHTML=`<button onclick="retryLast()" class="shrink-0 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-600">Thử lại →</button>`; }
-}
-// -----------------------------------------------------------------------------------------------
-
+ 
 function addFiles(list){
   if(uploading) return;
   for(const f of [...list]){ // chụp ngay: input.value='' làm rỗng FileList gốc
@@ -396,7 +337,7 @@ async function openStaged(){
       const r=await fetch(API_BASE+'/api/upload',{method:'POST',body:fd});
       if(!r.ok) throw new Error(await r.text());
       const j=await r.json();
-      s.docId=j.doc_id; s.pages=j.num_pages; s.status='done';
+      s.docId=j.doc_id; s.pages=j.num_pages; s.parser=j.parser; s.status='done';
       uploadedByKey[s.key]={docId:j.doc_id,pages:j.num_pages};
     }catch(e){ s.status='err'; s.msg=String(e&&e.message||e); }
     renderStaged();
@@ -404,9 +345,14 @@ async function openStaged(){
   uploading=false; renderStaged();
   if(staged.some(s=>s.status!=='done')){ toast('Có file tải lỗi — bỏ file lỗi (✕) hoặc bấm Mở tài liệu để thử lại'); return; }
   const ids=[...new Set(staged.map(s=>s.docId))];
+  if(ids.length>1){ // nhiều file một lần: đăng ký vào thư viện rồi gộp thành 1 nhóm để chat chung
+    for(const s of staged) await LIB.put('/doc/'+s.docId,{name:s.file.name.slice(0,300),num_pages:s.pages||null,parser:s.parser||null});
+    const g=await LIB.post('/collection',{doc_ids:ids,name:''});
+    if(g.ok){ location.replace('reader.html?collection='+encodeURIComponent(g.data.id)); return; }
+    toast('Chưa tạo được nhóm (thư viện chưa kết nối) — mở từng tab'); }
   location.replace('reader.html?'+ids.map(id=>'doc_id='+encodeURIComponent(id)).join('&')); // replace: nút lui về thư viện sạch
 }
-/* ---- thư viện lưu trên server (SQLite, cổng 8002) ---- */
+/* ---- thư viện lưu trên server (SQLite, cùng cổng 8000) ---- */
 const mapDocs=rows=>rows.map(d=>({id:d.doc_id,title:d.display_name||d.name}));
 async function migrateLegacy(){ // một lần: đưa danh sách "tài liệu gần đây" cũ (localStorage) lên server nếu BE còn file
   try{ if(localStorage.getItem('matchpdf_migrated')) return;
@@ -419,9 +365,33 @@ async function loadDocs(){
   let r=await LIB.get('/doc');
   if(r.ok){ await migrateLegacy(); r=await LIB.get('/doc'); DOCS=mapDocs(r.data||[]); }
   else { try{ DOCS=JSON.parse(localStorage.getItem('matchpdf_recents2')||'[]').map(d=>({id:d.doc_id,title:d.name})); }catch(e){ DOCS=[]; }
-    toast('Chưa kết nối thư viện (cổng 8002) — đang hiện danh sách cũ trong trình duyệt'); }
-  render();
+    toast('Chưa kết nối thư viện (cùng cổng 8000) — đang hiện danh sách cũ trong trình duyệt'); }
+  render(); loadColls();
 }
+/* ---- nhóm tài liệu: các file upload cùng lúc được gộp để chat chung ---- */
+let COLLS=[];
+async function loadColls(){ const r=await LIB.get('/collection'); COLLS=r.ok?(r.data||[]):[]; renderColls(); }
+function renderColls(){
+  const box=document.getElementById('collections'), grid=document.getElementById('collGrid'); if(!box||!grid) return;
+  const q=query.toLowerCase();
+  const list=COLLS.filter(c=>!q||c.name.toLowerCase().includes(q)||c.docs.some(d=>(d.display_name||d.name).toLowerCase().includes(q)));
+  box.classList.toggle('hidden',!list.length);
+  grid.innerHTML=list.map(c=>`<article class="card-hover fade-up rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50/70 to-white p-4">
+    <div class="flex items-start gap-2">
+      <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-500 text-white"><i class="ph-duotone ph-stack"></i></span>
+      <div class="min-w-0 flex-1"><h3 class="truncate text-[14px] font-bold" title="${esc(c.name)}">${esc(c.name)}</h3>
+        <p class="font-mono text-[11px] text-stone-500">${c.docs.length} tài liệu · chat chung</p></div>
+      <button onclick="renameColl('${c.id}')" class="shrink-0 rounded-md px-1.5 py-0.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700" title="Đổi tên nhóm"><i class="ph-bold ph-pencil-simple"></i></button>
+      <button onclick="deleteColl('${c.id}')" class="shrink-0 rounded-md px-1.5 py-0.5 text-stone-400 hover:bg-red-50 hover:text-red-600" title="Xóa nhóm (không xóa file)"><i class="ph-bold ph-trash"></i></button>
+    </div>
+    <div class="mt-3 flex flex-wrap gap-1.5">${c.docs.map(d=>`<a href="reader.html?doc_id=${d.doc_id}" title="Chỉ chat riêng file này" class="max-w-full truncate rounded-md border border-stone-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-stone-600 hover:border-brand-500">${esc(d.display_name||d.name)}</a>`).join('')}</div>
+    <a href="reader.html?collection=${c.id}" class="mt-3 flex items-center justify-center gap-1.5 rounded-xl bg-brand-500 px-3 py-2 text-[13px] font-bold text-white transition hover:bg-brand-600 active:translate-y-[1px]"><i class="ph-duotone ph-chats-circle"></i> Chat cả nhóm</a>
+  </article>`).join('');
+}
+async function renameColl(id){ const c=COLLS.find(x=>x.id===id); if(!c) return; const n=prompt('Tên nhóm:',c.name); if(!n||!n.trim()) return;
+  const r=await LIB.patch('/collection/'+id,{name:n.trim().slice(0,120)}); if(!r.ok){ toast('Không đổi được tên nhóm'); return; } loadColls(); }
+async function deleteColl(id){ const c=COLLS.find(x=>x.id===id); if(!c||!confirm('Xóa nhóm “'+c.name+'” và các phiên chat chung của nhóm?\nCác file bên trong KHÔNG bị xóa.')) return;
+  const r=await LIB.del('/collection/'+id); if(!r.ok){ toast('Không xóa được nhóm'); return; } toast('Đã xóa nhóm'); loadColls(); }
 let menuId=null;
 function cardMenu(id,btn){ const m=document.getElementById('cardMenu');
   if(menuId===id&&!m.classList.contains('hidden')){ m.classList.add('hidden'); menuId=null; return; }

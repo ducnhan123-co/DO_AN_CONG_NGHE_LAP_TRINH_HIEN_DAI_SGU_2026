@@ -45,7 +45,22 @@ CREATE TABLE activity_log(
   kind TEXT NOT NULL, detail TEXT, created_at REAL NOT NULL);
 CREATE INDEX activity_doc ON activity_log(client_id, doc_id, id);
 """
-MIGRATIONS = [SCHEMA_V1]  # thêm phần tử mới ở cuối để nâng phiên bản
+# V2: nhóm tài liệu (collection) để chat chung nhiều file. Phiên chat của nhóm có
+# sessions.collection_id != NULL và doc_id = '' (phiên của 1 tài liệu giữ collection_id NULL).
+SCHEMA_V2 = """
+CREATE TABLE collections(
+  id TEXT PRIMARY KEY, client_id TEXT NOT NULL, name TEXT NOT NULL,
+  created_at REAL NOT NULL, updated_at REAL NOT NULL);
+CREATE INDEX collections_client ON collections(client_id, updated_at);
+CREATE TABLE collection_docs(
+  collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+  doc_id TEXT NOT NULL, position INTEGER NOT NULL,
+  PRIMARY KEY(collection_id, doc_id));
+CREATE INDEX collection_docs_doc ON collection_docs(doc_id);
+ALTER TABLE sessions ADD COLUMN collection_id TEXT;
+CREATE INDEX sessions_collection ON sessions(client_id, collection_id, updated_at);
+"""
+MIGRATIONS = [SCHEMA_V1, SCHEMA_V2]  # thêm phần tử mới ở cuối để nâng phiên bản
 
 
 def connect() -> sqlite3.Connection:

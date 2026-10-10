@@ -47,5 +47,6 @@ def retrieve(index, query: str, top_k: int = 5) -> List[Dict]:
     return [{"node_id": h.node.node_id, "score": float(h.score or 0.0),
              "source": h.node.metadata.get("source"), "page": h.node.metadata.get("page"),
              "section": h.node.metadata.get("section"),
+             "pages": h.node.metadata.get("pages"), "page_end": h.node.metadata.get("page_end"),
              "formula_latex": h.node.metadata.get("formula_latex"),
              "text": h.node.get_content()} for h in hits]
