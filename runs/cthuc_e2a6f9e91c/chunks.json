@@ -1,0 +1,1436 @@
+[
+  {
+    "chunk_id": 0,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "1. Tam thức bậc hai.",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "table"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\text {Giả sử} f (\\boldsymbol {x}) = \\boldsymbol {a} \\boldsymbol {x} ^ {2} + \\boldsymbol {b} \\boldsymbol {x} + \\boldsymbol {c} \\left(\\boldsymbol {a} \\neq 0; \\alpha , \\beta \\in \\mathbb {R}; \\alpha <   \\beta ; \\boldsymbol {S} = - \\frac {\\boldsymbol {b}}{\\boldsymbol {a}}\\right)"
+    ],
+    "block_ids": [
+      3,
+      4
+    ],
+    "n_chars": 1668,
+    "text": "# 1. Tam thức bậc hai.\n$$\n\\text {Giả sử} f (\\boldsymbol {x}) = \\boldsymbol {a} \\boldsymbol {x} ^ {2} + \\boldsymbol {b} \\boldsymbol {x} + \\boldsymbol {c} \\left(\\boldsymbol {a} \\neq 0; \\alpha , \\beta \\in \\mathbb {R}; \\alpha <   \\beta ; \\boldsymbol {S} = - \\frac {\\boldsymbol {b}}{\\boldsymbol {a}}\\right)\n$$\n\n| $f(x) \\geq 0 \\forall x \\in \\mathbb{R} \\Leftrightarrow \\begin{cases} a > 0 \\\\ \\Delta \\leq 0 \\end{cases}$ | $\\begin{bmatrix} x_1 < x_2 < \\alpha \\\\ \\alpha < x_1 < x_2 \\end{bmatrix} \\Leftrightarrow \\begin{cases} \\Delta > 0 \\\\ af(\\alpha) > 0 \\end{cases}$ |\n| --- | --- |\n| $f(x) \\leq 0 \\forall x \\in \\mathbb{R} \\Leftrightarrow \\begin{cases} a < 0 \\\\ \\Delta \\leq 0 \\end{cases}$ | $x_1 < \\alpha < \\beta < x_2 \\Leftrightarrow \\begin{cases} af(\\alpha) < 0 \\\\ af(\\beta) < 0 \\end{cases}$ |\n| $\\alpha$ là nghiệm của $f(x) \\Leftrightarrow f(\\alpha) = 0$ | $x_1 < \\alpha < x_2 < \\beta \\Leftrightarrow \\begin{cases} af(\\alpha) < 0 \\\\ af(\\beta) > 0 \\end{cases}$ |\n| $x_1 < \\alpha < x_2 \\Leftrightarrow af(\\alpha) < 0$ | $\\alpha < x_1 < \\beta < x_2 \\Leftrightarrow \\begin{cases} af(\\alpha) > 0 \\\\ af(\\beta) < 0 \\end{cases}$ |\n| $\\alpha < x_1 < x_2 \\Leftrightarrow \\begin{cases} \\Delta > 0 \\\\ af(\\alpha) > 0 \\\\ \\frac{S}{2} - \\alpha > 0 \\end{cases}$ | $\\begin{bmatrix} \\alpha < x_1 < \\beta < x_2 \\\\ x_1 < \\alpha < x_2 < \\beta \\end{bmatrix} \\Leftrightarrow f(\\alpha).f(\\beta) < 0$ |\n| $x_1 < x_2 < \\alpha \\Leftrightarrow \\begin{cases} \\Delta > 0 \\\\ af(\\alpha) > 0 \\\\ \\frac{S}{2} - \\alpha < 0 \\end{cases}$ | $\\alpha < x_1 < x_2 < \\beta \\Leftrightarrow \\begin{cases} \\Delta > 0 \\\\ af(\\alpha) > 0 \\\\ af(\\beta) > 0 \\\\ \\frac{S}{2} - \\alpha > 0 \\\\ \\frac{S}{2} - \\beta < 0 \\end{cases}$ |"
+  },
+  {
+    "chunk_id": 1,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "2. Bất đăng thức Cô si:",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      6
+    ],
+    "n_chars": 136,
+    "text": "# 2. Bất đăng thức Cô si:\nVới hai số $a \\geq 0$, $b \\geq 0$ thì $\\frac{a+b}{2} \\geq \\sqrt{ab}$. Dấu \" = \" xây ra $\\Leftrightarrow a = b$"
+  },
+  {
+    "chunk_id": 2,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "3. Phương trình – bất phương trình chứa trị tuyệt đối",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "table"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      8
+    ],
+    "n_chars": 543,
+    "text": "# 3. Phương trình – bất phương trình chứa trị tuyệt đối\n<table><tr><td> $\\left| A\\right| = \\left| B\\right| \\Leftrightarrow A = \\pm B$ </td><td> $\\left| A\\right| < \\left| B\\right| \\Leftrightarrow {A}^{2} < {B}^{2}$ </td></tr><tr><td> $\\left| A\\right| = B \\Leftrightarrow \\left\\{ \\begin{array}{l} B \\geq 0 \\\\ A = B^{2} \\end{array}\\right.$ </td><td rowspan=\"2\"> $\\left| A\\right| > B \\Leftrightarrow \\left[ \\begin{array}{c} A > B \\\\ A < -B \\end{array} \\right.$ </td></tr><tr><td> $\\left| A\\right| < B \\Leftrightarrow -B < A < B$ </td></tr></table>"
+  },
+  {
+    "chunk_id": 3,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "4. Phương trình – bất phương trình chứa căn",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "table"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      10
+    ],
+    "n_chars": 620,
+    "text": "# 4. Phương trình – bất phương trình chứa căn\n<table><tr><td> $\\sqrt{A} = \\sqrt{B} \\Leftrightarrow \\begin{cases} A \\geq 0 (B \\geq 0) \\\\ A = B \\end{cases}$ </td><td> $\\sqrt{A} < B \\Leftrightarrow \\begin{cases} A \\geq 0 \\\\ B > 0 \\\\ A < B^{2} \\end{cases}$ </td></tr><tr><td> $\\sqrt{A} = B \\Leftrightarrow \\begin{cases} B \\geq 0 \\\\ A = B^{2} \\end{cases}$ </td><td rowspan=\"2\"> $\\sqrt{A} > B \\Leftrightarrow \\begin{cases} B < 0 \\\\ A \\geq 0 \\end{cases} \\lor \\begin{cases} B \\geq 0 \\\\ A > B^{2} \\end{cases}$ </td></tr><tr><td> $\\sqrt{A} < \\sqrt{B} \\Leftrightarrow \\begin{cases} A \\geq 0 \\\\ A < B \\end{cases}$ </td></tr></table>"
+  },
+  {
+    "chunk_id": 4,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "1. Định lý hàm số Cosin:",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\boldsymbol {a} ^ {2} = \\boldsymbol {b} ^ {2} + \\boldsymbol {c} ^ {2} - 2 b c \\cos \\boldsymbol {A}",
+      "\\boldsymbol {b} ^ {2} = \\boldsymbol {a} ^ {2} + \\boldsymbol {c} ^ {2} - 2 \\boldsymbol {a c} \\cos B",
+      "\\boldsymbol {c} ^ {2} = \\boldsymbol {a} ^ {2} + \\boldsymbol {b} ^ {2} - 2 \\boldsymbol {a b} \\cos C"
+    ],
+    "block_ids": [
+      13,
+      14,
+      15
+    ],
+    "n_chars": 343,
+    "text": "# 1. Định lý hàm số Cosin:\n$$\n\\boldsymbol {a} ^ {2} = \\boldsymbol {b} ^ {2} + \\boldsymbol {c} ^ {2} - 2 b c \\cos \\boldsymbol {A}\n$$\n\n$$\n\\boldsymbol {b} ^ {2} = \\boldsymbol {a} ^ {2} + \\boldsymbol {c} ^ {2} - 2 \\boldsymbol {a c} \\cos B\n$$\n\n$$\n\\boldsymbol {c} ^ {2} = \\boldsymbol {a} ^ {2} + \\boldsymbol {b} ^ {2} - 2 \\boldsymbol {a b} \\cos C\n$$"
+  },
+  {
+    "chunk_id": 5,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "2. Định lý hàm số Sin:",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\frac {a}{\\sin A} = \\frac {b}{\\sin B} = \\frac {c}{\\sin C} = 2 R"
+    ],
+    "block_ids": [
+      17
+    ],
+    "n_chars": 94,
+    "text": "# 2. Định lý hàm số Sin:\n$$\n\\frac {a}{\\sin A} = \\frac {b}{\\sin B} = \\frac {c}{\\sin C} = 2 R\n$$"
+  },
+  {
+    "chunk_id": 6,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "3. Công thức tính diện tích tam giác:",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "table"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      19
+    ],
+    "n_chars": 348,
+    "text": "# 3. Công thức tính diện tích tam giác:\n<table><tr><td> $S = \\frac{1}{2}a h_{a} = \\frac{1}{2}b h_{b} = \\frac{1}{2}c h_{c}$ </td><td> $S = \\frac{abc}{4R}$ </td></tr><tr><td> $S = \\frac{1}{2}a b \\sin C = \\frac{1}{2}a c \\sin B = \\frac{1}{2}b c \\sin A$ </td><td rowspan=\"2\"> $S = \\sqrt{p(p-a)(p-b)(p-c)}$ </td></tr><tr><td> $S = p.r$ </td></tr></table>"
+  },
+  {
+    "chunk_id": 7,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "I. PHƯƠNG PHÁP CHUNG",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      22
+    ],
+    "n_chars": 170,
+    "text": "# I. PHƯƠNG PHÁP CHUNG\nĐề giải một hệ phương trình đại số ta thường dùng phương pháp cộng hay phương pháp thế. Bên cạnh đó ta còn có một số loại hệ phương trình đặc biệt."
+  },
+  {
+    "chunk_id": 8,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "1. HÊ PHƯƠNG TRÌNH BẮC NHẤT HAI ẮN",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      25,
+      26,
+      27
+    ],
+    "n_chars": 630,
+    "text": "# 1. HÊ PHƯƠNG TRÌNH BẮC NHẤT HAI ẮN\n➢ Dạng: $\\begin{cases}a_{1}x+b_{1}y=c_{1}\\\\a_{2}x+b_{2}y=c_{2}\\end{cases}$  (\\*)\n> Cách giải: Công thức Crammer\n\nĐặt $D = \\begin{vmatrix} a_1 & b_1 \\\\ a_2 & b_2 \\end{vmatrix}$; $D_x = \\begin{vmatrix} c_1 & b_1 \\\\ c_2 & b_2 \\end{vmatrix}$; $D_y = \\begin{vmatrix} a_1 & c_1 \\\\ a_2 & c_2 \\end{vmatrix}$\n\n- Nếu $D \\neq 0$: hệ (\\*) có nghiệm duy nhất $\\left\\{ \\begin{array}{l} x = \\frac{D_x}{D} \\\\ y = \\frac{D_y}{D} \\end{array} \\right.$\n- Nếu $D = 0$ và $D_x \\neq 0$ hay $D_y \\neq 0$: hệ (\\*) vô nghiệm.\n- Nếu $D = D_x = D_y = 0$: hệ (\\*) có hai trường hợp xảy ra: hoặc vô nghiệm hoặc vô số nghiệm."
+  },
+  {
+    "chunk_id": 9,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "2. HỆ PHƯƠNG TRÌNH ĐỐI XỨNG LOẠI MỘT.",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      29,
+      30,
+      31
+    ],
+    "n_chars": 429,
+    "text": "# 2. HỆ PHƯƠNG TRÌNH ĐỐI XỨNG LOẠI MỘT.\n➢ Đặng:  $\\begin{cases} f(x,y)=0 \\\\ g(x,y)=0 \\end{cases}$  (\\*) trong đó khi hoán vị vai trò của x và y cho nhau, từng phương trình của hệ không thay đổi.\n➢ Cách giải:\nĐặt $S = x + y$; $P = xy$\n\nGiải tim S, P. Suy ra x, y là nghiệm của phương trình $\\boldsymbol{X}^{2}-\\boldsymbol{S}\\boldsymbol{X}+\\boldsymbol{P}=0$\n\nĐiều kiện để phương trình trên có nghiệm là $\\Delta = S^{2} - 4P \\geq 0$"
+  },
+  {
+    "chunk_id": 10,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "3. HỆ PHƯƠNG TRÌNH ĐỐI XỨNG LOẠI HAI.",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      33,
+      34,
+      35
+    ],
+    "n_chars": 426,
+    "text": "# 3. HỆ PHƯƠNG TRÌNH ĐỐI XỨNG LOẠI HAI.\n➢ Đặng: $\\begin{cases} f(x,y)=0 & (1) \\\\ f(y,x)=0 & (2) \\end{cases}$ (\\*) trong đó khi hoán vị vai trò của x và y cho nhau, thì phương trình (1) trở thành phương trình (2) và ngược lại.\n➢ Cách giải: Có 2 cách\n\nCách 1: $\\left\\{ \\begin{array}{l} f(x,y) - f(y,x) = 0 \\\\ f(y,x) = 0 \\end{array} \\right.$\n\nCách 2: \\$\\left\\{\\begin{array}{l}f(x,y)-f(y,x)=0\\\\ f(x,y)+f(y,x)=0\\end{array}\\right.\\$"
+  },
+  {
+    "chunk_id": 11,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "4. HỆ PHƯƠNG TRÌNH ĐĂNG CẤP .",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      37,
+      38
+    ],
+    "n_chars": 253,
+    "text": "# 4. HỆ PHƯƠNG TRÌNH ĐĂNG CẤP .\n➢ Dạng: Hệ phương trình đẳng cấp là hệ phương trình mà cấp của tất cả đơn thức trong hệ đều bằng nhau.\n➢ Cách giải:\n\n- Xét $x = 0$, thể vào hệ tìm y.\n- Xét $x \\neq 0$, đặt $y = tx$, thể vào hệ tìm t, sau đó suy ra x và y."
+  },
+  {
+    "chunk_id": 12,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "1. Các cung liên quan đặc biệt",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "table",
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      42,
+      43
+    ],
+    "n_chars": 1078,
+    "text": "# 1. Các cung liên quan đặc biệt\n| 1.1 Hai cung đói nhau: ($\\alpha$ và $-\\alpha$)$\\cos(-\\alpha) = \\cos \\alpha$$\\sin(-\\alpha) = -\\sin \\alpha$$\\tan(-\\alpha) = -\\tan \\alpha$$\\cot(-\\alpha) = -\\cot \\alpha$ | 1.3 Hai cung phụ nhau: ($\\alpha$ và $\\frac{\\pi}{2} - \\alpha$)$\\sin\\left(\\frac{\\pi}{2} - \\alpha\\right) = \\cos \\alpha$$\\cos\\left(\\frac{\\pi}{2} - \\alpha\\right) = \\sin \\alpha$$\\tan\\left(\\frac{\\pi}{2} - \\alpha\\right) = \\cot \\alpha$$\\cot\\left(\\frac{\\pi}{2} - \\alpha\\right) = \\tan \\alpha$ |\n| --- | --- |\n| 1.2 Hai cung bù nhau: ($\\alpha$ và $\\pi - \\alpha$)$\\sin(\\pi - \\alpha) = \\sin \\alpha$$\\cos(\\pi - \\alpha) = -\\cos \\alpha$$\\tan(\\pi - \\alpha) = -\\tan \\alpha$$\\cot(\\pi - \\alpha) = -\\cot \\alpha$ | 1.4 Hai cung hơn, kém $\\pi : (\\alpha$ và $\\pi + \\alpha )$$\\sin(\\pi + \\alpha) = -\\sin \\alpha$$\\cos(\\pi + \\alpha) = -\\cos \\alpha$$\\tan(\\pi + \\alpha) = \\tan \\alpha$$\\cot(\\pi + \\alpha) = \\cot \\alpha$1.5 Cung hơn kém $\\frac{\\pi}{2} :$$\\cos\\left(\\frac{\\pi}{2} + x\\right) = -\\sin x; \\sin\\left(\\frac{\\pi}{2} + x\\right) = \\cos x;$ |\n\nGhi nhớ: ‘cos đổi; sin bù; phụ chéo; hơn, kém π tan, cot’."
+  },
+  {
+    "chunk_id": 13,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "2. Các công thức lượng giác cơ bản",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      45,
+      46,
+      47,
+      48,
+      49,
+      50
+    ],
+    "n_chars": 246,
+    "text": "# 2. Các công thức lượng giác cơ bản\n\\- $\\sin^2 x + \\cos^2 x = 1$\n\n$\\cdot \\frac{1}{\\cos^2 x} = 1 + \\tan^2 x$\n\n\\- $\\frac{1}{\\sin^2 x} = 1 + \\cot^2 x$\n\n\\- $\\tan x.\\cot x = 1$\n\n•  $\\tan x = \\frac{\\sin x}{\\cos x}$\n\n•  $\\cot x = \\frac{\\cos x}{\\sin x}$"
+  },
+  {
+    "chunk_id": 14,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "3. Công thức cộng",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\sin (\\boldsymbol {a} \\pm \\boldsymbol {b}) = \\sin \\boldsymbol {a}. \\cos \\boldsymbol {b} \\pm \\cos \\boldsymbol {a}. \\sin \\boldsymbol {b}",
+      "\\cos (\\boldsymbol {a} \\pm \\boldsymbol {b}) = \\cos \\boldsymbol {a}. \\cos \\boldsymbol {b} \\mp \\sin \\boldsymbol {a}. \\sin \\boldsymbol {b}",
+      "\\tan (\\boldsymbol {a} \\pm \\boldsymbol {b}) = \\frac {\\tan \\boldsymbol {a} \\pm \\tan \\boldsymbol {b}}{1 \\mp \\tan \\boldsymbol {a} . \\tan \\boldsymbol {b}}"
+    ],
+    "block_ids": [
+      52,
+      53,
+      54
+    ],
+    "n_chars": 459,
+    "text": "# 3. Công thức cộng\n$$\n\\sin (\\boldsymbol {a} \\pm \\boldsymbol {b}) = \\sin \\boldsymbol {a}. \\cos \\boldsymbol {b} \\pm \\cos \\boldsymbol {a}. \\sin \\boldsymbol {b}\n$$\n\n$$\n\\cos (\\boldsymbol {a} \\pm \\boldsymbol {b}) = \\cos \\boldsymbol {a}. \\cos \\boldsymbol {b} \\mp \\sin \\boldsymbol {a}. \\sin \\boldsymbol {b}\n$$\n\n$$\n\\tan (\\boldsymbol {a} \\pm \\boldsymbol {b}) = \\frac {\\tan \\boldsymbol {a} \\pm \\tan \\boldsymbol {b}}{1 \\mp \\tan \\boldsymbol {a} . \\tan \\boldsymbol {b}}\n$$"
+  },
+  {
+    "chunk_id": 15,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "4.1 Công thức nhân đôi",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\sin 2 \\boldsymbol {a} = 2 \\sin \\boldsymbol {a} \\cos \\boldsymbol {a}",
+      "\\cos 2 \\boldsymbol {a} = \\cos^ {2} \\boldsymbol {a} - \\sin^ {2} \\boldsymbol {a} = 2 \\cos^ {2} \\boldsymbol {a} - 1 = 1 - 2 \\sin^ {2} \\boldsymbol {a}",
+      "\\tan 2 \\boldsymbol {a} = \\frac {2 \\text {tana}}{1 - \\tan^ {2} \\boldsymbol {a}}"
+    ],
+    "block_ids": [
+      57,
+      58,
+      59
+    ],
+    "n_chars": 339,
+    "text": "# 4.1 Công thức nhân đôi\n$$\n\\sin 2 \\boldsymbol {a} = 2 \\sin \\boldsymbol {a} \\cos \\boldsymbol {a}\n$$\n\n$$\n\\cos 2 \\boldsymbol {a} = \\cos^ {2} \\boldsymbol {a} - \\sin^ {2} \\boldsymbol {a} = 2 \\cos^ {2} \\boldsymbol {a} - 1 = 1 - 2 \\sin^ {2} \\boldsymbol {a}\n$$\n\n$$\n\\tan 2 \\boldsymbol {a} = \\frac {2 \\text {tana}}{1 - \\tan^ {2} \\boldsymbol {a}}\n$$"
+  },
+  {
+    "chunk_id": 16,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "4.2 Công thức nhân ba",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\sin 3 \\boldsymbol {a} = 3 \\sin \\boldsymbol {a} - 4 \\sin^ {3} \\boldsymbol {a}",
+      "\\cos 3 \\boldsymbol {a} = 4 \\cos^ {3} \\boldsymbol {a} - 3 \\cos \\boldsymbol {a}",
+      "\\tan 3 \\boldsymbol {a} = \\frac {3 \\tan \\boldsymbol {a} - \\tan^ {3} \\boldsymbol {a}}{1 - 3 \\tan^ {2} \\boldsymbol {a}}"
+    ],
+    "block_ids": [
+      61,
+      62,
+      63
+    ],
+    "n_chars": 316,
+    "text": "# 4.2 Công thức nhân ba\n$$\n\\sin 3 \\boldsymbol {a} = 3 \\sin \\boldsymbol {a} - 4 \\sin^ {3} \\boldsymbol {a}\n$$\n\n$$\n\\cos 3 \\boldsymbol {a} = 4 \\cos^ {3} \\boldsymbol {a} - 3 \\cos \\boldsymbol {a}\n$$\n\n$$\n\\tan 3 \\boldsymbol {a} = \\frac {3 \\tan \\boldsymbol {a} - \\tan^ {3} \\boldsymbol {a}}{1 - 3 \\tan^ {2} \\boldsymbol {a}}\n$$"
+  },
+  {
+    "chunk_id": 17,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "5. Công thức hạ bậc",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\sin^ {2} \\boldsymbol {a} = \\frac {1 - \\cos 2 \\boldsymbol {a}}{2}",
+      "\\cos^ {2} \\boldsymbol {a} = \\frac {1 + \\cos 2 \\boldsymbol {a}}{2}",
+      "\\sin^ {3} \\boldsymbol {a} = \\frac {3 \\sin \\boldsymbol {a} - \\sin 3 \\boldsymbol {a}}{4}",
+      "\\cos^ {3} \\boldsymbol {a} = \\frac {3 \\cos \\boldsymbol {a} + \\cos 3 \\boldsymbol {a}}{4}"
+    ],
+    "block_ids": [
+      65,
+      66,
+      67,
+      68
+    ],
+    "n_chars": 354,
+    "text": "# 5. Công thức hạ bậc\n$$\n\\sin^ {2} \\boldsymbol {a} = \\frac {1 - \\cos 2 \\boldsymbol {a}}{2}\n$$\n\n$$\n\\cos^ {2} \\boldsymbol {a} = \\frac {1 + \\cos 2 \\boldsymbol {a}}{2}\n$$\n\n$$\n\\sin^ {3} \\boldsymbol {a} = \\frac {3 \\sin \\boldsymbol {a} - \\sin 3 \\boldsymbol {a}}{4}\n$$\n\n$$\n\\cos^ {3} \\boldsymbol {a} = \\frac {3 \\cos \\boldsymbol {a} + \\cos 3 \\boldsymbol {a}}{4}\n$$"
+  },
+  {
+    "chunk_id": 18,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "6. Công thức biến đổi tổng thành tích",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\cos \\boldsymbol {a} + \\cos \\boldsymbol {b} = 2 \\cos \\frac {\\boldsymbol {a} + \\boldsymbol {b}}{2} \\cos \\frac {\\boldsymbol {a} - \\boldsymbol {b}}{2}",
+      "\\cos \\boldsymbol {a} - \\cos \\boldsymbol {b} = - 2 \\sin \\frac {\\boldsymbol {a} + \\boldsymbol {b}}{2} \\sin \\frac {\\boldsymbol {a} - \\boldsymbol {b}}{2}",
+      "\\sin \\boldsymbol {a} + \\sin \\boldsymbol {b} = 2 \\sin \\frac {\\boldsymbol {a} + \\boldsymbol {b}}{2} \\cos \\frac {\\boldsymbol {a} - \\boldsymbol {b}}{2}",
+      "\\sin \\boldsymbol {a} - \\sin \\boldsymbol {b} = 2 \\cos \\frac {\\boldsymbol {a} + \\boldsymbol {b}}{2} \\sin \\frac {\\boldsymbol {a} - \\boldsymbol {b}}{2}",
+      "\\begin{array}{l} \\cos \\boldsymbol {a}. \\cos \\boldsymbol {b} = \\frac {1}{2} \\left[ \\cos (\\boldsymbol {a} + \\boldsymbol {b}) + \\cos (\\boldsymbol {a} - \\boldsymbol {b}) \\right] \\\\ \\sin \\boldsymbol {a}. \\sin \\boldsymbol {b} = - \\frac {1}{2} \\left[ \\cos (\\boldsymbol {a} + \\boldsymbol {b}) - \\cos (\\boldsymbol {a} - \\boldsymbol {b}) \\right] \\\\ \\sin \\boldsymbol {a}. \\cos \\boldsymbol {b} = \\frac {1}{2} \\bigl [ \\sin (\\boldsymbol {a} + \\boldsymbol {b}) + \\sin (\\boldsymbol {a} - \\boldsymbol {b}) \\bigr ] \\\\ \\end{array}"
+    ],
+    "block_ids": [
+      70,
+      71,
+      72,
+      73,
+      74,
+      75
+    ],
+    "n_chars": 1218,
+    "text": "# 6. Công thức biến đổi tổng thành tích\n$$\n\\cos \\boldsymbol {a} + \\cos \\boldsymbol {b} = 2 \\cos \\frac {\\boldsymbol {a} + \\boldsymbol {b}}{2} \\cos \\frac {\\boldsymbol {a} - \\boldsymbol {b}}{2}\n$$\n\n$$\n\\cos \\boldsymbol {a} - \\cos \\boldsymbol {b} = - 2 \\sin \\frac {\\boldsymbol {a} + \\boldsymbol {b}}{2} \\sin \\frac {\\boldsymbol {a} - \\boldsymbol {b}}{2}\n$$\n\n$$\n\\sin \\boldsymbol {a} + \\sin \\boldsymbol {b} = 2 \\sin \\frac {\\boldsymbol {a} + \\boldsymbol {b}}{2} \\cos \\frac {\\boldsymbol {a} - \\boldsymbol {b}}{2}\n$$\n\n$$\n\\sin \\boldsymbol {a} - \\sin \\boldsymbol {b} = 2 \\cos \\frac {\\boldsymbol {a} + \\boldsymbol {b}}{2} \\sin \\frac {\\boldsymbol {a} - \\boldsymbol {b}}{2}\n$$\n\n7. Công thức biến đổi tích thành tổng\n\n$$\n\\begin{array}{l} \\cos \\boldsymbol {a}. \\cos \\boldsymbol {b} = \\frac {1}{2} \\left[ \\cos (\\boldsymbol {a} + \\boldsymbol {b}) + \\cos (\\boldsymbol {a} - \\boldsymbol {b}) \\right] \\\\ \\sin \\boldsymbol {a}. \\sin \\boldsymbol {b} = - \\frac {1}{2} \\left[ \\cos (\\boldsymbol {a} + \\boldsymbol {b}) - \\cos (\\boldsymbol {a} - \\boldsymbol {b}) \\right] \\\\ \\sin \\boldsymbol {a}. \\cos \\boldsymbol {b} = \\frac {1}{2} \\bigl [ \\sin (\\boldsymbol {a} + \\boldsymbol {b}) + \\sin (\\boldsymbol {a} - \\boldsymbol {b}) \\bigr ] \\\\ \\end{array}\n$$"
+  },
+  {
+    "chunk_id": 19,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "DẠNG 1. PHƯƠNG TRÌNH LƯỢNG GIÁC CƠ BẢN",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\sin \\boldsymbol {u} = \\sin \\boldsymbol {v} \\Leftrightarrow \\left[ \\begin{array}{l} \\boldsymbol {u} = \\boldsymbol {v} + \\boldsymbol {k} 2 \\pi \\\\ \\boldsymbol {u} = \\pi - \\boldsymbol {v} + \\boldsymbol {k} 2 \\pi \\end{array} \\right]",
+      "\\cos \\boldsymbol {u} = \\cos \\boldsymbol {v} \\Leftrightarrow \\left[ \\begin{array}{l} \\boldsymbol {u} = \\boldsymbol {v} + k 2 \\pi \\\\ \\boldsymbol {u} = - \\boldsymbol {v} + k 2 \\pi \\end{array} \\right.",
+      "\\tan \\boldsymbol {u} = \\tan \\boldsymbol {v} \\Leftrightarrow \\boldsymbol {u} = \\boldsymbol {v} + \\boldsymbol {k} 2 \\pi",
+      "\\cot \\boldsymbol {u} = \\cot \\boldsymbol {v} \\Leftrightarrow \\boldsymbol {u} = \\boldsymbol {v} + k 2 \\pi",
+      "\\begin{array}{l} \\sin \\boldsymbol {u} = 0 \\Leftrightarrow \\boldsymbol {u} = \\boldsymbol {k} \\pi \\\\ \\sin \\boldsymbol {u} = 1 \\Leftrightarrow \\boldsymbol {u} = \\frac {\\pi}{2} + \\boldsymbol {k} 2 \\pi \\\\ \\sin \\boldsymbol {u} = - 1 \\Leftrightarrow \\boldsymbol {u} = - \\frac {\\pi}{2} + \\boldsymbol {k} 2 \\pi \\\\ \\cos \\boldsymbol {u} = 0 \\Leftrightarrow \\boldsymbol {u} = \\frac {\\pi}{2} + k \\pi \\\\ \\cos \\boldsymbol {u} = 1 \\Leftrightarrow \\boldsymbol {u} = \\boldsymbol {k} 2 \\pi \\\\ \\cos \\boldsymbol {u} = - 1 \\Leftrightarrow \\boldsymbol {u} = \\pi + \\boldsymbol {k} 2 \\pi \\\\ \\end{array}"
+    ],
+    "block_ids": [
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84
+    ],
+    "n_chars": 1340,
+    "text": "# DẠNG 1. PHƯƠNG TRÌNH LƯỢNG GIÁC CƠ BẢN\nKiến thức cơ bản\n\n$$\n\\sin \\boldsymbol {u} = \\sin \\boldsymbol {v} \\Leftrightarrow \\left[ \\begin{array}{l} \\boldsymbol {u} = \\boldsymbol {v} + \\boldsymbol {k} 2 \\pi \\\\ \\boldsymbol {u} = \\pi - \\boldsymbol {v} + \\boldsymbol {k} 2 \\pi \\end{array} \\right]\n$$\n\n$$\n\\cos \\boldsymbol {u} = \\cos \\boldsymbol {v} \\Leftrightarrow \\left[ \\begin{array}{l} \\boldsymbol {u} = \\boldsymbol {v} + k 2 \\pi \\\\ \\boldsymbol {u} = - \\boldsymbol {v} + k 2 \\pi \\end{array} \\right.\n$$\n\n$$\n\\tan \\boldsymbol {u} = \\tan \\boldsymbol {v} \\Leftrightarrow \\boldsymbol {u} = \\boldsymbol {v} + \\boldsymbol {k} 2 \\pi\n$$\n\n$$\n\\cot \\boldsymbol {u} = \\cot \\boldsymbol {v} \\Leftrightarrow \\boldsymbol {u} = \\boldsymbol {v} + k 2 \\pi\n$$\n\nTrường hợp đặc biệt:\n\n$$\n\\begin{array}{l} \\sin \\boldsymbol {u} = 0 \\Leftrightarrow \\boldsymbol {u} = \\boldsymbol {k} \\pi \\\\ \\sin \\boldsymbol {u} = 1 \\Leftrightarrow \\boldsymbol {u} = \\frac {\\pi}{2} + \\boldsymbol {k} 2 \\pi \\\\ \\sin \\boldsymbol {u} = - 1 \\Leftrightarrow \\boldsymbol {u} = - \\frac {\\pi}{2} + \\boldsymbol {k} 2 \\pi \\\\ \\cos \\boldsymbol {u} = 0 \\Leftrightarrow \\boldsymbol {u} = \\frac {\\pi}{2} + k \\pi \\\\ \\cos \\boldsymbol {u} = 1 \\Leftrightarrow \\boldsymbol {u} = \\boldsymbol {k} 2 \\pi \\\\ \\cos \\boldsymbol {u} = - 1 \\Leftrightarrow \\boldsymbol {u} = \\pi + \\boldsymbol {k} 2 \\pi \\\\ \\end{array}\n$$"
+  },
+  {
+    "chunk_id": 20,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "DẠNG 2. PHƯƠNG TRÌNH BẶC HAI ĐỐI VỚI MỘT HÀM SỐ LUỘNG GIÁC",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      86,
+      87
+    ],
+    "n_chars": 317,
+    "text": "# DẠNG 2. PHƯƠNG TRÌNH BẶC HAI ĐỐI VỚI MỘT HÀM SỐ LUỘNG GIÁC\nKiến thức cơ bản\n\nPhương trình bậc hai theo một hàm số lượng giác là phương trình có dạng:\n$at^{2} + bt + c = 0$ (1) trong đó t là một trong các hàm số: sinu; cosu; tanu; cotu.\n➢ Cách giải: Đặt t = sinu; cosu; tanu; cotu.\nChú y: $|\\sin u|; |\\cos u| \\leq 1$"
+  },
+  {
+    "chunk_id": 21,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "DẠNG 3. PHƯƠNG TRÌNH BậC NHẤT THEO SIN u VÀ COSu",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\begin{array}{l} \\Leftrightarrow \\sin \\boldsymbol {u}. \\cos \\alpha + \\cos \\boldsymbol {u}. \\sin \\alpha = \\sin \\beta \\\\ \\Leftrightarrow \\sin (\\boldsymbol {u} + \\alpha) = \\sin \\beta \\\\ \\end{array}"
+    ],
+    "block_ids": [
+      89,
+      90,
+      91,
+      92,
+      93,
+      94,
+      95
+    ],
+    "n_chars": 564,
+    "text": "# DẠNG 3. PHƯƠNG TRÌNH BậC NHẤT THEO SIN u VÀ COSu\nKiến thức cơ bản\n\nDạng : $a \\sin u + b \\cos u = c$ (1) trong đó $a^2 + b^2 \\neq 0$\n\nĐiều kiện có nghiệm: $a^{2} + b^{2} \\geq c^{2}$\n\nCách giải:\n\nChia hai về của PT cho  $\\sqrt{a^{2}+b^{2}}$ ,\n\n$$\n\\begin{array}{l} \\Leftrightarrow \\sin \\boldsymbol {u}. \\cos \\alpha + \\cos \\boldsymbol {u}. \\sin \\alpha = \\sin \\beta \\\\ \\Leftrightarrow \\sin (\\boldsymbol {u} + \\alpha) = \\sin \\beta \\\\ \\end{array}\n$$\n\n(1) $\\Leftrightarrow \\frac{a}{\\sqrt{a^2 + b^2}}\\sin u + \\frac{b}{\\sqrt{a^2 + b^2}}\\cos u = \\frac{c}{\\sqrt{a^2 + b^2}}$"
+  },
+  {
+    "chunk_id": 22,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "DẠNG 4. PHƯƠNG TRÌNH THUẦN NHẤT BẶC HAI THEO SINU VÀ COSU",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\boldsymbol {a} \\sin^ {2} \\boldsymbol {u} + \\boldsymbol {b} \\sin \\boldsymbol {u} \\cos \\boldsymbol {u} + \\boldsymbol {c} \\cos^ {2} \\boldsymbol {u} = \\boldsymbol {d} \\tag {2}"
+    ],
+    "block_ids": [
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103
+    ],
+    "n_chars": 649,
+    "text": "# DẠNG 4. PHƯƠNG TRÌNH THUẦN NHẤT BẶC HAI THEO SINU VÀ COSU\nKiến thức cơ bản\n\nDạng tổng quát:\n\n$$\n\\boldsymbol {a} \\sin^ {2} \\boldsymbol {u} + \\boldsymbol {b} \\sin \\boldsymbol {u} \\cos \\boldsymbol {u} + \\boldsymbol {c} \\cos^ {2} \\boldsymbol {u} = \\boldsymbol {d} \\tag {2}\n$$\n\nCách giải:\n\n$B_{1}$: Xét cos $u = 0$. Kiểm tra $u = \\frac{\\pi}{2} + k\\pi$ có thỏa phương trình (2) không ?\n\n$B_{2}$: Xét $\\cos u \\neq 0$. Chia 2 vé phương trình (2) cho $\\cos^{2} u$. Ta được phương trình mới dạng: $a \\tan^{2} u + b \\tan u + c = 0$.\n\n\\*Chú ý: Nếu phương trình lượng giác có bậc cùng chẩn hoặc cùng lẻ theo sinu và cosu thì ta cũng giải bằng phương pháp trên."
+  },
+  {
+    "chunk_id": 23,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "DẠNG 5. PHƯƠNG TRÌNH ĐỐI XỨNG – PHẦN XỨNG",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\boldsymbol {a} (\\sin \\boldsymbol {u} \\pm \\cos \\boldsymbol {u}) + \\boldsymbol {b} \\sin \\boldsymbol {u} \\cos \\boldsymbol {u} + c = 0 \\tag {3}",
+      "\\begin{array}{l} \\text {Đặt } \\mathrm{t} = \\sin \\boldsymbol {x} \\pm \\cos \\boldsymbol {x} = \\sqrt {2} \\sin \\left(\\boldsymbol {x} \\pm \\frac {\\pi}{4}\\right) (*) \\quad \\text {(Điều kiện: } | \\boldsymbol {t} | \\leq \\sqrt {2}) \\\\ \\Rightarrow \\sin x \\cos x = \\pm \\frac {t ^ {2} - 1}{2}. \\\\ \\end{array}"
+    ],
+    "block_ids": [
+      105,
+      106,
+      107,
+      108,
+      109
+    ],
+    "n_chars": 571,
+    "text": "# DẠNG 5. PHƯƠNG TRÌNH ĐỐI XỨNG – PHẦN XỨNG\nDạng tổng quát:\n\n$$\n\\boldsymbol {a} (\\sin \\boldsymbol {u} \\pm \\cos \\boldsymbol {u}) + \\boldsymbol {b} \\sin \\boldsymbol {u} \\cos \\boldsymbol {u} + c = 0 \\tag {3}\n$$\n\nCách giải:\n\n$$\n\\begin{array}{l} \\text {Đặt } \\mathrm{t} = \\sin \\boldsymbol {x} \\pm \\cos \\boldsymbol {x} = \\sqrt {2} \\sin \\left(\\boldsymbol {x} \\pm \\frac {\\pi}{4}\\right) (*) \\quad \\text {(Điều kiện: } | \\boldsymbol {t} | \\leq \\sqrt {2}) \\\\ \\Rightarrow \\sin x \\cos x = \\pm \\frac {t ^ {2} - 1}{2}. \\\\ \\end{array}\n$$\n\nThế vào (3) ta được phương trình bậc hai theo t."
+  },
+  {
+    "chunk_id": 24,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "Một số công thức quan trọng",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\begin{array}{l} \\cdot \\sin \\boldsymbol {u} + \\cos \\boldsymbol {u} = \\sqrt {2} \\sin \\left(\\boldsymbol {u} + \\frac {\\pi}{4}\\right) = \\sqrt {2} \\cos \\left(\\boldsymbol {u} - \\frac {\\pi}{4}\\right) \\\\ \\sin \\boldsymbol {u} - \\cos \\boldsymbol {u} = \\sqrt {2} \\sin \\left(\\boldsymbol {u} - \\frac {\\pi}{4}\\right) = - \\sqrt {2} \\cos \\left(\\boldsymbol {u} + \\frac {\\pi}{4}\\right) \\\\ \\cdot 1 \\pm \\sin 2 \\boldsymbol {x} = (\\sin \\boldsymbol {x} \\pm \\cos \\boldsymbol {x}) ^ {2} \\\\ \\end{array}"
+    ],
+    "block_ids": [
+      111
+    ],
+    "n_chars": 512,
+    "text": "# Một số công thức quan trọng\n$$\n\\begin{array}{l} \\cdot \\sin \\boldsymbol {u} + \\cos \\boldsymbol {u} = \\sqrt {2} \\sin \\left(\\boldsymbol {u} + \\frac {\\pi}{4}\\right) = \\sqrt {2} \\cos \\left(\\boldsymbol {u} - \\frac {\\pi}{4}\\right) \\\\ \\sin \\boldsymbol {u} - \\cos \\boldsymbol {u} = \\sqrt {2} \\sin \\left(\\boldsymbol {u} - \\frac {\\pi}{4}\\right) = - \\sqrt {2} \\cos \\left(\\boldsymbol {u} + \\frac {\\pi}{4}\\right) \\\\ \\cdot 1 \\pm \\sin 2 \\boldsymbol {x} = (\\sin \\boldsymbol {x} \\pm \\cos \\boldsymbol {x}) ^ {2} \\\\ \\end{array}\n$$"
+  },
+  {
+    "chunk_id": 25,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "1. Quy tắc cơ bản.",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\overline {{\\left(\\mathrm{c}\\right) ^ {\\prime}}} = 0",
+      "\\left(\\boldsymbol {u} \\pm \\boldsymbol {v}\\right) ^ {\\prime} = \\boldsymbol {u} ^ {\\prime} \\pm \\boldsymbol {v} ^ {\\prime}",
+      "\\left(\\boldsymbol {u}. \\boldsymbol {v}\\right) ^ {\\prime} = \\boldsymbol {u} ^ {\\prime} \\boldsymbol {v} + \\boldsymbol {v} ^ {\\prime} \\boldsymbol {u}",
+      "\\left(\\frac {\\boldsymbol {u}}{\\boldsymbol {v}}\\right) ^ {\\prime} = \\frac {\\boldsymbol {u} ^ {\\prime} \\boldsymbol {v} - \\boldsymbol {v} ^ {\\prime} \\boldsymbol {u}}{\\boldsymbol {v} ^ {2}}"
+    ],
+    "block_ids": [
+      114,
+      115,
+      116,
+      117
+    ],
+    "n_chars": 553,
+    "text": "# 1. Quy tắc cơ bản.\n$$\n\\overline {{\\left(\\mathrm{c}\\right) ^ {\\prime}}} = 0\n$$\n\n$$\n\\left(\\boldsymbol {u} \\pm \\boldsymbol {v}\\right) ^ {\\prime} = \\boldsymbol {u} ^ {\\prime} \\pm \\boldsymbol {v} ^ {\\prime}\n$$\n\n$$\n\\left(\\boldsymbol {u}. \\boldsymbol {v}\\right) ^ {\\prime} = \\boldsymbol {u} ^ {\\prime} \\boldsymbol {v} + \\boldsymbol {v} ^ {\\prime} \\boldsymbol {u}\n$$\n\n$$\n\\left(\\frac {\\boldsymbol {u}}{\\boldsymbol {v}}\\right) ^ {\\prime} = \\frac {\\boldsymbol {u} ^ {\\prime} \\boldsymbol {v} - \\boldsymbol {v} ^ {\\prime} \\boldsymbol {u}}{\\boldsymbol {v} ^ {2}}\n$$"
+  },
+  {
+    "chunk_id": 26,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "2. Bảng công thức tính đạo hàm.",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "table"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      119
+    ],
+    "n_chars": 843,
+    "text": "# 2. Bảng công thức tính đạo hàm.\n| $(k.x)' = k$ | $(k.u)' = k.u'$ |\n| --- | --- |\n| $(x^n)' = n.x^{n-1}$ | $(u^n)' = n.u^{n-1}.(u)'$ |\n| $(\\frac{1}{x})' = -\\frac{1}{x^2}$ | $(\\frac{1}{u})' = -\\frac{(u)'}{u^2}$ |\n| $(\\sqrt{x})' = \\frac{1}{2\\sqrt{x}}$ | $(\\sqrt{u})' = \\frac{u'}{2\\sqrt{u}}$ |\n| $(\\sin x)' = \\cos x$ | $(\\sin u)' = \\cos u.(u)'$ |\n| $(\\cos x)' = -\\sin x$ | $(\\cos u)' = -\\sin u.(u)'$ |\n| $(\\tan x)' = 1 + \\tan^2 x = \\frac{1}{\\cos^2 x}$ | $(\\tan u)' = (1 + \\tan^2 u).u' = \\frac{u'}{\\cos^2 u}$ |\n| $(\\cot x)' = -(1 + \\cot^2 x) = -\\frac{1}{\\sin^2 x}$ | $(\\cot u)' = -(1 + \\cot^2 u).u' = -\\frac{u'}{\\sin^2 u}$ |\n| $(e^x)' = e^x$ | $(e^u)' = e^u.u'$ |\n| $(a^x)' = a^x.\\ln a$ | $(a^u)' = a^u.\\ln a.u'$ |\n| $(\\ln x)' = \\frac{1}{x}$ | $(\\ln u)' = \\frac{u'}{u}$ |\n| $(\\log_a x)' = \\frac{1}{x.\\ln a}$ | $(\\log_a u)' = \\frac{u'}{u.\\ln a}$ |"
+  },
+  {
+    "chunk_id": 27,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "\\*Đặc biệt :",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      121
+    ],
+    "n_chars": 446,
+    "text": "# \\*Đặc biệt :\n•  $y=\\frac{ax+b}{cx+d}\\Rightarrow y'=\\frac{\\begin{vmatrix}a & b \\\\ c & d\\end{vmatrix}}{(cx+d)^{2}}$\n$\\bullet \\quad y = \\frac{a_1x^2 + b_1x + c_1}{a_2x^2 + b_2x + c_2} \\Rightarrow y' = \\frac{\\left| \\begin{array}{cc} a_1 & b_1 \\\\ a_2 & b_2 \\end{array} \\right|x^2 + 2 \\left| \\begin{array}{cc} a_1 & c_1 \\\\ a_2 & c_2 \\end{array} \\right|x + \\left| \\begin{array}{cc} b_1 & c_1 \\\\ b_2 & c_2 \\end{array} \\right|}{(a_2x^2 + b_2x + c_2)^2}$"
+  },
+  {
+    "chunk_id": 28,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "F. CÔNG THỨC MỸ - LOGARIT.",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "table"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      123,
+      124
+    ],
+    "n_chars": 1271,
+    "text": "# F. CÔNG THỨC MỸ - LOGARIT.\n| STT | CÔNG THỨC MỮ |\n| --- | --- |\n| 1. | $a^{n} = \\underbrace{a.a...a}_{n\\text{thua so}}$ |\n| 2. | $a^{1} = a \\quad \\forall a$ |\n| 3. | $a^{0} = 1 \\quad \\forall a \\neq 0$ |\n| 4. | $a^{-n} = \\frac{1}{a^{n}}$ |\n| 5. | $a^{\\frac{m}{n}} = \\sqrt[n]{a^{m}}$ |\n| 6. | $a^{-\\frac{m}{n}} = \\frac{1}{a^{\\frac{m}{n}}} = \\frac{1}{\\sqrt[n]{a^{m}}}$ |\n| 7. | $a^{m}.a^{n} = a^{m+n}$ |\n| 8. | $\\frac{a^{m}}{a^{n}} = a^{m-n}$ |\n| 9. | $(a^{m})^{n} = (a^{n})^{m} = a^{m.n}$ |\n| 10. | $(a.b)^{n} = a^{n}.b^{n}$ |\n| 11. | $(\\frac{a}{b})^{n} = \\frac{a^{n}}{b^{n}}$ |\n| 12. | $a^{M} = N \\Leftrightarrow M = \\log_{a} N$ |\n\n| STT | CÔNG THỨC LOGARIT |\n| --- | --- |\n| 1 | $\\log_a 1 = 0$ |\n| 2 | $\\log_a a = 1$ |\n| 3 | $\\log_a a^M = M$ |\n| 4 | $a^{\\log_a N} = N$ |\n| 5 | $\\log_a (N_1.N_2) = \\log_a N_1 + \\log_a N_2$ |\n| 6 | $\\log_a (\\frac{N_1}{N_2}) = \\log_a N_1 - \\log_a N_2$ |\n| 7 | $\\log_a N^\\alpha = \\alpha.\\log_a N$ |\n| 8 | $\\log_a N^2 = 2.\\log_a \\|N\\|$ |\n| 9 | $\\log_a N = \\log_a b.\\log_b N$ |\n| 10 | $\\log_b N = \\frac{\\log_a N}{\\log_a b}$ |\n| 11 | $\\log_a b = \\frac{1}{\\log_b a}$ |\n| 12 | $\\log_{a^\\alpha} N = \\frac{1}{\\alpha}\\log_a N$ |\n| 13 | $\\mathbf{a}^{\\mathbf{b}} \\log_{\\mathbf{b}} \\mathbf{c} = \\mathbf{c}^{\\mathbf{b}} \\log_{\\mathbf{b}} \\mathbf{a}$ |"
+  },
+  {
+    "chunk_id": 29,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "G. CÔNG THỨC NGUYÊN HÀM.",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "table"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      126
+    ],
+    "n_chars": 1387,
+    "text": "# G. CÔNG THỨC NGUYÊN HÀM.\n| Nguyên hàm của những hàm số thường gặp | Nguyên hàm của những hàm số thường gặp |\n| --- | --- |\n| $\\begin{array}{l}1.\\int dx = x + C\\\\2.\\int kdx = kx + C\\\\3.\\int x^{n}dx = \\frac{x^{n+1}}{n+1} + C\\ (n \\neq -1)\\\\4.\\int \\frac{1}{x}dx = \\ln \\|x\\| + C\\ (x \\neq 0)\\\\5.\\int \\frac{1}{x^{2}}dx = -\\frac{1}{x} + C\\\\6.\\int \\frac{1}{x^{n}}dx = -\\frac{1}{(n-1)x^{n-1}} + C\\\\7.\\int e^{x}dx = e^{x} + C\\\\8.\\int a^{x}dx = \\frac{a^{x}}{\\ln a} + C\\ (0 < a \\neq 1)\\\\9.\\int \\cos xdx = \\sin x + C\\\\10.\\int \\sin xdx = -\\cos x + C\\\\11.\\int \\frac{1}{\\cos^{2}x}dx = \\int (1 + \\tan^{2}x)dx = \\tan x + C\\\\12.\\int \\frac{1}{\\sin^{2}x}dx = \\int (1 + \\cot^{2}x)dx = -\\cot x + C\\end{array}$ | $\\begin{array}{l}13.\\int \\frac{1}{x^{n}}dx = -\\frac{1}{n-1} \\times \\frac{1}{x^{n-1}} + c\\\\14.\\int \\frac{1}{2\\sqrt{x}}dx = \\sqrt{x} + c\\\\15.\\int f(ax + b)dx = \\frac{1}{a}F(ax + b) + C\\\\16.\\end{array}$$\\begin{array}{l}\\int (ax + b)^{\\alpha}dx = \\frac{1}{a} \\frac{(ax + b)^{\\alpha+1}}{\\alpha + 1} + C\\ (\\alpha \\neq 1)\\\\17.\\int \\frac{1}{ax + b}dx = \\frac{1}{a} \\ln \\|ax + b\\| + C\\ (x \\neq 0)\\\\18.\\int e^{ax+b}dx = \\frac{1}{a}e^{ax+b} + C\\\\19.\\int \\cos(ax + b)dx = \\frac{1}{a} \\sin(ax + b) + C\\\\20.\\int \\sin(ax + b)dx = -\\frac{1}{a} \\cos(ax + b) + C\\\\21.\\int \\frac{1}{\\cos^{2}(ax + b)}dx = \\frac{1}{a} \\tan(ax + b) + C\\\\22.\\int \\frac{1}{\\sin^{2}(ax + b)}dx = -\\frac{1}{a} \\cot(ax + b) + C\\end{array}$ |"
+  },
+  {
+    "chunk_id": 30,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "H. PHƯƠNG PHÁP TỘA ĐỘ TRONG KHÔNG GIAN.",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\begin{array}{l} \\overrightarrow {\\boldsymbol {u}} = \\overrightarrow {\\boldsymbol {v}} \\Leftrightarrow \\left\\{ \\begin{array}{l} \\boldsymbol {x} = \\boldsymbol {x} ^ {\\prime} \\\\ \\boldsymbol {y} = \\boldsymbol {y} ^ {\\prime} \\\\ \\boldsymbol {z} = \\boldsymbol {z} ^ {\\prime} \\end{array} \\right. \\end{array}",
+      "\\left| \\vec {u} \\right| = \\sqrt {\\boldsymbol {x} ^ {2} + \\boldsymbol {y} ^ {2} + \\boldsymbol {z} ^ {2}}",
+      "\\overrightarrow {A B} = \\left(\\boldsymbol {x} _ {B} - \\boldsymbol {x} _ {A}; \\boldsymbol {y} _ {B} - \\boldsymbol {y} _ {A}; \\boldsymbol {z} _ {B} - \\boldsymbol {z} _ {A}\\right)",
+      "\\boldsymbol {A} \\boldsymbol {B} = \\left| \\overline {{\\boldsymbol {A B}}} \\right| = \\sqrt {\\left(\\boldsymbol {x} _ {B} - \\boldsymbol {x} _ {A}\\right) ^ {2} + \\left(\\boldsymbol {y} _ {B} - \\boldsymbol {y} _ {A}\\right) ^ {2} + \\left(\\boldsymbol {z} _ {B} - \\boldsymbol {z} _ {A}\\right) ^ {2}}"
+    ],
+    "block_ids": [
+      128,
+      129,
+      130,
+      131,
+      132,
+      133,
+      134,
+      135,
+      136,
+      137,
+      138,
+      139,
+      140,
+      141
+    ],
+    "n_chars": 1546,
+    "text": "# H. PHƯƠNG PHÁP TỘA ĐỘ TRONG KHÔNG GIAN.\nCho vecto $\\vec{u} = (x; y; z)$ ; $\\vec{v} = (x'; y'; z')$\n\nvà hai điểm  $A(x_{A};y_{A};z_{A})$ ;  $B(x_{B};y_{B};z_{B})$ .\n\n1. $\\vec{u} \\pm \\vec{v} = (x \\pm x'; y \\pm y'; z \\pm z')$\n2. $k.\\vec{u} = (kx;ky;kz)$\n3. Điều kiện bằng nhau của hai vecto:\n\n$$\n\\begin{array}{l} \\overrightarrow {\\boldsymbol {u}} = \\overrightarrow {\\boldsymbol {v}} \\Leftrightarrow \\left\\{ \\begin{array}{l} \\boldsymbol {x} = \\boldsymbol {x} ^ {\\prime} \\\\ \\boldsymbol {y} = \\boldsymbol {y} ^ {\\prime} \\\\ \\boldsymbol {z} = \\boldsymbol {z} ^ {\\prime} \\end{array} \\right. \\end{array}\n$$\n\n4.  $\\vec{u}$  cùng phương  $\\vec{v} \\Leftrightarrow \\frac{x}{x'} = \\frac{y}{y'} = \\frac{z}{z'}$\n\n5.  $\\vec{u}$  cùng phương  $\\vec{v} \\Leftrightarrow [\\vec{u}, \\vec{v}] = \\vec{0}$\n\n6. Tích vô hướng của hai vectơ:  $\\vec{u}.\\vec{v}=xx'+yy'+zz'$\n\n7. Độ dài của một vectơ :\n\n$$\n\\left| \\vec {u} \\right| = \\sqrt {\\boldsymbol {x} ^ {2} + \\boldsymbol {y} ^ {2} + \\boldsymbol {z} ^ {2}}\n$$\n\n8. Vecto tao bôi 2 điểm A, B:\n\n$$\n\\overrightarrow {A B} = \\left(\\boldsymbol {x} _ {B} - \\boldsymbol {x} _ {A}; \\boldsymbol {y} _ {B} - \\boldsymbol {y} _ {A}; \\boldsymbol {z} _ {B} - \\boldsymbol {z} _ {A}\\right)\n$$\n\n9. Độ dài đoạn thẳng AB:\n\n$$\n\\boldsymbol {A} \\boldsymbol {B} = \\left| \\overline {{\\boldsymbol {A B}}} \\right| = \\sqrt {\\left(\\boldsymbol {x} _ {B} - \\boldsymbol {x} _ {A}\\right) ^ {2} + \\left(\\boldsymbol {y} _ {B} - \\boldsymbol {y} _ {A}\\right) ^ {2} + \\left(\\boldsymbol {z} _ {B} - \\boldsymbol {z} _ {A}\\right) ^ {2}}\n$$\n\n10. Góc giữa hai vectơ :"
+  },
+  {
+    "chunk_id": 31,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "H. PHƯƠNG PHÁP TỘA ĐỘ TRONG KHÔNG GIAN.",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\cos \\varphi = \\frac {\\vec {u} . \\vec {v}}{| \\vec {u} | . | \\vec {v} |} = \\frac {\\boldsymbol {x x} ^ {\\prime} + \\boldsymbol {y y} ^ {\\prime} + z z ^ {\\prime}}{\\sqrt {\\boldsymbol {x} ^ {2} + \\boldsymbol {y} ^ {2} + z ^ {2}} . \\sqrt {\\boldsymbol {x} ^ {\\prime 2} + \\boldsymbol {y} ^ {\\prime 2} + z ^ {\\prime 2}}} \\left(0 \\leq \\varphi \\leq 1 8 0 ^ {0}\\right)",
+      "\\vec {u} \\perp \\vec {v} \\Leftrightarrow \\vec {u}. \\vec {v} = 0 \\Leftrightarrow x x ^ {\\prime} + y y ^ {\\prime} + z z ^ {\\prime} = 0",
+      "\\left[ \\vec {u}, \\vec {v} \\right] = \\left(\\left| \\begin{array}{c c} y & z \\\\ y ^ {\\prime} & z ^ {\\prime} \\end{array} \\right|; \\left| \\begin{array}{c c} z & x \\\\ z ^ {\\prime} & x ^ {\\prime} \\end{array} \\right|; \\left| \\begin{array}{c c} x & y \\\\ x ^ {\\prime} & y ^ {\\prime} \\end{array} \\right|\\right)",
+      "\\left[ \\vec {u}, \\vec {v} \\right] \\perp \\vec {u} \\quad \\text {va} \\quad \\left[ \\vec {u}, \\vec {v} \\right] \\perp \\vec {v}"
+    ],
+    "block_ids": [
+      141,
+      142,
+      143,
+      144,
+      145,
+      146,
+      147,
+      148,
+      149,
+      150
+    ],
+    "n_chars": 1696,
+    "text": "# H. PHƯƠNG PHÁP TỘA ĐỘ TRONG KHÔNG GIAN.\n10. Góc giữa hai vectơ :\n\n$$\n\\cos \\varphi = \\frac {\\vec {u} . \\vec {v}}{| \\vec {u} | . | \\vec {v} |} = \\frac {\\boldsymbol {x x} ^ {\\prime} + \\boldsymbol {y y} ^ {\\prime} + z z ^ {\\prime}}{\\sqrt {\\boldsymbol {x} ^ {2} + \\boldsymbol {y} ^ {2} + z ^ {2}} . \\sqrt {\\boldsymbol {x} ^ {\\prime 2} + \\boldsymbol {y} ^ {\\prime 2} + z ^ {\\prime 2}}} \\left(0 \\leq \\varphi \\leq 1 8 0 ^ {0}\\right)\n$$\n\n11. Điều kiện vuông góc của hai vactơ:\n\n$$\n\\vec {u} \\perp \\vec {v} \\Leftrightarrow \\vec {u}. \\vec {v} = 0 \\Leftrightarrow x x ^ {\\prime} + y y ^ {\\prime} + z z ^ {\\prime} = 0\n$$\n\n12. M là trung điểm của đoạn AB  $\\Leftrightarrow \\left\\{\\begin{aligned}x_{M}&=\\frac{x_{A}+x_{B}}{2}\\\\ y_{M}&=\\frac{y_{A}+y_{B}}{2}\\\\ z_{M}&=\\frac{z_{A}+z_{B}}{2}\\end{aligned}\\right.$\n\n13. G là trọng tâm tam giác ABC ⇔  $\\left\\{\\begin{aligned}x_{G}&=\\frac{1}{3}(x_{A}+x_{B}+x_{C})\\\\ y_{G}&=\\frac{1}{3}(y_{A}+y_{B}+y_{C})\\\\ z_{G}&=\\frac{1}{3}(z_{A}+z_{B}+z_{C})\\end{aligned}\\right.$\n14. G là trọng tâm tử diện ABCD ⇔ \\$\\begin{cases} x\\_G = \\frac{1}{4}(x\\_A + x\\_B + x\\_C + x\\_D) \\\\ y\\_G = \\frac{1}{4}(y\\_A + y\\_B + y\\_C + y\\_D) \\\\ z\\_G = \\frac{1}{4}(z\\_A + z\\_B + z\\_C + z\\_D) \\end{cases}\\$\n\n15. Tích CÓ HƯỚNG của hai vecto:\n\n$$\n\\left[ \\vec {u}, \\vec {v} \\right] = \\left(\\left| \\begin{array}{c c} y & z \\\\ y ^ {\\prime} & z ^ {\\prime} \\end{array} \\right|; \\left| \\begin{array}{c c} z & x \\\\ z ^ {\\prime} & x ^ {\\prime} \\end{array} \\right|; \\left| \\begin{array}{c c} x & y \\\\ x ^ {\\prime} & y ^ {\\prime} \\end{array} \\right|\\right)\n$$\n\n16. Tính chất quan trong :\n\n$$\n\\left[ \\vec {u}, \\vec {v} \\right] \\perp \\vec {u} \\quad \\text {va} \\quad \\left[ \\vec {u}, \\vec {v} \\right] \\perp \\vec {v}\n$$"
+  },
+  {
+    "chunk_id": 32,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "H. PHƯƠNG PHÁP TỘA ĐỘ TRONG KHÔNG GIAN.",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      151,
+      152,
+      153,
+      154,
+      155,
+      156,
+      157,
+      158,
+      159,
+      160,
+      161,
+      162
+    ],
+    "n_chars": 1507,
+    "text": "# H. PHƯƠNG PHÁP TỘA ĐỘ TRONG KHÔNG GIAN.\n17. Diện tích tam giác ABC : $S_{\\Delta ABC} = \\frac{1}{2}\\left[\\overrightarrow{AB}, \\overrightarrow{AC}\\right]$\n\n18. Diện tích hình bình hành ABCD: $S_{hbhABCD} = 2S_{\\Delta ABC} = \\left[ \\overrightarrow{AB}, \\overrightarrow{AC} \\right]$\n\n19. Thế tích tử diện ABCD :  $V_{ABCD} = \\frac{1}{6} \\left[ \\overrightarrow{AB}, \\overrightarrow{AC} \\right]. \\overrightarrow{AD}$\n\n20. Chiều cao AH của tử diện ABCD:  $AH = \\frac{3.V_{ABCD}}{S_{\\Delta BCD}}$\n\n21. Thế tích khối hộp ABCD.A'B'C'D': V = [AB,AD].AA'\n\n22. Ba điểm A,B,C tạo thành tam giác ⇔  $\\overrightarrow{AB},\\overrightarrow{AC}$  không cùng phương\n\n23. Bốn điểm A,B,C,D không đồng phẳng ⇔ ABCD là tử diện ⇔  $\\left[\\overrightarrow{AB},\\overrightarrow{AC}\\right].\\overrightarrow{AD} \\neq 0$\n\n24. Điều kiện để ABCD là hình bình hành  $\\Leftrightarrow \\overrightarrow{AB} = \\overrightarrow{DC}$\n\n25. Khoảng cách từ một điểm đến một mặt phẳng: $d(M, (\\alpha)) = \\frac{|Ax_o + By_o + Cz_o + D|}{\\sqrt{A^2 + B^2 + C^2}}$\n\n26. Khoảng cách từ một điểm đến một đường thẳng: $d(M, \\blacklozenge) = \\frac{\\left|\\left[\\overrightarrow{M_0 M}, \\vec{a}\\right]\\right|}{\\left|\\vec{a}\\right|}$\n\n27. Khoảng cách giữa hai đường thẳng chéo nhau:  $d(d,d')=\\frac{\\left|\\left[\\vec{a},\\vec{b}\\right].\\overrightarrow{MN}\\right|}{\\left|\\left[\\vec{a},\\vec{b}\\right]\\right|}$\n\n28. Góc giữa đường thẳng và mặt phẳng:  $\\sin\\varphi=\\frac{\\left|\\overrightarrow{n.a}\\right|}{\\left|\\overrightarrow{n}\\right|.\\left|\\overrightarrow{a}\\right|}$"
+  },
+  {
+    "chunk_id": 33,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "I. PHƯƠNG PHÁP TỘA ĐỘ TRONG MẶT PHẢNG OXY.",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\overrightarrow {A B} = \\left(a _ {1}; a _ {2}\\right), \\overrightarrow {A C} = \\left(b _ {1}; b _ {2}\\right) \\Rightarrow S _ {\\triangle A B C} = \\frac {1}{2} \\left| a _ {1} b _ {2} - a _ {2} b _ {1} \\right|"
+    ],
+    "block_ids": [
+      164,
+      165
+    ],
+    "n_chars": 300,
+    "text": "# I. PHƯƠNG PHÁP TỘA ĐỘ TRONG MẶT PHẢNG OXY.\n• Diện tích tam giác trong mặt phẳng Oxy:\n\n$$\n\\overrightarrow {A B} = \\left(a _ {1}; a _ {2}\\right), \\overrightarrow {A C} = \\left(b _ {1}; b _ {2}\\right) \\Rightarrow S _ {\\triangle A B C} = \\frac {1}{2} \\left| a _ {1} b _ {2} - a _ {2} b _ {1} \\right|\n$$"
+  },
+  {
+    "chunk_id": 34,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "1. Đường thẳng.",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\cos \\left(\\Delta_ {1}, \\Delta_ {2}\\right) = \\cos \\left(\\vec {\\boldsymbol {n}} _ {1}, \\vec {\\boldsymbol {n}} _ {2}\\right) = \\frac {\\mid \\vec {\\boldsymbol {n}} _ {1} . \\vec {\\boldsymbol {n}} _ {2} \\mid}{\\mid \\vec {\\boldsymbol {n}} _ {1} \\mid \\mid \\vec {\\boldsymbol {n}} _ {2} \\mid} = \\frac {\\mid \\boldsymbol {a} _ {1} \\boldsymbol {a} _ {2} + \\boldsymbol {b} _ {1} \\boldsymbol {b} _ {2} \\mid}{\\sqrt {\\boldsymbol {a} _ {1} ^ {2} + \\boldsymbol {a} _ {2} ^ {2}} . \\sqrt {\\boldsymbol {b} _ {1} ^ {2} + \\boldsymbol {b} _ {2} ^ {2}}}",
+      "d (M, \\Delta) = \\frac {\\left| A x _ {M} + B y _ {M} + C \\right|}{\\sqrt {A ^ {2} + B ^ {2}}}"
+    ],
+    "block_ids": [
+      167,
+      168,
+      169,
+      170,
+      171,
+      172,
+      173,
+      174,
+      175,
+      176,
+      177,
+      178,
+      179
+    ],
+    "n_chars": 1619,
+    "text": "# 1. Đường thẳng.\na. Các dạng phương trình đường thẳng:\n\n\\- Phương trình tổng quát: $\\boldsymbol{A} \\boldsymbol{x} + \\boldsymbol{B} \\boldsymbol{y} + \\boldsymbol{C} \\boldsymbol{z} = 0 \\quad (\\boldsymbol{A}^{2} + \\boldsymbol{B}^{2} > 0)$\n\n( Vec tơ pháp tuyến $\\vec{n} = (A; B)$, Vec tơ chỉ phương $\\vec{a} = (B; -A)$ hay $\\vec{a} = (-B; A)$)\n\n\\- Phương trình tham số: $\\left\\{\\begin{aligned}x&=x_{0}+a_{1}t\\\\ y&=y_{0}+a_{2}t\\end{aligned}\\right.\\quad(t\\in\\mathbb{R})$\n\n( Vec tơ chỉ phương  $\\vec{a} = (a_{1}; a_{2})$  và đi qua điểm  $M(x_{0}, y_{0})$ )\n\n\\- Phương trình chính tắc:  $\\frac{x - x_{0}}{a_{1}} = \\frac{y - y_{0}}{a_{2}}$\n\n\\- Phương trình đoạn chắn:  $\\frac{x}{a} + \\frac{y}{b} = 1$\n\n(Đi qua hai điểm $A(a;0),B(0;b)$)\n\nb. Góc giữa hai đường thẳng.\n\nGọi  $\\vec{n}_{1}$   $v\\grave{a}$   $\\vec{n}_{2}$  là hai VTPT của hai đường thẳng  $\\Delta_{1}$   $v\\grave{a}$   $\\Delta_{2}$ . Khi đó:\n\n$$\n\\cos \\left(\\Delta_ {1}, \\Delta_ {2}\\right) = \\cos \\left(\\vec {\\boldsymbol {n}} _ {1}, \\vec {\\boldsymbol {n}} _ {2}\\right) = \\frac {\\mid \\vec {\\boldsymbol {n}} _ {1} . \\vec {\\boldsymbol {n}} _ {2} \\mid}{\\mid \\vec {\\boldsymbol {n}} _ {1} \\mid \\mid \\vec {\\boldsymbol {n}} _ {2} \\mid} = \\frac {\\mid \\boldsymbol {a} _ {1} \\boldsymbol {a} _ {2} + \\boldsymbol {b} _ {1} \\boldsymbol {b} _ {2} \\mid}{\\sqrt {\\boldsymbol {a} _ {1} ^ {2} + \\boldsymbol {a} _ {2} ^ {2}} . \\sqrt {\\boldsymbol {b} _ {1} ^ {2} + \\boldsymbol {b} _ {2} ^ {2}}}\n$$\n\nc. Khoảng cách từ một điểm $M(x_M; y_M)$ đến một đường thẳng $\\Delta: Ax + By + C = 0$ là:\n\n$$\nd (M, \\Delta) = \\frac {\\left| A x _ {M} + B y _ {M} + C \\right|}{\\sqrt {A ^ {2} + B ^ {2}}}\n$$"
+  },
+  {
+    "chunk_id": 35,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "2. Đường tròn.",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "(C): (x - a) ^ {2} + (y - b) ^ {2} = R ^ {2}"
+    ],
+    "block_ids": [
+      181,
+      182,
+      183,
+      184
+    ],
+    "n_chars": 374,
+    "text": "# 2. Đường tròn.\nCác dạng phương trình đường tròn:\n\n\\- Dạng 1. Phương trình đường tròn (C) có tâm $I(a; b)$ và bán kính R là:\n\n$$\n(C): (x - a) ^ {2} + (y - b) ^ {2} = R ^ {2}\n$$\n\n\\- Dạng 2. Phương trình dạng: $x^{2} + y^{2} - 2ax - 2by + c = 0$ với điều kiện $a^{2} + b^{2} - c > 0$ là phương trình đường tròn (C) có tâm $I(a; b)$ và bán kính $R = \\sqrt{a^{2} + b^{2} - c}$."
+  },
+  {
+    "chunk_id": 36,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "3. Elip.",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      186,
+      187,
+      188
+    ],
+    "n_chars": 501,
+    "text": "# 3. Elip.\n<details>\n<summary>text_image</summary>\n\ny\nB₁\nA₁\nF₁\nO\nF₂\nA₂\nx\nB₂\nM\n</details>\n\n- Phương trình chính tắc của Elip (E):  $\\frac{x^{2}}{a^{2}}+\\frac{y^{2}}{b^{2}}=1$   $(a>b); c^{2}=a^{2}-b^{2}$\n- Tiêu điểm: $F_1(-c;0)$, $F_2(c;0)$\n- Đình trực lớn : $A_1(-a;0)$, $A_2(a;0)$\n- Đình trực bé: $B_1(0; -b)$, $B_2(0; b)$\n- Tâm sai:  $e=\\frac{c}{a}<1$\n- Phương trình đường chuẩn: $x = \\pm \\frac{a}{e}$\n- Điều kiện tiếp xúc của (E) và $\\Delta: A x + B y + C = 0$ là: $A^{2}a^{2} + B^{2}b^{2} = C^{2}$"
+  },
+  {
+    "chunk_id": 37,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "4. Hypebol.",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      190,
+      191,
+      192
+    ],
+    "n_chars": 492,
+    "text": "# 4. Hypebol.\n<details>\n<summary>text_image</summary>\n\ny\nF₁\nA₁\nB₂\nO\nA₂\nB₁\nF₂\nx\ny= b\na\ny=- b\na\nx\n</details>\n\n- Phương trình chính tắc:  $\\frac{x^{2}}{a^{2}} - \\frac{y^{2}}{b^{2}} = 1$ ,  $c^{2} = a^{2} + b^{2}$\n- Tiêu điểm $F_1(-c;0)$, $F_2(c;0)$\n- Đình trên trực thực $A_1(-a;0)$, $A_2(a;0)$.\n- Tâm sai:  $e=\\frac{c}{a}$\n- Phương trình đường chuẩn: $x = \\pm \\frac{a}{e}$\n- Điều kiện tiếp xúc của (H) và $\\Delta: A\\boldsymbol{x} + B\\boldsymbol{y} + C = 0$ là: $A^{2}a^{2} - B^{2}b^{2} = C^{2}$"
+  },
+  {
+    "chunk_id": 38,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "5. Parabol.",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      194,
+      195,
+      196,
+      197
+    ],
+    "n_chars": 308,
+    "text": "# 5. Parabol.\n<details>\n<summary>text_image</summary>\n\ny\nB₂\nO\nF₂\nx\n</details>\n\n- Phương trình chính tắc: $y^{2} = 2px$\n-Tiêu điểm  $\\boldsymbol{F}\\left(\\frac{\\boldsymbol{p}}{2};0\\right)$\n\n- Phương trình đường chuẩn $x = -\\frac{p}{2}$\n- Điều kiện tiếp xúc của (P) và $\\Delta: Ax + By + C = 0$ là: $2AC = B^2p$"
+  },
+  {
+    "chunk_id": 39,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "I. CÁC HÌNH CƠ BẢN",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      200,
+      201,
+      202,
+      203,
+      204,
+      205,
+      206,
+      207,
+      208,
+      209,
+      210,
+      211
+    ],
+    "n_chars": 372,
+    "text": "# I. CÁC HÌNH CƠ BẢN\n1/ Hình chóp\n\na/ Hình chóp thường:\n\n<details>\n<summary>text_image</summary>\n\nS\nA\nB\nC\n</details>\n\nHình chóp tuân giác S.ABC (Từ diện S.ABC)\n\n<details>\n<summary>text_image</summary>\n\nS\nA\nD\nB\nC\n</details>\n\nHình chóp tử giác S.ABCD\n\nb/ Hình chóp đều :\n\n\\* Hình chóp tam giác đều (Từ diện đều)\n\n<details>\n<summary>text_image</summary>\n\nS\nA\nC\nI\nB\n</details>"
+  },
+  {
+    "chunk_id": 40,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "\\*Tính chất:",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      213,
+      214,
+      215,
+      216,
+      217,
+      218,
+      219,
+      221
+    ],
+    "n_chars": 1010,
+    "text": "# \\*Tính chất:\n-Đáy là tam giác đều\n-Tất cả các cạnh bên bằng nhau\n-Tất cả các mặt bên là các tam giác cân bằng nhau\n-Chân đường cao trùng với tâm mặt đáy (Tâm đáy là trọng tâm Δ ABC)\n-Tất cả các góc tạo bởi cạnh bên và mặt đáy đều bằng nhau\n-Tất cả các góc tạo bởi các mặt bên và mặt đáy đều bằng nhau\n\n\\*Chú y:\n\n-Diện tích Δ đều :  $S = \\frac{canh^{2} \\times \\sqrt{3}}{4}$\n\n-Đường cao Δ đều:  $h = \\frac{canh \\times \\sqrt{3}}{2}$\n\n\\* Hình chóp tử giác đều\n\n<details>\n<summary>natural_image</summary>\n\nGeometric diagram of a triangular pyramid with solid and dashed edges indicating visible and hidden edges (no text or labels)\n</details>\n\n-Đáy là hình vuông\n-Tất cả các cạnh bên bằng nhau\n-Tất cả các mặt bên là các tam giác cân bằng nhau\n-Chân đường cao trùng với tâm mặt đáy (Tâm đáy là giao điểm 2 đường chéo)\n-Tất cả các góc tạo bởi cạnh bên và mặt đáy đều bằng nhau\n-Tất cả các góc tạo bởi các mặt bên và mặt đáy đều bằng nhau\n\\*Chú y:\n-Diện tích hình vuông : S=Cạnh²\n-Đường chéo hình vuông: = cạnh × √2"
+  },
+  {
+    "chunk_id": 41,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "2/ Hình lăng tru",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      223,
+      224,
+      225,
+      226,
+      227,
+      228,
+      229,
+      230,
+      231
+    ],
+    "n_chars": 495,
+    "text": "# 2/ Hình lăng tru\n<details>\n<summary>natural_image</summary>\n\nGeometric diagram of a 3D polyhedron with solid and dashed edges (no text or labels)\n</details>\n\nLăng trụ thường\n\n<details>\n<summary>natural_image</summary>\n\nSimple line drawing of a 3D cube with visible edges and dashed hidden lines (no text or symbols)\n</details>\n\nLăng trụ đúng\n\n<details>\n<summary>natural_image</summary>\n\nSimple line drawing of a 3D cube with dashed hidden edges (no text or symbols)\n</details>\n\nHình lập phương"
+  },
+  {
+    "chunk_id": 42,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "1/ Phương pháp chứng minh dưỡng thẳng vuông góc với mặt phẳng",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\left| \\begin{array}{l} \\left\\{ \\begin{array}{l} \\boldsymbol {d} \\perp \\boldsymbol {a} \\\\ \\boldsymbol {d} \\perp \\boldsymbol {b} \\end{array} \\Rightarrow \\boldsymbol {d} \\perp (\\alpha) \\right. \\\\ \\boldsymbol {a}, \\boldsymbol {b} \\subset (\\alpha) \\end{array} \\right|",
+      "\\left\\{ \\begin{array}{l} (\\alpha) \\perp (\\beta) \\\\ \\boldsymbol {d} \\subset (\\alpha) \\\\ \\boldsymbol {c} = (\\alpha) \\cap (\\beta) \\\\ \\boldsymbol {d} \\perp \\boldsymbol {c} \\end{array} \\Rightarrow \\boldsymbol {d} \\perp (\\beta) \\right.",
+      "\\left\\{ \\begin{array}{l} (\\alpha) \\perp (\\gamma) \\\\ (\\beta) \\perp (\\gamma) \\quad \\Rightarrow \\boldsymbol {c} \\perp (\\gamma) \\\\ \\boldsymbol {c} = (\\alpha) \\cap (\\beta) \\end{array} \\right."
+    ],
+    "block_ids": [
+      234,
+      235,
+      236,
+      237,
+      238,
+      239,
+      240
+    ],
+    "n_chars": 1246,
+    "text": "# 1/ Phương pháp chứng minh dưỡng thẳng vuông góc với mặt phẳng\nMuống chứng minh đường thẳng d vuông góc với mặt phẳng (α), ta làm như sau:\n\n\\*CÁCH 1: Chứng minh đường thẳng d vuông góc với HAI đường thẳng cắt nhau nằm trong mp(α)\n\n$$\n\\left| \\begin{array}{l} \\left\\{ \\begin{array}{l} \\boldsymbol {d} \\perp \\boldsymbol {a} \\\\ \\boldsymbol {d} \\perp \\boldsymbol {b} \\end{array} \\Rightarrow \\boldsymbol {d} \\perp (\\alpha) \\right. \\\\ \\boldsymbol {a}, \\boldsymbol {b} \\subset (\\alpha) \\end{array} \\right|\n$$\n\n\\*CÁCH 2: Sử dụng định lí:”Nếu hai mặt phẳng vuông góc với nhau thì bất kì đường thẳng nào nằm trong mặt phẳng này và vuông góc với giao tuyến thì cũng vuông góc với mặt phẳng kia”\n\n$$\n\\left\\{ \\begin{array}{l} (\\alpha) \\perp (\\beta) \\\\ \\boldsymbol {d} \\subset (\\alpha) \\\\ \\boldsymbol {c} = (\\alpha) \\cap (\\beta) \\\\ \\boldsymbol {d} \\perp \\boldsymbol {c} \\end{array} \\Rightarrow \\boldsymbol {d} \\perp (\\beta) \\right.\n$$\n\n\\*CÁCH 3: Sử dụng định lí:”Nếu hai mp phân biệt cùng vuông góc với mp thứ 3 thì giao tuyến của chúng cũng sẽ vuông góc với mp đó”.\n\n$$\n\\left\\{ \\begin{array}{l} (\\alpha) \\perp (\\gamma) \\\\ (\\beta) \\perp (\\gamma) \\quad \\Rightarrow \\boldsymbol {c} \\perp (\\gamma) \\\\ \\boldsymbol {c} = (\\alpha) \\cap (\\beta) \\end{array} \\right.\n$$"
+  },
+  {
+    "chunk_id": 43,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "2/ Phường pháp chứng minh 2 đường thẳng vuông góc",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\left| \\left\\{ \\begin{array}{l} \\boldsymbol {d} \\perp (\\alpha) \\\\ \\boldsymbol {a} \\subset (\\alpha) \\end{array} \\Rightarrow \\boldsymbol {d} \\perp \\boldsymbol {a} \\right. \\right|"
+    ],
+    "block_ids": [
+      242,
+      243
+    ],
+    "n_chars": 357,
+    "text": "# 2/ Phường pháp chứng minh 2 đường thẳng vuông góc\nMuốn chứng minh hai đường thẳng vuông góc ta chứng minh đường thẳng này vuông góc với một mặt phẳng chứa đường thẳng kia.\n\n$$\n\\left| \\left\\{ \\begin{array}{l} \\boldsymbol {d} \\perp (\\alpha) \\\\ \\boldsymbol {a} \\subset (\\alpha) \\end{array} \\Rightarrow \\boldsymbol {d} \\perp \\boldsymbol {a} \\right. \\right|\n$$"
+  },
+  {
+    "chunk_id": 44,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "3/ Phương pháp chứng minh 2 mặt phẳng vuông góc",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\left\\{ \\begin{array}{l} \\boldsymbol {d} \\subset (\\alpha) \\\\ \\boldsymbol {d} \\perp (\\beta) \\end{array} \\Rightarrow (\\alpha) \\perp (\\beta) \\right."
+    ],
+    "block_ids": [
+      245,
+      246
+    ],
+    "n_chars": 320,
+    "text": "# 3/ Phương pháp chứng minh 2 mặt phẳng vuông góc\nMuốn chứng minh hai mặt phẳng vuông góc ta chứng minh mặt phẳng này chứa một đường thẳng vuông góc với mặt phẳng kia.\n\n$$\n\\left\\{ \\begin{array}{l} \\boldsymbol {d} \\subset (\\alpha) \\\\ \\boldsymbol {d} \\perp (\\beta) \\end{array} \\Rightarrow (\\alpha) \\perp (\\beta) \\right.\n$$"
+  },
+  {
+    "chunk_id": 45,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "1/ Góc giữa hai đường thẳng",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "(\\widehat {(a , b}) = (\\widehat {(a ^ {\\prime} , b ^ {\\prime})}"
+    ],
+    "block_ids": [
+      249,
+      250,
+      251,
+      252,
+      253,
+      254
+    ],
+    "n_chars": 370,
+    "text": "# 1/ Góc giữa hai đường thẳng\nĐịnh nghĩa: Góc giữa hai đường thẳng a, b trong không gian là góc giữa hai đường thẳng a', b' nào đó cùng đi qua một điểm và lần lượt song song với a, b.\n\n<details>\n<summary>text_image</summary>\n\na\nb\n</details>\n\n$$\n(\\widehat {(a , b}) = (\\widehat {(a ^ {\\prime} , b ^ {\\prime})}\n$$\n\n<details>\n<summary>text_image</summary>\n\na'\nb'\n</details>"
+  },
+  {
+    "chunk_id": 46,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "2/ Góc giữa đường thẳng và mặt phẳng",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\text {Vay} \\varphi = (\\widehat {\\boldsymbol {a} , \\boldsymbol {O H}})"
+    ],
+    "block_ids": [
+      256,
+      257,
+      258,
+      259,
+      260,
+      261
+    ],
+    "n_chars": 602,
+    "text": "# 2/ Góc giữa đường thẳng và mặt phẳng\na) Định nghĩa: Góc giữa đường thẳng a và mặt phẳng (α) là góc giữa chính đường thẳng a và hình chiếu của nó lên mặt phẳng (α)\nb) Phương pháp thực hiện.\n\n<details>\n<summary>natural_image</summary>\n\nPure geometric diagram showing a triangle intersecting a plane, no text or symbols present\n</details>\n\n\\*PP: Gọi φ là góc cần tìm.\n\n-B1: Tîm giao điểm O của a và (α)\n-B2: Tìm đường vuông góc từ đường thẳng a xuống mặt phẳng (α)\n-B3:  $\\Rightarrow$  OH là hình chiếu của a lên ( $\\alpha$ )\n\n$$\n\\text {Vay} \\varphi = (\\widehat {\\boldsymbol {a} , \\boldsymbol {O H}})\n$$"
+  },
+  {
+    "chunk_id": 47,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "3/ Góc giữa 2 mặt phẳng",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      263,
+      264,
+      265,
+      266,
+      267,
+      268
+    ],
+    "n_chars": 605,
+    "text": "# 3/ Góc giữa 2 mặt phẳng\na) Định nghĩa: Góc giữa hai mặt phẳng là góc giữa hai đường thẳng lần lượt vuông góc với GIAO TUYẾN của hai mặt phẳng đó.\nb) Phương pháp.\n\n<details>\n<summary>natural_image</summary>\n\nGeometric diagram of two overlapping polygons with dashed lines indicating hidden edges (no text or symbols)\n</details>\n\n\\*PP: Gọi φ là góc cần tìm\n\n-B1: Xác định giao tuyến c của (α) và (β)\n-B2: Tìm đường vuông góc với một trong hai mặt phẳng.\n-B3: Từ chân đường vuông góc, hạ dt vuông góc với gt c tại H.\n-B4: Chứng minh đt hạ từ đỉnh đường vuông góc xuống H vuông góc với gt c.\n\nSuy ra góc φ ."
+  },
+  {
+    "chunk_id": 48,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "1. Khoảng cách từ một điểm đến một mp",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\frac {d (A , (\\alpha))}{d (B , (\\alpha))} = \\frac {I A}{I B}",
+      "A B \\parallel (\\alpha) \\Rightarrow d (A B, (\\alpha)) = I H, I \\in A B",
+      "\\begin{array}{l} \\left| (\\alpha) \\| (\\beta) \\Rightarrow \\boldsymbol {d} ((\\alpha), (\\beta)) = \\boldsymbol {d} (\\boldsymbol {A}, (\\beta)), \\boldsymbol {A} \\in (\\alpha) \\right| \\\\ = \\boldsymbol {d} (\\boldsymbol {B}, (\\alpha)), \\boldsymbol {B} \\in (\\beta) \\\\ \\end{array}"
+    ],
+    "block_ids": [
+      271,
+      272,
+      273,
+      274,
+      275,
+      276,
+      277,
+      278,
+      279,
+      280,
+      281,
+      282,
+      283,
+      284,
+      285,
+      286
+    ],
+    "n_chars": 1362,
+    "text": "# 1. Khoảng cách từ một điểm đến một mp\nĐế xác định khoảng cách từ điểm A đến mp (α), ta tìm một dt thỏa: $a:\\begin{cases}+Qua & A \\\\+\\perp (\\alpha) \\text{ tại } H\\end{cases}$\n\nKhi đó : AH là khoảng cách cần tìm\n\n\\*Luú ú:\n\n<details>\n<summary>natural_image</summary>\n\nGeometric diagram showing two intersecting planes with a dashed line inside (no text or symbols)\n</details>\n\nNếu AB cắt (α) tại I thì\n\n$$\n\\frac {d (A , (\\alpha))}{d (B , (\\alpha))} = \\frac {I A}{I B}\n$$\n\n2. Khoảng cách giữa đường thẳng và mp song song là khoảng cách từ một điểm bất kì trên dt đến mp\n\n$$\nA B \\parallel (\\alpha) \\Rightarrow d (A B, (\\alpha)) = I H, I \\in A B\n$$\n\n3. Khoảng cách giữa hai mp song song là khoảng cách từ một điểm bất kì trên mp này đến mp kia\n\n$$\n\\begin{array}{l} \\left| (\\alpha) \\| (\\beta) \\Rightarrow \\boldsymbol {d} ((\\alpha), (\\beta)) = \\boldsymbol {d} (\\boldsymbol {A}, (\\beta)), \\boldsymbol {A} \\in (\\alpha) \\right| \\\\ = \\boldsymbol {d} (\\boldsymbol {B}, (\\alpha)), \\boldsymbol {B} \\in (\\beta) \\\\ \\end{array}\n$$\n\n4. Khoảng cách giữa hai đường thẳng chéo nhau\n\nNhắc lại: Đường vuông góc chung của 2 đt chéo nhau a, b là đt cắt a, b và đồng thời vuông góc với 2 đt đó.\n\n\\*TH1: a, b chéo nhau và $a \\perp b$. Khi đó:\n\n<details>\n<summary>natural_image</summary>\n\nPure geometric diagram showing intersecting lines and a plane, no text or symbols present\n</details>"
+  },
+  {
+    "chunk_id": 49,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "PP:",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\text {V} \\hat {\\mathrm{a}} \\mathrm{y} d (a, b) = A B"
+    ],
+    "block_ids": [
+      288,
+      289,
+      290,
+      291,
+      292,
+      294,
+      295,
+      296,
+      297
+    ],
+    "n_chars": 829,
+    "text": "# PP:\n-B1: Tîm mp (α) {+Chứa b\n+⊥a tại A}\n-B2: Từ A kể AB ⊥ b tại B\n    ⇒ AB là đoạn vuông góc chung của\n    a và b\n\n$$\n\\text {V} \\hat {\\mathrm{a}} \\mathrm{y} d (a, b) = A B\n$$\n\n\\*TH2: a, b chéo nhau đồng thời có mp(α) chữa b và song song với a\n\n<details>\n<summary>natural_image</summary>\n\nPure geometric diagram showing two intersecting planes with a dashed line, no text or symbols present\n</details>\n\n-B1: Lấy $M \\in a$, kề $MH \\perp (\\alpha)$ tại H\n-B2: Từ H dựng $a'\\parallel a$, cắt b tại B\n-B3: Từ B dựng dt || MH cắt a tại A\n$\\Rightarrow$ AB là đoạn vuông góc chung\n$\\mathrm{V}\\hat{\\mathrm{a}}\\mathrm{y} d(a,b) = AB = MH = d(M,(\\alpha))$\n\n\\*TH3: Trường hợp tổng quát\n\n<details>\n<summary>natural_image</summary>\n\nPure geometric diagram showing intersecting planes and lines without any text, numbers, or symbols\n</details>"
+  },
+  {
+    "chunk_id": 50,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "PP",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\mathrm{d} (\\mathrm{a}, \\mathrm{b}) = \\mathrm{AB} = \\mathrm{OH}"
+    ],
+    "block_ids": [
+      299,
+      300
+    ],
+    "n_chars": 319,
+    "text": "# PP\n- Dựng mp (α) vuông góc với a tại O. Dựng hình chiếu vuông góc b' của b trên (α)\n- Dụng hình chiếu vuông góc H của O trên b'. Từ H dụng đt song song với a cắt b tại B\n- Từ B dụng dt song song với OH, cắt a tại A\nDoạn AB là đoạn vuông góc chung\n\n$$\n\\mathrm{d} (\\mathrm{a}, \\mathrm{b}) = \\mathrm{AB} = \\mathrm{OH}\n$$"
+  },
+  {
+    "chunk_id": 51,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "MỘT SỐ CÔNG THỨC ĐÁNG NHÓ:",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "table"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      302
+    ],
+    "n_chars": 1024,
+    "text": "# MỘT SỐ CÔNG THỨC ĐÁNG NHÓ:\n| $S_{\\text{hình vuông}} = \\text{cạnh} ^2$ | Diện tích hình chữ nhật = dài . rộng |\n| --- | --- |\n| Đường chéo hình vuông = cạnh . $\\sqrt{2}$ | $S_{\\text{hìnhtròn}} = \\pi R^2$ |\n| Diện tích tam giác thường = $\\frac{1}{2}$ (cạnh Ťy. Lường cao) | Thể tích khối chóp V = $\\frac{1}{3}$ ($S_{\\text{dáy}} \\times \\text{cao}$) |\n| Diện tích tam giác thường = $\\frac{1}{2}$ a . b (a, b là 2 cạnh góc vuông) | Thể tích khối lăng trụ V = $S_{\\text{dáy}} \\times \\text{cao}$ |\n| Diện tích tam giác đều = $\\frac{canh^2 \\times \\sqrt{3}}{4}$ | Thể tích khối cầu V = $\\frac{4}{3} \\pi R^3$ |\n| Đường cao tam giác đều = $\\frac{canh \\times \\sqrt{3}}{2}$ | Diện tích mặt cầu S=4$\\pi R^{2}$ |\n| $S_{\\text{hình thang}}$=$\\frac{1}{2}$ (đáy nhỏ + đáy lón) × cao | Thể tích khối nón V=$\\frac{1}{3}$ ($S_{\\text{dáy}} \\times \\text{cao}$)= $\\frac{1}{3} \\pi R^{2}h$ |\n| Tam giác ABC vuông tại A: $\\frac{1}{AH^{2}}$=$\\frac{1}{AB^{2}}$+$\\frac{1}{AC^{2}}$ | Thể tích khối trụ V= $S_{\\text{dáy}} \\times \\text{cao}$=$\\pi R^{2}h$ |"
+  },
+  {
+    "chunk_id": 52,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "Định nghĩa :",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      306,
+      307,
+      308
+    ],
+    "n_chars": 290,
+    "text": "# Định nghĩa :\nSố phức là một biểu thức có dạng $a + bi$; trong đó $a, b \\in \\mathbb{R}$ và $i^2 = -1$.\n\nTập hợp các số phức được kí hiệu là C.\n\n- Nếu $z = a + bi$ thì $a$ gọi là $phần thực$ và $b$ là $phần ảo$ của số phức $z$.\n• z gọi là sô thực kh i $a=0$\n• z gọi là số thuần ảo khi b = 0"
+  },
+  {
+    "chunk_id": 53,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "Các khái niệm liên quan :",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "text"
+    ],
+    "has_formula": false,
+    "formula_latex": [],
+    "block_ids": [
+      310,
+      311
+    ],
+    "n_chars": 320,
+    "text": "# Các khái niệm liên quan :\nCho số phức $z = a + bi$. Khi đó :\n\n- Mỗi số phức $z = a + bi$ được biểu diễn bởi một điểm $M(a; b)$ trên mặt phẳng tọa độ Oxy.\n•  $|z|=\\left|\\overrightarrow{OM}\\right|=\\sqrt{a^{2}+b^{2}}$  gọi là modun của số phức z.\n- Số phức $\\overline{z} = a - bi$ gọi là số phức liên hợp của số phức $z$."
+  },
+  {
+    "chunk_id": 54,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "Hai số phức bằng nhau :",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\boxed {z = z ^ {\\prime} \\Leftrightarrow \\left\\{ \\begin{array}{l} \\boldsymbol {a} = \\boldsymbol {a} ^ {\\prime} \\\\ \\boldsymbol {b} = \\boldsymbol {b} ^ {\\prime} \\end{array} \\right.}"
+    ],
+    "block_ids": [
+      313,
+      314
+    ],
+    "n_chars": 265,
+    "text": "# Hai số phức bằng nhau :\nCho số phức $z = a + bi$ và $z' = a' + b'i$. Khi đó:\n\n$$\n\\boxed {z = z ^ {\\prime} \\Leftrightarrow \\left\\{ \\begin{array}{l} \\boldsymbol {a} = \\boldsymbol {a} ^ {\\prime} \\\\ \\boldsymbol {b} = \\boldsymbol {b} ^ {\\prime} \\end{array} \\right.}\n$$"
+  },
+  {
+    "chunk_id": 55,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "2. Các phép toán trên tập hợp số phức",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\begin{array}{l} \\overline {{\\left(\\boldsymbol {a} + \\boldsymbol {b} \\boldsymbol {i}\\right) + \\left(\\boldsymbol {c} + \\boldsymbol {d} \\boldsymbol {i}\\right) = \\left(\\boldsymbol {a} + \\boldsymbol {c}\\right) + \\left(\\boldsymbol {b} + \\boldsymbol {d}\\right) \\boldsymbol {i}}} \\\\ \\left(\\boldsymbol {a} + \\boldsymbol {b} \\boldsymbol {i}\\right) - \\left(\\boldsymbol {c} + \\boldsymbol {d} \\boldsymbol {i}\\right) = (\\boldsymbol {a} - \\boldsymbol {c}) + (\\boldsymbol {b} - \\boldsymbol {d}) \\boldsymbol {i} \\\\ \\overline {{\\left(\\boldsymbol {a} + \\boldsymbol {b} \\boldsymbol {i}\\right) \\left(\\boldsymbol {c} + \\boldsymbol {d} \\boldsymbol {i}\\right)}} = \\left(\\boldsymbol {a} \\boldsymbol {c} - \\boldsymbol {b} \\boldsymbol {d}\\right) + \\left(\\boldsymbol {a} \\boldsymbol {d} + \\boldsymbol {b} \\boldsymbol {c}\\right) \\boldsymbol {i} \\\\ \\end{array}",
+      "\\frac {z ^ {\\prime}}{z} = \\frac {z ^ {\\prime} . \\overline {{z}}}{z . \\overline {{z}}} (z \\neq 0)."
+    ],
+    "block_ids": [
+      316,
+      317,
+      318,
+      319,
+      320,
+      321,
+      322
+    ],
+    "n_chars": 1379,
+    "text": "# 2. Các phép toán trên tập hợp số phức\nPhép cộng, trừ, nhân hai số phức :\n\n$$\n\\begin{array}{l} \\overline {{\\left(\\boldsymbol {a} + \\boldsymbol {b} \\boldsymbol {i}\\right) + \\left(\\boldsymbol {c} + \\boldsymbol {d} \\boldsymbol {i}\\right) = \\left(\\boldsymbol {a} + \\boldsymbol {c}\\right) + \\left(\\boldsymbol {b} + \\boldsymbol {d}\\right) \\boldsymbol {i}}} \\\\ \\left(\\boldsymbol {a} + \\boldsymbol {b} \\boldsymbol {i}\\right) - \\left(\\boldsymbol {c} + \\boldsymbol {d} \\boldsymbol {i}\\right) = (\\boldsymbol {a} - \\boldsymbol {c}) + (\\boldsymbol {b} - \\boldsymbol {d}) \\boldsymbol {i} \\\\ \\overline {{\\left(\\boldsymbol {a} + \\boldsymbol {b} \\boldsymbol {i}\\right) \\left(\\boldsymbol {c} + \\boldsymbol {d} \\boldsymbol {i}\\right)}} = \\left(\\boldsymbol {a} \\boldsymbol {c} - \\boldsymbol {b} \\boldsymbol {d}\\right) + \\left(\\boldsymbol {a} \\boldsymbol {d} + \\boldsymbol {b} \\boldsymbol {c}\\right) \\boldsymbol {i} \\\\ \\end{array}\n$$\n\nChú ý :\n\n- Các phép toán : cộng, trừ, nhân hai số phức thực hiện như rút gọn biểu thức đại số thông thường với chú ý rằng $i^{2} = -1$.\n- Các quy tắc đại số đã áp dụng trên tập số thực vẫn được áp dụng trên tập số phức.\n- Cho $z = a + bi$. Khi đó: $z.\\overline{z} = a^2 + b^2$.\n\nPhép chia hai số phức :\n\n$$\n\\frac {z ^ {\\prime}}{z} = \\frac {z ^ {\\prime} . \\overline {{z}}}{z . \\overline {{z}}} (z \\neq 0).\n$$\n\nSố phức nghịch đảo của z(z ≠ 0): $z^{-1} = \\frac{1}{z}$"
+  },
+  {
+    "chunk_id": 56,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "3. Phương trình bậc hai",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\left(\\boldsymbol {a} \\boldsymbol {z} ^ {2} + \\boldsymbol {b} \\boldsymbol {z} + \\boldsymbol {c} = 0; \\boldsymbol {a}, \\boldsymbol {b}, \\boldsymbol {c} \\in \\mathbb {R}; \\boldsymbol {a} \\neq 0\\right)."
+    ],
+    "block_ids": [
+      324,
+      325,
+      326,
+      327,
+      328,
+      329,
+      330
+    ],
+    "n_chars": 877,
+    "text": "# 3. Phương trình bậc hai\nCăn bậc hai của số thực âm :\n\nCho a là số thực âm. Khi đó a có hai căn bậc hai là : $i\\sqrt{|a|}$ và $-i\\sqrt{|a|}$.\n\nCách giải phương trình bậc hai với hệ số thực :\n\n$$\n\\left(\\boldsymbol {a} \\boldsymbol {z} ^ {2} + \\boldsymbol {b} \\boldsymbol {z} + \\boldsymbol {c} = 0; \\boldsymbol {a}, \\boldsymbol {b}, \\boldsymbol {c} \\in \\mathbb {R}; \\boldsymbol {a} \\neq 0\\right).\n$$\n\nTính $\\Delta = b^{2} - 4ac$.\n\nKết luận :\n\n- Nếu $\\Delta > 0$ thì phương trình có hai nghiệm thực phân biệt $z_{1,2} = \\frac{-b \\pm \\sqrt{\\Delta}}{2a}$.\n- Nếu $\\Delta = 0$ thì phương trình có một nghiệm kép thực $z_{1} = z_{2} = \\frac{-b}{2a}$.\n- Nếu $\\Delta < 0$ thì $\\Delta$ có hai căn bậc hai là $i\\sqrt{|\\Delta|}$ và $-i\\sqrt{|\\Delta|}$. Khi đó phương trình có hai nghiệm phức phân biệt là $z_1 = \\frac{-b + i\\sqrt{|\\Delta|}}{2a}$ và $z_2 = \\frac{-b - i\\sqrt{|\\Delta|}}{2a}$."
+  },
+  {
+    "chunk_id": 57,
+    "doc_id": "e2a6f9e91c",
+    "source": "cthuc.pdf",
+    "section": "4 Dạng lượng giác của số phúc",
+    "page": null,
+    "page_end": null,
+    "pages": [],
+    "content_types": [
+      "formula",
+      "text"
+    ],
+    "has_formula": true,
+    "formula_latex": [
+      "\\mathrm{z} = \\boldsymbol {r} (\\cos \\phi + i \\sin \\phi) \\Leftrightarrow \\left\\{ \\begin{array}{l} \\boldsymbol {r} = \\sqrt {\\boldsymbol {a} ^ {2} + \\boldsymbol {b} ^ {2}} \\\\ \\cos \\phi = \\frac {\\boldsymbol {a}}{\\boldsymbol {r}} \\\\ \\sin \\phi = \\frac {\\boldsymbol {b}}{\\boldsymbol {r}} \\end{array} \\right\\}",
+      "\\text {và} - \\boldsymbol {r} \\left(\\cos \\frac {\\varphi}{2} + \\boldsymbol {i} \\sin \\frac {\\varphi}{2}\\right) = \\sqrt {\\boldsymbol {r}} \\left[ \\cos \\left(\\frac {\\varphi}{2} + \\pi\\right) + \\boldsymbol {i} \\sin \\left(\\frac {\\varphi}{2} + \\pi\\right) \\right]"
+    ],
+    "block_ids": [
+      332,
+      333,
+      334,
+      335,
+      336,
+      337,
+      338,
+      339,
+      340
+    ],
+    "n_chars": 1211,
+    "text": "# 4 Dạng lượng giác của số phúc\n4.1 Dạng lượng giác của z = a + bi (a, b ∈ R, z ≠ 0) là:\n\n$$\n\\mathrm{z} = \\boldsymbol {r} (\\cos \\phi + i \\sin \\phi) \\Leftrightarrow \\left\\{ \\begin{array}{l} \\boldsymbol {r} = \\sqrt {\\boldsymbol {a} ^ {2} + \\boldsymbol {b} ^ {2}} \\\\ \\cos \\phi = \\frac {\\boldsymbol {a}}{\\boldsymbol {r}} \\\\ \\sin \\phi = \\frac {\\boldsymbol {b}}{\\boldsymbol {r}} \\end{array} \\right\\}\n$$\n\n+ φ là một acgumen của z.\n+ $\\phi = (Ox, OM)$\n\n4.2 Nhân chia số phúc dưới dạng lượng giác.\n\nNéu z = r( $\\cos\\phi + i\\sin\\phi$ ),  $z' = r'(\\cos\\phi' + i\\sin\\phi')$  thì :\n\na) $z.z' = r.r'[\\cos (\\phi +\\phi ') + i\\sin (\\phi +\\phi ')]$\nb) $\\frac{z}{z'} = \\frac{r}{r'} [\\cos (\\phi -\\phi ') + i\\sin (\\phi -\\phi ')]$\n\n4.3 Công thức Moa-vrơ: $n \\in N^{*}$ thì $[r(\\cos\\phi + i\\sin\\phi)]^{n} = r^{n}(\\cos n\\phi + i\\sin n\\phi)$\n4.4 Căn bậc hai của số phúc dưới dạng lượng giác :\n\nCăn bậc hai của số phúc z = r(cos φ + i sin φ) (r > 0) là : r(cos φ/2 + i sin φ/2)\n\n$$\n\\text {và} - \\boldsymbol {r} \\left(\\cos \\frac {\\varphi}{2} + \\boldsymbol {i} \\sin \\frac {\\varphi}{2}\\right) = \\sqrt {\\boldsymbol {r}} \\left[ \\cos \\left(\\frac {\\varphi}{2} + \\pi\\right) + \\boldsymbol {i} \\sin \\left(\\frac {\\varphi}{2} + \\pi\\right) \\right]\n$$"
+  }
+]

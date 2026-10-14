@@ -29,7 +29,7 @@ TOP_K = 5
 # MINERU_BACKEND giữ lại cho tương thích --backend cũ trên CLI của main.py,
 # không còn được run_mineru() dùng thật sự.
 MINERU_BACKEND = "pipeline"
-MINERU_TIER = "standard"  # flash / basic / standard / advanced
+MINERU_TIER = "advanced"  # flash / basic / standard / advanced
 
 # Pandoc: giữ math -> OMML Equation, heading/table/image
 PANDOC_FROM = "markdown+tex_math_dollars+tex_math_single_backslash"

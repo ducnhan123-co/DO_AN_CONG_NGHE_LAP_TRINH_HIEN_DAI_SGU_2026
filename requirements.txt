@@ -6,3 +6,5 @@ llama-index-embeddings-huggingface
 torch
 transformers
 accelerate
+
+
