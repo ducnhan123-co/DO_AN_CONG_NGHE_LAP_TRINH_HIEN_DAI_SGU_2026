@@ -25,3 +25,20 @@ def test_find_input_pdf_nested(tmp_path):
     md = tmp_path / "mineru" / "doc" / "txt" / "doc.md"
     md.parent.mkdir(parents=True)
     assert _find_input_pdf(md) == tmp_path / "input.pdf"
+
+
+def test_degenerate_latex_block_becomes_image(tmp_path):
+    import json
+
+    import fitz
+
+    from llm.src.build_docx import swap_degenerate_math_for_images
+    doc = fitz.open(); doc.new_page(width=300, height=400).insert_text((20, 50), "x"); doc.save(str(tmp_path / "input.pdf"))
+    junk = "14. $" + r"\begin{array} { r l } & { " * 4 + "x " * 800 + "$"
+    mdp = tmp_path / "mineru" / "input.md"; mdp.parent.mkdir()
+    mdp.write_text("intro\n\n" + junk + "\n\nouttro\n", encoding="utf-8")
+    (mdp.parent / "input_content_list.json").write_text(json.dumps(
+        [{"type": "text", "text": junk, "page_idx": 0, "bbox": [0, 0, 1000, 500]}]), encoding="utf-8")
+    out = swap_degenerate_math_for_images(mdp.read_text(encoding="utf-8"), mdp, tmp_path / "work.md")
+    assert r"\begin{array}" not in out and "![](" in out and "intro" in out and "outtro" in out
+    assert (tmp_path / "crops" / "degenerate_0.png").exists()

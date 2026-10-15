@@ -710,7 +710,7 @@ def recover_first_page_header(markdown_text: str, md_path: Path) -> str:
 
 def build_block_regions(md_path: Path) -> dict:
     """{pdf, blocks:[{prefix, page, bbox}]}: cho phép cắt lại đúng vùng đoạn văn từ PDF gốc khi công thức inline hỏng."""
-    pdf = md_path.parent.parent / "input.pdf"
+    pdf = _find_input_pdf(md_path)
     if not pdf.exists():
         return {"pdf": None, "blocks": []}
     blocks = []
@@ -736,6 +736,28 @@ def _crop_pdf_region(pdf: str, page: int, bbox: list, out_png: Path) -> bool:
         return True
     except Exception:  # noqa: BLE001
         return False
+
+
+def swap_degenerate_math_for_images(markdown_text: str, md_path: Path, work_md: Path) -> str:
+    """MinerU đôi khi 'ảo giác' cả một vùng (bảng/đoạn dày chữ) thành 1 khối LaTeX khổng lồ lồng nhiều \\begin{array}
+    (vd 3500 ký tự) -> pandoc không dịch được, DOCX lòi mã thô. Khối text dài >1500 ký tự mà có >=3 array lồng nhau
+    chắc chắn hỏng -> thay bằng ảnh cắt đúng vùng đó từ PDF gốc (đã đo: 1/8 khối có >=3 array trên 40 tài liệu mẫu là loại này)."""
+    pdf = _find_input_pdf(md_path)
+    if not pdf.exists():
+        return markdown_text
+    n = 0
+    for it in _content_items(md_path):
+        t = (it.get("text") or "").replace("\r\n", "\n").strip()   # md đọc ra \n, content_list giữ \r\n
+        if (it.get("type") != "text" or len(t) <= 1500 or t.count("\\begin{array}") < 3
+                or not it.get("bbox") or not isinstance(it.get("page_idx"), int) or t not in markdown_text):
+            continue
+        png = work_md.parent / "crops" / f"degenerate_{n}.png"
+        if _crop_pdf_region(str(pdf), it["page_idx"], it["bbox"], png):
+            markdown_text = markdown_text.replace(t, f"\n\n![]({png})\n\n", 1)
+            n += 1
+    if n:
+        print(f"[DOCX] {n} khối LaTeX ảo giác -> dùng ảnh cắt từ PDF gốc")
+    return markdown_text
 
 
 def swap_garbled_tables_for_images(markdown_text: str, md_path: Path) -> str:
@@ -786,6 +808,10 @@ def prepare_work_md(markdown_text: str, md_path: Path, work_md: Path) -> Path:
             print(f"[DOCX] bố cục nhiều cột: {[len(p['cols']) for p in lay['pages'].values()]} cột/trang")
     except Exception as e:  # noqa: BLE001 - bố cục chỉ là tinh chỉnh, lỗi thì rơi về văn bản chảy như cũ
         print("[CẢNH BÁO] không dựng được bố cục:", e)
+    try:
+        markdown_text = swap_degenerate_math_for_images(markdown_text, md_path, work_md)
+    except Exception as e:  # noqa: BLE001 - tiện ích, không được làm hỏng DOCX
+        print("[CẢNH BÁO] không xử lý được khối LaTeX ảo giác:", e)
     markdown_text = fix_symbol_pua(markdown_text)
     try:
         markdown_text = recover_first_page_header(markdown_text, md_path)
