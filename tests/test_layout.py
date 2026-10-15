@@ -51,3 +51,20 @@ def test_apply_layout_sets_page_size_and_font(tmp_path):
     assert round(s.page_width.pt) == 842 and round(s.page_height.pt) == 595 and round(s.left_margin.pt) == 22
     assert 'w:num="2"' in zipfile.ZipFile(p).read("word/document.xml").decode()
     assert docx.Document(str(p)).styles["Normal"].font.size.pt == 8.0
+
+
+def test_markers_never_land_inside_display_math():
+    items = [{"type": "text", "page_idx": 0, "bbox": [30, 20, 300, 60], "text": "Doan mot truoc cong thuc"},
+             {"type": "text", "page_idx": 1, "bbox": [30, 20, 300, 60], "text": "x = y + z cong thuc ben trong"}]
+    lay = {"pages": {0: {"w": 595, "h": 842, "ml": 20, "mr": 20, "mt": 20, "mb": 20, "cols": [[30, 300]]},
+                     1: {"w": 595, "h": 842, "ml": 20, "mr": 20, "mt": 20, "mb": 20, "cols": [[30, 300]]}}}
+    md = "Doan mot truoc cong thuc\n\n$$\nx = y + z cong thuc ben trong\n$$\n"
+    assert "openxml" not in L.insert_layout_markers(md, items, lay)
+
+
+def test_book_with_few_two_column_pages_is_not_multicol():
+    two = [dict(b, page_idx=0) for b in _items()]
+    one = [{"type": "text", "page_idx": pg, "bbox": [60 + 5 * k, 20 + 60 * k, 900, 70 + 60 * k], "text": "dong van ban"}
+           for pg in range(1, 10) for k in range(5)]
+    assert L.analyze_layout(two + one, None)["multi_col"] is False
+    assert L.analyze_layout(two, None)["multi_col"] is True

@@ -98,7 +98,8 @@ def analyze_layout(items: List[dict], pdf: Optional[str]) -> dict:
             W = dims.get(it.get("page_idx", 0), (595, 0))[0]
             img_w[Path(it["img_path"]).name] = round((it["bbox"][2] - it["bbox"][0]) / 1000 * W, 1)
     return {"pages": pages, "font_pt": estimate_font_pt(items, dims, pdf), "img_width_pt": img_w,
-            "multi_col": any(len(p["cols"]) > 1 for p in pages.values())}
+            # tài liệu nhiều cột = ĐA SỐ trang có >=2 cột (sách thường có vài trang bảng đặt cạnh nhau: không tính)
+            "multi_col": sum(len(p["cols"]) > 1 for p in pages.values()) >= max(1, len(pages) / 2)}
 
 
 def _col_of(layout_page: dict, bbox: list) -> int:
@@ -149,7 +150,9 @@ def insert_layout_markers(md: str, items: List[dict], layout: dict, column_break
             rx = r"\s+".join(re.escape(x) for x in tok)
         m = re.compile(rx).search(md, pos)
         if m:
-            found.append((md.rfind("\n", 0, m.start()) + 1, it))
+            at = md.rfind("\n", 0, m.start()) + 1
+            if md.count("$$", 0, at) % 2 == 0:       # không bao giờ chèn vào GIỮA khối công thức $$...$$ (làm vỡ công thức)
+                found.append((at, it))
             pos = m.end()
     ins, cur_pg, cur_col, pages = [], None, 0, layout["pages"]
     for at, it in found:
