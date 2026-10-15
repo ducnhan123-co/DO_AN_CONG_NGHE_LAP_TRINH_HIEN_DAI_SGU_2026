@@ -14,8 +14,8 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.7/dist/docx-preview.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@harbour-enterprises/superdoc@1.46.3/dist/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@harbour-enterprises/superdoc@1.46.3/dist/superdoc.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <script>
 tailwind.config={theme:{extend:{fontFamily:{sans:['"Be Vietnam Pro"','Inter','system-ui','sans-serif'],mono:['"JetBrains Mono"','monospace']},colors:{brand:{50:'#FFF4ED',100:'#FFE6D5',500:'#EA580C',600:'#C2410C'}}}}}
@@ -105,7 +105,7 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
       <button id="zoomFit" class="toolbtn hidden sm:flex" title="Vừa chiều rộng"><i class="ph-bold ph-arrows-in-simple"></i></button>
       <div id="toolActions" class="ml-auto flex items-center gap-1">
         <input id="realFile" type="file" accept="application/pdf" class="hidden" />
-        <button id="btnPrev" onclick="toggleDocxPreview()" class="toolbtn font-bold text-stone-400 pointer-events-none opacity-40" title="Đang xử lý DOCX…"><i class="ph-bold ph-eye text-base"></i><span id="prevLbl" class="hidden xl:inline">Xem DOCX</span></button>
+        <button id="btnPrev" onclick="toggleDocxPreview()" class="toolbtn font-bold text-stone-400 pointer-events-none opacity-40" title="Đang xử lý DOCX…"><i class="ph-bold ph-eye text-base"></i><span id="prevLbl" class="hidden xl:inline">Sửa DOCX</span></button>
         <a id="btnDocx" href="#" onclick="return false" class="toolbtn font-bold text-stone-400 pointer-events-none opacity-40" title="Đang xử lý DOCX…"><i class="ph-bold ph-file-doc text-base"></i><span id="docxLbl" class="hidden xl:inline">Tải DOCX</span></a>
         <button id="btnHist" style="display:none" onclick="openHistory()" class="toolbtn font-bold" title="Lịch sử DOCX &amp; hoạt động"><i class="ph-bold ph-clock-counter-clockwise text-base"></i><span id="histLbl" class="hidden xl:inline">Lịch sử</span></button>
         <input id="serverFile" type="file" accept="application/pdf" class="hidden" />
@@ -137,14 +137,16 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
   </section>
 
   <!-- ===== RIGHT: XEM TRƯỚC DOCX (tự mở khi DOCX xong) ===== -->
-  <section id="docxPane" class="hidden w-[46%] min-w-[360px] shrink-0 flex-col border-l border-stone-300 bg-white">
+  <section id="docxPane" class="hidden w-[50%] min-w-[380px] shrink-0 flex-col border-l border-stone-300 bg-white">
     <div class="flex shrink-0 items-center gap-2 border-b border-stone-200 px-3 py-2">
       <i class="ph-duotone ph-file-doc text-xl text-emerald-600"></i>
       <p id="docxPaneTitle" class="min-w-0 flex-1 truncate text-[13px] font-bold">Bản DOCX</p>
-      <button onclick="downloadDocxId(API.docId)" class="rounded-lg bg-brand-500 px-2.5 py-1 text-xs font-bold text-white hover:bg-brand-600">Tải</button>
+      <span id="docxEdited" class="hidden rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">Đã sửa</span>
+      <button onclick="downloadEdited()" title="Tải bản đang sửa trong khung này" class="rounded-lg bg-brand-500 px-2.5 py-1 text-xs font-bold text-white hover:bg-brand-600">Tải bản đã sửa</button>
       <button onclick="hideDocxPreview(true)" title="Đóng" class="grid h-7 w-7 place-items-center rounded-full hover:bg-stone-100"><i class="ph-bold ph-x"></i></button>
     </div>
-    <div id="docxView" class="min-h-0 flex-1 overflow-auto bg-stone-100 p-3"></div>
+    <div id="docxToolbar" class="shrink-0 border-b border-stone-200 bg-white"></div>
+    <div id="docxView" class="min-h-0 flex-1 overflow-auto bg-stone-100"></div>
   </section>
 
 </div>
@@ -373,11 +375,20 @@ let docxUrl=null, docxName='document.docx';
 const AUTO=new Set(); try{ JSON.parse(sessionStorage.getItem('matchpdf_autodocx')||'[]').forEach(x=>AUTO.add(x)); }catch(e){}
 function autoDone(id){ AUTO.delete(id); try{ sessionStorage.setItem('matchpdf_autodocx',JSON.stringify([...AUTO])); }catch(e){} }
 let autoQ=Promise.resolve(); // tải lần lượt, tránh trình duyệt chặn nhiều download cùng lúc
-/* xem trước DOCX bên phải (docx-preview, công thức OMML -> MathML). Đóng tay thì không tự mở lại cho đến khi đổi tài liệu. */
+/* DOCX bên phải = trình SỬA SuperDoc (AGPL-3.0; công thức OMML, bảng, ảnh giữ nguyên khi xuất lại). Đóng tay thì không tự mở lại cho đến khi đổi tài liệu. */
+let SD=null;
+function destroySd(){ try{ if(SD&&SD.destroy) SD.destroy(); }catch(e){} SD=null; const v=$('docxView'); if(v) v.innerHTML=''; const t=$('docxToolbar'); if(t) t.innerHTML=''; $('docxEdited').classList.add('hidden'); }
+async function downloadEdited(){
+  if(!SD){ toast('Chưa có bản DOCX đang mở'); return; }
+  try{ const blob=await SD.export({triggerDownload:false});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=docxFile(API.docId).replace(/\.docx$/i,'')+'_da_sua.docx';
+    document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},4000); toast('Đã tải bản đã sửa');
+  }catch(e){ toast('Không xuất được bản đã sửa: '+String(e&&e.message||e).slice(0,100)); }
+}
 let DOCX_SHOWN=null, DOCX_CLOSED=new Set(), prevTok=0;
 function hideDocxPreview(byUser){
   if(byUser&&DOCX_SHOWN) DOCX_CLOSED.add(DOCX_SHOWN);
-  DOCX_SHOWN=null; prevTok++; $('docxPane').classList.add('hidden'); $('docxPane').classList.remove('flex'); $('docxView').innerHTML=''; refitPdf(); refreshDocxUI();
+  DOCX_SHOWN=null; prevTok++; destroySd(); $('docxPane').classList.add('hidden'); $('docxPane').classList.remove('flex'); refitPdf(); refreshDocxUI();
 }
 function refitPdf(){ setTimeout(()=>{ if(pdfViewer&&pdfViewer.pdfDocument) pdfViewer.currentScaleValue='page-width'; },50); }
 function toggleDocxPreview(){
@@ -388,17 +399,19 @@ function toggleDocxPreview(){
 async function previewDocx(id){
   if(id!==API.docId) return;
   const d=DOCX[id]; if(!d||!d.url){ if(DOCX_SHOWN) hideDocxPreview(); return; }
-  if(DOCX_SHOWN===id||DOCX_CLOSED.has(id)||!window.docx) return;
+  if(DOCX_SHOWN===id||DOCX_CLOSED.has(id)||!window.SuperDoc) return;
   const my=++prevTok;
   try{
     const r=await fetch(API.base+d.url); if(!r.ok) throw 0;
     const buf=await r.arrayBuffer(); if(my!==prevTok||id!==API.docId) return;
-    const box=$('docxView'); box.innerHTML='';
-    await docx.renderAsync(buf,box,null,{inWrapper:false,ignoreWidth:true,ignoreHeight:true,breakPages:false});
-    if(my!==prevTok) return;
-    DOCX_SHOWN=id; refreshDocxUI(); $('docxPaneTitle').textContent=docxFile(id);
-    $('docxPane').classList.remove('hidden'); $('docxPane').classList.add('flex'); refitPdf();
-  }catch(e){ toast('Chưa xem trước được DOCX — bấm Tải DOCX để mở bằng Word'); }
+    destroySd(); DOCX_SHOWN=id; $('docxPaneTitle').textContent=docxFile(id);
+    $('docxPane').classList.remove('hidden'); $('docxPane').classList.add('flex'); refitPdf();   // hiện khung trước để SuperDoc đo được kích thước
+    const file=new File([buf],docxFile(id),{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+    SD=new window.SuperDoc({selector:'#docxView',toolbar:'#docxToolbar',documentMode:'editing',
+      documents:[{id:'doc-'+id,type:'docx',data:file}],
+      onEditorUpdate:()=>$('docxEdited').classList.remove('hidden')});
+    refreshDocxUI();
+  }catch(e){ destroySd(); DOCX_SHOWN=null; toast('Chưa mở được trình sửa DOCX — bấm Tải DOCX để mở bằng Word'); }
 }
 function noteDocx(id,j){
   const prev=DOCX[id];
@@ -420,7 +433,7 @@ function refreshDocxUI(){
   if(on&&!b.dataset.ready){ b.dataset.ready='1'; b.classList.add('glow-once'); b.addEventListener('animationend',()=>b.classList.remove('glow-once'),{once:true}); }
   if(!on) delete b.dataset.ready;
   const bp=$('btnPrev'), cur=API.docId&&DOCX[API.docId]&&DOCX[API.docId].url;
-  if(bp){ bp.classList.toggle('text-emerald-700',!!cur); bp.classList.toggle('text-stone-400',!cur); bp.classList.toggle('opacity-40',!cur); bp.classList.toggle('pointer-events-none',!cur); bp.title=cur?(DOCX_SHOWN===API.docId?'Đóng xem DOCX':'Xem DOCX bên phải'):'Đang xử lý DOCX…'; }
+  if(bp){ bp.classList.toggle('text-emerald-700',!!cur); bp.classList.toggle('text-stone-400',!cur); bp.classList.toggle('opacity-40',!cur); bp.classList.toggle('pointer-events-none',!cur); bp.title=cur?(DOCX_SHOWN===API.docId?'Đóng khung sửa DOCX':'Sửa DOCX bên phải'):'Đang xử lý DOCX…'; }
   renderDocxPanel();
 }
 function renderDocxPanel(){

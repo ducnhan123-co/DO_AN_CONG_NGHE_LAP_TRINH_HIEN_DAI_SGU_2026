@@ -9,8 +9,10 @@ from pathlib import Path
 
 try:
     from .config import PANDOC_FROM
+    from . import layout as _layout
 except ImportError:
     from config import PANDOC_FROM
+    import layout as _layout
 
 
 def fix_legacy_tex_bf(markdown_text: str) -> str:
@@ -597,6 +599,16 @@ def looks_like_ocr_table(body: str) -> bool:
     return bool(_TABLE_AS_FRAC_RE.search(body))
 
 
+def _final_math_key(body: str) -> str:
+    """Khóa = công thức display SAU đúng các bước sửa của prepare_work_md (pandoc báo lỗi theo bản này, không theo bản gốc)."""
+    t = f"$$\n{body}\n$$"
+    for fn in (fix_symbol_pua, fix_legacy_tex_bf, fix_texmath_compat, fix_broken_double_prime,
+               fix_missing_right_in_chained_systems):
+        t = fn(t)
+    m = _DISPLAY_RE.search(t)
+    return _norm_tex(m.group(1) if m else body)
+
+
 def build_math_image_map(markdown_text: str, md_path: Path) -> dict:
     """{latex đã qua fix_texmath_compat (chuẩn hoá khoảng trắng): đường dẫn ảnh gốc của công thức}.
     MinerU cắt ảnh cho mỗi công thức display (equation.img_path) -> khi pandoc không dịch nổi một công
@@ -615,13 +627,11 @@ def build_math_image_map(markdown_text: str, md_path: Path) -> dict:
             if img.exists():
                 img_by_tex[_norm_tex(body)] = str(img)
     out, force = {}, []
-    for m in _DISPLAY_RE.finditer(markdown_text):
-        img = img_by_tex.get(_norm_tex(m.group(1)))
-        if img:
-            key = _norm_tex(fix_texmath_compat_one(m.group(1)))
-            out[key] = img
-            if looks_like_ocr_table(m.group(1)):
-                force.append(key)
+    for body_norm, img in img_by_tex.items():
+        key = _final_math_key(body_norm)
+        out[key] = img
+        if looks_like_ocr_table(body_norm):
+            force.append(key)
     return {"map": out, "force": force}
 
 
@@ -678,6 +688,54 @@ def html_tables_to_pipe(markdown_text: str) -> str:
     return _HTML_TABLE_RE.sub(lambda m: "\n\n" + conv(m) + "\n\n", markdown_text)
 
 
+def _content_items(md_path: Path) -> list:
+    cands = list(md_path.parent.rglob("*_content_list.json"))
+    return json.loads(max(cands, key=lambda q: q.stat().st_size).read_text(encoding="utf-8")) if cands else []
+
+
+def recover_first_page_header(markdown_text: str, md_path: Path) -> str:
+    """MinerU xếp tiêu đề đầu tài liệu (SỞ GIÁO DỤC…, ĐỀ KHẢO SÁT…) vào `discarded` (header) rồi bỏ. Khôi phục các khối
+    discarded có chữ nằm ở ~15% trên cùng TRANG 1 (bbox chuẩn hoá 0-1000), xếp trái->phải, chèn lên đầu. Header chạy
+    ở trang sau (số trang, tên chương) vẫn bị bỏ."""
+    top = [it for it in _content_items(md_path)
+           if it.get("type") == "discarded" and it.get("page_idx") == 0 and (it.get("text") or "").strip()
+           and it.get("bbox") and it["bbox"][1] < 150 and it["bbox"][3] < 300]
+    top.sort(key=lambda it: it["bbox"][0])
+    lines = [re.sub(r"\s+", " ", it["text"]).strip() for it in top]
+    lines = [t for t in lines if t and t not in markdown_text]
+    return ("\n\n".join(lines) + "\n\n" + markdown_text) if lines else markdown_text
+
+
+def build_block_regions(md_path: Path) -> dict:
+    """{pdf, blocks:[{prefix, page, bbox}]}: cho phép cắt lại đúng vùng đoạn văn từ PDF gốc khi công thức inline hỏng."""
+    pdf = md_path.parent.parent / "input.pdf"
+    if not pdf.exists():
+        return {"pdf": None, "blocks": []}
+    blocks = []
+    for it in _content_items(md_path):
+        if it.get("type") == "text" and it.get("bbox") and isinstance(it.get("page_idx"), int):
+            prefix = _norm_tex(re.sub(r"\$[^$]*\$", "", it.get("text") or ""))[:30]
+            if len(prefix) >= 12:
+                blocks.append({"prefix": prefix, "page": it["page_idx"], "bbox": it["bbox"]})
+    return {"pdf": str(pdf), "blocks": blocks}
+
+
+def _crop_pdf_region(pdf: str, page: int, bbox: list, out_png: Path) -> bool:
+    try:
+        import fitz
+        doc = fitz.open(pdf)
+        pg = doc[page]
+        r = pg.rect
+        pad = 4
+        clip = fitz.Rect(r.x0 + bbox[0] / 1000 * r.width - pad, r.y0 + bbox[1] / 1000 * r.height - pad,
+                         r.x0 + bbox[2] / 1000 * r.width + pad, r.y0 + bbox[3] / 1000 * r.height + pad) & r
+        out_png.parent.mkdir(parents=True, exist_ok=True)
+        pg.get_pixmap(dpi=200, clip=clip).save(str(out_png))
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def swap_garbled_tables_for_images(markdown_text: str, md_path: Path) -> str:
     """Bảng hỏng -> ảnh gốc của bảng (table.img_path của MinerU) thay vì bảng DOCX sai nội dung."""
     cands = list(md_path.parent.rglob("*_content_list.json"))
@@ -699,7 +757,24 @@ def swap_garbled_tables_for_images(markdown_text: str, md_path: Path) -> str:
 
 
 def prepare_work_md(markdown_text: str, md_path: Path, work_md: Path) -> Path:
+    try:   # bố cục từ tọa độ MinerU + PDF: cột, khổ giấy, lề, cỡ chữ (chèn marker khi còn là markdown gốc để dò neo chính xác)
+        items = _content_items(md_path)
+        pdf = md_path.parent.parent / "input.pdf"
+        lay = _layout.analyze_layout(items, str(pdf) if pdf.exists() else None) if items else None
+        if lay:
+            work_md.with_name("layout.json").write_text(json.dumps(lay, ensure_ascii=False), encoding="utf-8")
+            if lay["multi_col"]:
+                markdown_text = _layout.insert_layout_markers(markdown_text, items, lay, column_breaks=False)
+                print(f"[DOCX] bố cục nhiều cột: {[len(p['cols']) for p in lay['pages'].values()]} cột/trang")
+    except Exception as e:  # noqa: BLE001 - bố cục chỉ là tinh chỉnh, lỗi thì rơi về văn bản chảy như cũ
+        print("[CẢNH BÁO] không dựng được bố cục:", e)
     markdown_text = fix_symbol_pua(markdown_text)
+    try:
+        markdown_text = recover_first_page_header(markdown_text, md_path)
+        work_md.with_name("block_regions.json").write_text(
+            json.dumps(build_block_regions(md_path), ensure_ascii=False), encoding="utf-8")
+    except Exception as e:  # noqa: BLE001
+        print("[CẢNH BÁO] không khôi phục được tiêu đề/vùng khối:", e)
     try:
         markdown_text = swap_garbled_tables_for_images(markdown_text, md_path)
     except Exception as e:  # noqa: BLE001 - tiện ích, không được làm hỏng DOCX
@@ -987,6 +1062,24 @@ def _swap_failed_math_for_images(work_md: Path, pandoc_stderr: str) -> int:
         return m.group(0)
 
     text = _DISPLAY_RE.sub(_sub, work_md.read_text(encoding="utf-8"))
+    # công thức inline hỏng (không có ảnh riêng): cắt cả đoạn văn từ PDF gốc theo bbox của khối MinerU
+    regions_path = work_md.with_name("block_regions.json")
+    inline_failed = [f for f in failed if f not in img_map and f not in data["force"]]
+    if inline_failed and regions_path.exists():
+        reg = json.loads(regions_path.read_text(encoding="utf-8"))
+        if reg.get("pdf"):
+            paras = text.split("\n\n")
+            for k, para in enumerate(paras):
+                flat = _norm_tex(para)
+                if "![" in para or not any(f in flat for f in inline_failed):
+                    continue
+                blk = next((b for b in reg["blocks"] if flat.startswith(b["prefix"])
+                            or b["prefix"] in re.sub(r"\$[^$]*\$", "", flat)), None)
+                png = work_md.parent / "crops" / f"block_{k}.png"
+                if blk and _crop_pdf_region(reg["pdf"], blk["page"], blk["bbox"], png):
+                    paras[k] = f"![]({png})"
+                    n += 1
+            text = "\n\n".join(paras)
     if n:
         work_md.write_text(text, encoding="utf-8")
     return n
@@ -1020,6 +1113,15 @@ def _md_to_docx_inplace(work_md: Path, docx_path: Path, resource_dir: Path,
     md_text = work_md.read_text(encoding="utf-8")
     if len(md_text) >= 40000 and len(re.findall(r"^#{1,6}\s", md_text, re.M)) >= 8:   # ~15+ trang
         cmd.append("--toc")
+    layout_path = work_md.with_name("layout.json")
+    lay = json.loads(layout_path.read_text(encoding="utf-8")) if layout_path.exists() else None
+
+    def _sized() -> None:      # kích thước ảnh theo bbox (pandoc dựa DPI ảnh nên hay sai)
+        if lay:
+            work_md.write_text(_layout.apply_image_widths(work_md.read_text(encoding="utf-8"), lay["img_width_pt"]),
+                               encoding="utf-8")
+
+    _sized()
     print("Running Pandoc...")
     result = subprocess.run(cmd, capture_output=True, text=True,
                             encoding="utf-8", errors="replace")
@@ -1029,6 +1131,7 @@ def _md_to_docx_inplace(work_md: Path, docx_path: Path, resource_dir: Path,
         raise RuntimeError("Pandoc tạo DOCX thất bại.")
     if _swap_failed_math_for_images(work_md, result.stderr):
         print("Chạy lại Pandoc: công thức không dịch được đã đổi sang ảnh gốc.")
+        _sized()
         result = subprocess.run(cmd, capture_output=True, text=True,
                                 encoding="utf-8", errors="replace")
         if result.returncode != 0:
@@ -1038,6 +1141,11 @@ def _md_to_docx_inplace(work_md: Path, docx_path: Path, resource_dir: Path,
     print(f"Đã tạo DOCX: {docx_path} ({docx_path.stat().st_size} bytes)")
     if font_name:
         set_font(docx_path, font_name)
+    if lay:
+        try:
+            _layout.apply_layout(docx_path, lay)
+        except Exception as e:  # noqa: BLE001
+            print("[CẢNH BÁO] không áp được khổ giấy/cỡ chữ:", e)
     if justify:
         justify_paragraphs(docx_path)
         apply_math_alignment(docx_path)
