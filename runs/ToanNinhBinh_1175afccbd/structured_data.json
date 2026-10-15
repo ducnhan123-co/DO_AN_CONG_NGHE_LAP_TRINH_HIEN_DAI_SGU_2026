@@ -50,7 +50,7 @@
     "page": null,
     "section": "PHẦN I: Câu hỏi trắc nghiệm nhiều phương án lựa chọn.",
     "content_type": "text",
-    "text": "A.x=68",
+    "text": "A. $x = 68$",
     "formula_latex": null,
     "image_path": null
   },
@@ -446,23 +446,12 @@
     "page": null,
     "section": "PHẦN I: Câu hỏi trắc nghiệm nhiều phương án lựa chọn.",
     "content_type": "text",
-    "text": "<details>\n<summary>line</summary>",
+    "text": "[Hình minh hoạ]",
     "formula_latex": null,
     "image_path": null
   },
   {
     "block_id": 41,
-    "doc_id": "1175afccbd",
-    "source": "ToanNinhBinh.pdf",
-    "page": null,
-    "section": "PHẦN I: Câu hỏi trắc nghiệm nhiều phương án lựa chọn.",
-    "content_type": "table",
-    "text": "| X | Y |\n| --- | --- |\n| 0 | -1 |\n| 0 | 0 |\n| 2 | -2 |\n| 4 | 3 |\n| 5 | 0 |\n</details>",
-    "formula_latex": null,
-    "image_path": null
-  },
-  {
-    "block_id": 42,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -473,7 +462,7 @@
     "image_path": null
   },
   {
-    "block_id": 43,
+    "block_id": 42,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -484,7 +473,7 @@
     "image_path": null
   },
   {
-    "block_id": 44,
+    "block_id": 43,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -495,7 +484,7 @@
     "image_path": null
   },
   {
-    "block_id": 45,
+    "block_id": 44,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -506,7 +495,7 @@
     "image_path": null
   },
   {
-    "block_id": 46,
+    "block_id": 45,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -517,7 +506,7 @@
     "image_path": null
   },
   {
-    "block_id": 47,
+    "block_id": 46,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -528,7 +517,7 @@
     "image_path": null
   },
   {
-    "block_id": 48,
+    "block_id": 47,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -539,7 +528,7 @@
     "image_path": null
   },
   {
-    "block_id": 49,
+    "block_id": 48,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -550,7 +539,7 @@
     "image_path": null
   },
   {
-    "block_id": 50,
+    "block_id": 49,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -561,7 +550,7 @@
     "image_path": null
   },
   {
-    "block_id": 51,
+    "block_id": 50,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -572,7 +561,7 @@
     "image_path": null
   },
   {
-    "block_id": 52,
+    "block_id": 51,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -583,7 +572,7 @@
     "image_path": null
   },
   {
-    "block_id": 53,
+    "block_id": 52,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -594,7 +583,7 @@
     "image_path": null
   },
   {
-    "block_id": 54,
+    "block_id": 53,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -605,7 +594,7 @@
     "image_path": null
   },
   {
-    "block_id": 55,
+    "block_id": 54,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -616,7 +605,7 @@
     "image_path": null
   },
   {
-    "block_id": 56,
+    "block_id": 55,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -627,7 +616,7 @@
     "image_path": null
   },
   {
-    "block_id": 57,
+    "block_id": 56,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -638,7 +627,7 @@
     "image_path": null
   },
   {
-    "block_id": 58,
+    "block_id": 57,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -649,7 +638,7 @@
     "image_path": null
   },
   {
-    "block_id": 59,
+    "block_id": 58,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -660,7 +649,7 @@
     "image_path": null
   },
   {
-    "block_id": 60,
+    "block_id": 59,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -671,7 +660,7 @@
     "image_path": null
   },
   {
-    "block_id": 61,
+    "block_id": 60,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -682,7 +671,7 @@
     "image_path": null
   },
   {
-    "block_id": 62,
+    "block_id": 61,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -693,7 +682,7 @@
     "image_path": null
   },
   {
-    "block_id": 63,
+    "block_id": 62,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -704,7 +693,7 @@
     "image_path": null
   },
   {
-    "block_id": 64,
+    "block_id": 63,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -715,7 +704,7 @@
     "image_path": null
   },
   {
-    "block_id": 65,
+    "block_id": 64,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -726,18 +715,18 @@
     "image_path": null
   },
   {
-    "block_id": 66,
+    "block_id": 65,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
     "section": "PHẦN I: Câu hỏi trắc nghiệm nhiều phương án lựa chọn.",
     "content_type": "text",
-    "text": "C. $\\vec{u} = (16;15;-7)$",
+    "text": "C. $\\vec{u} = (16; 15; -7)$",
     "formula_latex": null,
     "image_path": null
   },
   {
-    "block_id": 67,
+    "block_id": 66,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -748,7 +737,7 @@
     "image_path": null
   },
   {
-    "block_id": 68,
+    "block_id": 67,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -759,7 +748,7 @@
     "image_path": null
   },
   {
-    "block_id": 69,
+    "block_id": 68,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -770,7 +759,7 @@
     "image_path": null
   },
   {
-    "block_id": 70,
+    "block_id": 69,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -781,7 +770,7 @@
     "image_path": null
   },
   {
-    "block_id": 71,
+    "block_id": 70,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -792,18 +781,18 @@
     "image_path": null
   },
   {
-    "block_id": 72,
+    "block_id": 71,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
     "section": "PHẦN II: Trắc nghiệm lựa chọn đúng sai.",
     "content_type": "formula",
-    "text": "$$\nM (t) = 7 5 - 2 0 \\ln (t + 1), 0 \\leq t \\leq 1 2 (\\text {don vi: \\%})\n$$",
-    "formula_latex": "M (t) = 7 5 - 2 0 \\ln (t + 1), 0 \\leq t \\leq 1 2 (\\text {don vi: \\%})",
+    "text": "$$\nM (t) = 75 - 20 \\ln (t + 1), 0 \\leq t \\leq 12 (\\text {don vi: \\%})\n$$",
+    "formula_latex": "M (t) = 75 - 20 \\ln (t + 1), 0 \\leq t \\leq 12 (\\text {don vi: \\%})",
     "image_path": null
   },
   {
-    "block_id": 73,
+    "block_id": 72,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -814,7 +803,7 @@
     "image_path": null
   },
   {
-    "block_id": 74,
+    "block_id": 73,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -825,7 +814,7 @@
     "image_path": null
   },
   {
-    "block_id": 75,
+    "block_id": 74,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -836,7 +825,7 @@
     "image_path": null
   },
   {
-    "block_id": 76,
+    "block_id": 75,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -847,7 +836,7 @@
     "image_path": null
   },
   {
-    "block_id": 77,
+    "block_id": 76,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -858,7 +847,7 @@
     "image_path": null
   },
   {
-    "block_id": 78,
+    "block_id": 77,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -869,7 +858,7 @@
     "image_path": null
   },
   {
-    "block_id": 79,
+    "block_id": 78,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -880,7 +869,7 @@
     "image_path": null
   },
   {
-    "block_id": 80,
+    "block_id": 79,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -891,7 +880,7 @@
     "image_path": null
   },
   {
-    "block_id": 81,
+    "block_id": 80,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -902,7 +891,7 @@
     "image_path": null
   },
   {
-    "block_id": 82,
+    "block_id": 81,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -913,7 +902,7 @@
     "image_path": null
   },
   {
-    "block_id": 83,
+    "block_id": 82,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -924,29 +913,18 @@
     "image_path": null
   },
   {
+    "block_id": 83,
+    "doc_id": "1175afccbd",
+    "source": "ToanNinhBinh.pdf",
+    "page": null,
+    "section": "PHẦN III: Câu hỏi trắc nghiệm trả lời ngắn.",
+    "content_type": "text",
+    "text": "[Hình minh hoạ]",
+    "formula_latex": null,
+    "image_path": null
+  },
+  {
     "block_id": 84,
-    "doc_id": "1175afccbd",
-    "source": "ToanNinhBinh.pdf",
-    "page": null,
-    "section": "PHẦN III: Câu hỏi trắc nghiệm trả lời ngắn.",
-    "content_type": "text",
-    "text": "<details>\n<summary>natural_image</summary>",
-    "formula_latex": null,
-    "image_path": null
-  },
-  {
-    "block_id": 85,
-    "doc_id": "1175afccbd",
-    "source": "ToanNinhBinh.pdf",
-    "page": null,
-    "section": "PHẦN III: Câu hỏi trắc nghiệm trả lời ngắn.",
-    "content_type": "text",
-    "text": "Exterior view of a building with a metal roof and circular window (no signage or text visible)\n</details>",
-    "formula_latex": null,
-    "image_path": null
-  },
-  {
-    "block_id": 86,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -957,7 +935,7 @@
     "image_path": null
   },
   {
-    "block_id": 87,
+    "block_id": 85,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -968,7 +946,7 @@
     "image_path": null
   },
   {
-    "block_id": 88,
+    "block_id": 86,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -979,29 +957,18 @@
     "image_path": null
   },
   {
-    "block_id": 89,
+    "block_id": 87,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
     "section": "PHẦN III: Câu hỏi trắc nghiệm trả lời ngắn.",
     "content_type": "text",
-    "text": "<details>\n<summary>text_image</summary>",
+    "text": "[Hình minh hoạ; nhãn: A, H, B, R, R, I, M, y = x², MK = 20 mm, O, K, x]",
     "formula_latex": null,
     "image_path": null
   },
   {
-    "block_id": 90,
-    "doc_id": "1175afccbd",
-    "source": "ToanNinhBinh.pdf",
-    "page": null,
-    "section": "PHẦN III: Câu hỏi trắc nghiệm trả lời ngắn.",
-    "content_type": "text",
-    "text": "y\nA H B\nR\nR I R M\ny = x² MK = 20 mm\nO K x\n</details>",
-    "formula_latex": null,
-    "image_path": null
-  },
-  {
-    "block_id": 91,
+    "block_id": 88,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -1012,7 +979,7 @@
     "image_path": null
   },
   {
-    "block_id": 92,
+    "block_id": 89,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -1023,7 +990,7 @@
     "image_path": null
   },
   {
-    "block_id": 93,
+    "block_id": 90,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -1034,7 +1001,7 @@
     "image_path": null
   },
   {
-    "block_id": 94,
+    "block_id": 91,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -1045,7 +1012,7 @@
     "image_path": null
   },
   {
-    "block_id": 95,
+    "block_id": 92,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,
@@ -1056,7 +1023,7 @@
     "image_path": null
   },
   {
-    "block_id": 96,
+    "block_id": 93,
     "doc_id": "1175afccbd",
     "source": "ToanNinhBinh.pdf",
     "page": null,

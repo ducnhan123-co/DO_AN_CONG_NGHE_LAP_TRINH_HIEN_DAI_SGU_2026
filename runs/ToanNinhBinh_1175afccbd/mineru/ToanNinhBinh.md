@@ -6,7 +6,7 @@ Số báo danh:................
 
 Câu 1: Nghiệm của phương trình $\log_4(x-1)=3$ là
 
-A.x=68
+A. $x = 68$
 
 B. x = 65
 
@@ -142,7 +142,7 @@ A. $\vec{u} = (10;6;-4)$
 
 B. $\vec{u} = (16;3;5)$
 
-C. $\vec{u} = (16;15;-7)$
+C. $\vec{u} = (16; 15; -7)$
 
 $\mathbf{D}.\vec{u} = (10; - 3; - 6)$
 
@@ -213,12 +213,18 @@ Câu 6: Một công ty sản xuất kẹo thạch muốn thiết kế một lo�
 <details>
 <summary>text_image</summary>
 
-y
-A H B
+A
+H
+B
 R
-R I R M
-y = x² MK = 20 mm
-O K x
+R
+I
+M
+y = x²
+MK = 20 mm
+O
+K
+x
 </details>
 
 BẢNG ĐÁP ÁN PHẦN I
