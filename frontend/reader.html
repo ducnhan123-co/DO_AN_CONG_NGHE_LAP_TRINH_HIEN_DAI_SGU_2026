@@ -14,6 +14,8 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.7/dist/docx-preview.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <script>
 tailwind.config={theme:{extend:{fontFamily:{sans:['"Be Vietnam Pro"','Inter','system-ui','sans-serif'],mono:['"JetBrains Mono"','monospace']},colors:{brand:{50:'#FFF4ED',100:'#FFE6D5',500:'#EA580C',600:'#C2410C'}}}}}
@@ -67,30 +69,17 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
     <p id="docMeta" class="truncate font-mono text-[11px] text-stone-500">Về Thư viện tải PDF lên để chuyển sang DOCX</p>
   </div>
   <div class="ml-auto flex items-center gap-1">
-    <button onclick="toast('Tách PDF sắp có — đang làm')" class="toolbtn font-semibold" title="Tách PDF (sắp có)"><i class="ph-bold ph-scissors text-base"></i><span class="hidden lg:inline">Tách PDF</span></button>
-    <button onclick="toast('Nhóm PDF sắp có — đang làm')" class="toolbtn font-semibold" title="Nhóm PDF (sắp có)"><i class="ph-bold ph-files text-base"></i><span class="hidden lg:inline">Nhóm PDF</span></button>
     <span id="apiBadge" class="hidden md:flex items-center gap-1.5 rounded-full bg-stone-100 border border-stone-200 px-2.5 py-1 text-[11px] font-bold text-stone-500"><span class="h-1.5 w-1.5 rounded-full bg-stone-400"></span> Chế độ demo</span>
-    <span class="grid h-8 w-8 place-items-center rounded-full bg-stone-900 text-[11px] font-bold text-white">SV</span>
   </div>
 </header>
 
 <!-- ===== PDF ====== -->
 <div id="splitWrap" class="flex min-h-0 flex-1">
 
-  <!-- ===== LEFT: THƯ VIỆN (Tài liệu gần đây + Ủng hộ) ===== -->
+  <!-- ===== LEFT: THƯ VIỆN (Tài liệu gần đây) ===== -->
   <aside id="libSide" class="hidden w-[248px] shrink-0 flex-col overflow-y-auto border-r border-stone-200 bg-white px-3 py-4 lg:flex">
     <p class="px-2 pb-1 pt-4 font-mono text-[10px] font-bold uppercase tracking-widest text-stone-400">Tài liệu gần đây</p>
     <div id="recentDocs" class="space-y-1"></div>
-    <div class="mt-auto rounded-2xl border border-orange-100 bg-gradient-to-br from-brand-50 to-amber-50 p-3.5 text-center">
-      <span class="mx-auto grid h-10 w-10 place-items-center rounded-2xl bg-brand-500 text-white text-xl shadow-[0_8px_20px_-8px_rgba(234,88,12,.8)]"><i class="ph-duotone ph-heart"></i></span>
-      <p class="mt-2 text-sm font-extrabold tracking-tight">Ủng hộ MatchPDF</p>
-      <p class="mt-0.5 text-[11px] leading-snug text-stone-500">Mời nhóm ly cà phê để duy trì server.</p>
-      <a href="#" onclick="return false" class="mt-2.5 flex items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-3 py-2 text-xs font-bold text-white transition hover:bg-brand-600 active:translate-y-[1px]"><i class="ph-duotone ph-coffee"></i> Ủng hộ</a>
-    </div>
-    <div class="mt-2 flex items-center gap-2.5 px-1">
-      <span class="grid h-9 w-9 place-items-center rounded-full bg-stone-900 text-white text-xs font-bold">SV</span>
-      <div class="text-xs"><p class="font-bold">Sinh viên SGU</p><p class="text-stone-500">sv@sgu.edu.vn</p></div>
-    </div>
   </aside>
 
   <!-- ===== LEFT: PDF VIEWER ===== -->
@@ -116,8 +105,9 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
       <button id="zoomFit" class="toolbtn hidden sm:flex" title="Vừa chiều rộng"><i class="ph-bold ph-arrows-in-simple"></i></button>
       <div id="toolActions" class="ml-auto flex items-center gap-1">
         <input id="realFile" type="file" accept="application/pdf" class="hidden" />
+        <button id="btnPrev" onclick="toggleDocxPreview()" class="toolbtn font-bold text-stone-400 pointer-events-none opacity-40" title="Đang xử lý DOCX…"><i class="ph-bold ph-eye text-base"></i><span id="prevLbl" class="hidden xl:inline">Xem DOCX</span></button>
         <a id="btnDocx" href="#" onclick="return false" class="toolbtn font-bold text-stone-400 pointer-events-none opacity-40" title="Đang xử lý DOCX…"><i class="ph-bold ph-file-doc text-base"></i><span id="docxLbl" class="hidden xl:inline">Tải DOCX</span></a>
-        <button id="btnHist" onclick="openHistory()" class="toolbtn font-bold" title="Lịch sử DOCX &amp; hoạt động"><i class="ph-bold ph-clock-counter-clockwise text-base"></i><span id="histLbl" class="hidden xl:inline">Lịch sử</span></button>
+        <button id="btnHist" style="display:none" onclick="openHistory()" class="toolbtn font-bold" title="Lịch sử DOCX &amp; hoạt động"><i class="ph-bold ph-clock-counter-clockwise text-base"></i><span id="histLbl" class="hidden xl:inline">Lịch sử</span></button>
         <input id="serverFile" type="file" accept="application/pdf" class="hidden" />
       </div>
     </div>
@@ -134,7 +124,7 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
 
     <div class="flex min-h-0 flex-1">
       <!-- outline -->
-      <aside id="outline" class="hidden w-[210px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-stone-300/60 bg-[#F5F5F4] p-2 text-[13px] md:flex">
+      <aside id="outline" class="hidden w-[210px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-stone-300/60 bg-[#F5F5F4] p-2 text-[13px]">
         <p class="px-2 pb-1 pt-1 font-mono text-[10px] font-bold uppercase tracking-widest text-stone-400">Mục lục tài liệu</p>
         <div id="outlineList"></div>
       </aside>
@@ -144,6 +134,17 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
       </div>
       <div id="pdfWrap" class="relative hidden min-w-0 flex-1"><div id="viewerContainer"><div id="viewer" class="pdfViewer"></div></div></div>
     </div>
+  </section>
+
+  <!-- ===== RIGHT: XEM TRƯỚC DOCX (tự mở khi DOCX xong) ===== -->
+  <section id="docxPane" class="hidden w-[46%] min-w-[360px] shrink-0 flex-col border-l border-stone-300 bg-white">
+    <div class="flex shrink-0 items-center gap-2 border-b border-stone-200 px-3 py-2">
+      <i class="ph-duotone ph-file-doc text-xl text-emerald-600"></i>
+      <p id="docxPaneTitle" class="min-w-0 flex-1 truncate text-[13px] font-bold">Bản DOCX</p>
+      <button onclick="downloadDocxId(API.docId)" class="rounded-lg bg-brand-500 px-2.5 py-1 text-xs font-bold text-white hover:bg-brand-600">Tải</button>
+      <button onclick="hideDocxPreview(true)" title="Đóng" class="grid h-7 w-7 place-items-center rounded-full hover:bg-stone-100"><i class="ph-bold ph-x"></i></button>
+    </div>
+    <div id="docxView" class="min-h-0 flex-1 overflow-auto bg-stone-100 p-3"></div>
   </section>
 
 </div>
@@ -372,10 +373,37 @@ let docxUrl=null, docxName='document.docx';
 const AUTO=new Set(); try{ JSON.parse(sessionStorage.getItem('matchpdf_autodocx')||'[]').forEach(x=>AUTO.add(x)); }catch(e){}
 function autoDone(id){ AUTO.delete(id); try{ sessionStorage.setItem('matchpdf_autodocx',JSON.stringify([...AUTO])); }catch(e){} }
 let autoQ=Promise.resolve(); // tải lần lượt, tránh trình duyệt chặn nhiều download cùng lúc
+/* xem trước DOCX bên phải (docx-preview, công thức OMML -> MathML). Đóng tay thì không tự mở lại cho đến khi đổi tài liệu. */
+let DOCX_SHOWN=null, DOCX_CLOSED=new Set(), prevTok=0;
+function hideDocxPreview(byUser){
+  if(byUser&&DOCX_SHOWN) DOCX_CLOSED.add(DOCX_SHOWN);
+  DOCX_SHOWN=null; prevTok++; $('docxPane').classList.add('hidden'); $('docxPane').classList.remove('flex'); $('docxView').innerHTML=''; refitPdf(); refreshDocxUI();
+}
+function refitPdf(){ setTimeout(()=>{ if(pdfViewer&&pdfViewer.pdfDocument) pdfViewer.currentScaleValue='page-width'; },50); }
+function toggleDocxPreview(){
+  const id=API.docId; if(!id) return;
+  if(DOCX_SHOWN===id){ hideDocxPreview(true); } else { DOCX_CLOSED.delete(id); previewDocx(id); }
+  refreshDocxUI();
+}
+async function previewDocx(id){
+  if(id!==API.docId) return;
+  const d=DOCX[id]; if(!d||!d.url){ if(DOCX_SHOWN) hideDocxPreview(); return; }
+  if(DOCX_SHOWN===id||DOCX_CLOSED.has(id)||!window.docx) return;
+  const my=++prevTok;
+  try{
+    const r=await fetch(API.base+d.url); if(!r.ok) throw 0;
+    const buf=await r.arrayBuffer(); if(my!==prevTok||id!==API.docId) return;
+    const box=$('docxView'); box.innerHTML='';
+    await docx.renderAsync(buf,box,null,{inWrapper:false,ignoreWidth:true,ignoreHeight:true,breakPages:false});
+    if(my!==prevTok) return;
+    DOCX_SHOWN=id; refreshDocxUI(); $('docxPaneTitle').textContent=docxFile(id);
+    $('docxPane').classList.remove('hidden'); $('docxPane').classList.add('flex'); refitPdf();
+  }catch(e){ toast('Chưa xem trước được DOCX — bấm Tải DOCX để mở bằng Word'); }
+}
 function noteDocx(id,j){
   const prev=DOCX[id];
   DOCX[id]=(j&&j.docx==='ready'&&j.docx_url)?{status:'ready',url:j.docx_url}:{status:(j&&j.docx==='failed')?'failed':'building'};
-  refreshDocxUI();
+  refreshDocxUI(); previewDocx(id);
   if(DOCX[id].status==='ready'&&((prev&&prev.status!=='ready')||AUTO.has(id))){
     autoDone(id); autoQ=autoQ.then(async()=>{ toast('DOCX xong: '+dispName(id)+' — đang tải…'); await downloadDocxId(id,true); await new Promise(r=>setTimeout(r,800)); });
   }
@@ -391,6 +419,8 @@ function refreshDocxUI(){
   b.title=multi?'Danh sách DOCX để tải':on?'Tải file DOCX (công thức Equation)':(failed?'Tạo DOCX thất bại':'Đang xử lý DOCX…');
   if(on&&!b.dataset.ready){ b.dataset.ready='1'; b.classList.add('glow-once'); b.addEventListener('animationend',()=>b.classList.remove('glow-once'),{once:true}); }
   if(!on) delete b.dataset.ready;
+  const bp=$('btnPrev'), cur=API.docId&&DOCX[API.docId]&&DOCX[API.docId].url;
+  if(bp){ bp.classList.toggle('text-emerald-700',!!cur); bp.classList.toggle('text-stone-400',!cur); bp.classList.toggle('opacity-40',!cur); bp.classList.toggle('pointer-events-none',!cur); bp.title=cur?(DOCX_SHOWN===API.docId?'Đóng xem DOCX':'Xem DOCX bên phải'):'Đang xử lý DOCX…'; }
   renderDocxPanel();
 }
 function renderDocxPanel(){
@@ -433,8 +463,8 @@ function updateDocxBtn(){ refreshDocxUI(); }
 /* ---- thanh tab nhiều file (chỉ hiện khi URL có từ 2 doc_id trở lên) ---- */
 function setMultiMode(){
   const bar=$('tabBar'); bar.classList.remove('hidden'); bar.classList.add('flex');
-  $('tabActions').append($('btnDocx'),$('btnHist'));       // chuyển 2 nút từ toolbar lên thanh tab
-  $('docxLbl').className='inline'; $('histLbl').className='inline';
+  $('tabActions').append($('btnPrev'),$('btnDocx'),$('btnHist'));       // chuyển 2 nút từ toolbar lên thanh tab
+  $('docxLbl').className='inline'; $('histLbl').className='inline'; $('prevLbl').className='inline';
   renderTabs(); refreshDocxUI();
 }
 function renderTabs(){
@@ -540,6 +570,7 @@ async function openDoc(id, pre){
     if(put.status===410){ toast('Tài liệu này đã bị xóa khỏi thư viện'); document.getElementById('docTitle').textContent='Đã xóa'; setTimeout(()=>location.href='index.html',1400); return; }
     if(!put.ok){ libDown(); if(!j){ j=await fetchInfo(id); if(stale()) return; } }
     const viaLib=put.ok, pages=(j&&j.num_pages)||(known&&known.num_pages)||'–';
+    if(DOCX_SHOWN!==id) hideDocxPreview();
     API.docId=id; API.ready=false; API.sess=null; API.history=[]; API.busy=false; API.sawIndexing=!j;
     if(TABS.length<2) TABS=[id]; START_PAGE=RESUME[id]||1; renderTabs();
     API.fileUrl=viaLib?LIB.fileUrl(id):API.base+j.file_url;

@@ -1,5 +1,7 @@
 # Cách 2
 """Bước 5-7 notebook: chuẩn hoá ảnh + Markdown -> DOCX Equation thật via Pandoc."""
+import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -405,6 +407,58 @@ def fix_answer_key_tables(markdown_text: str, layout: str = "tabs") -> str:
 #   \hline, \boxed{..}, \displaylimits, \tt, \bf{x}
 #   \dot \mathbf{Y} / \vec \mathbf{F}  (accent không có {})
 #   \hat{a} nằm trong \text{..}, và \right dư ở cuối.
+# Word/PDF cũ dùng font Symbol: ký tự nằm ở U+F0xx (MinerU giữ nguyên) -> hiện ô vuông trong DOCX.
+_SYMBOL_UP = "ΑΒΧΔΕΦΓΗΙϑΚΛΜΝΟΠΘΡΣΤΥςΩΞΨΖ"
+_SYMBOL_LO = "αβχδεφγηιϕκλμνοπθρστυϖωξψζ"
+_SYMBOL_SPECIAL = {0xA2: "′", 0xA3: "≤", 0xA5: "∞", 0xB1: "±", 0xB3: "≥", 0xB4: "×",
+                   0xB8: "÷", 0xB9: "≠", 0xAE: "→", 0xDE: "⇒", 0xDB: "⇔", 0xB0: "°"}
+
+
+def _symbol_char(m) -> str:
+    c = ord(m.group(0)) - 0xF000
+    if 0x41 <= c <= 0x5A:
+        return _SYMBOL_UP[c - 0x41]
+    if 0x61 <= c <= 0x7A:
+        return _SYMBOL_LO[c - 0x61]
+    if 0x20 <= c <= 0x7E:
+        return chr(c)
+    return _SYMBOL_SPECIAL.get(c, m.group(0))
+
+
+def fix_symbol_pua(markdown_text: str) -> str:
+    return re.sub("[\uF020-\uF0FF]", _symbol_char, markdown_text)
+
+
+_FONT_DECL = {"bf": "mathbf", "sf": "mathsf", "cal": "mathcal"}
+
+
+def fix_font_declarations(tex: str) -> str:
+    """Pandoc/texmath không hiểu khai báo font kiểu cũ `\\bf x`, `{ \\sf R }`, `\\cal A`
+    (đã đo: ~55 công thức hỏng/100 trang). Đổi phần còn lại của nhóm `{...}` thành `\\mathbf{...}`."""
+    tex = re.sub(r"\\(?:mathrm|mathit|text)\s+(?=\\math(?:bf|sf|cal)\s*\{)", "", tex)  # `\mathrm \mathbf{X}` do fix_legacy_tex_bf bỏ ngoặc
+    tex = re.sub(r"\\(?:tiny|scriptsize|footnotesize)\b", "", tex)
+    tex = re.sub(r"\\intop\b", r"\\int", tex)
+    tex = re.sub(r"\\cfrac\b", r"\\frac", tex)
+    # lệnh nhận đối số mà đối số là `\\mathbf{..}` trần (sau khi đổi \\bf): `\\frac \\mathbf{x} {..}`, `\\widehat \\mathbf{AB}`
+    tex = re.sub(r"\\frac\s*(\\math(?:bf|sf|cal)\s*\{[^{}]*\})\s*(?=\{)", r"\\frac{\1}", tex)
+    tex = re.sub(r"\\(widehat|widetilde|operatorname)\s*(\\math(?:bf|sf|cal)\s*\{[^{}]*\})", r"\\\1{\2}", tex)
+    pat = re.compile(r"\\(bf|sf|cal)(?![A-Za-z])")
+    while True:
+        m = pat.search(tex)
+        if not m:
+            return tex
+        depth, i = 0, m.end()
+        while i < len(tex):
+            if tex[i] == "{":
+                depth += 1
+            elif tex[i] == "}":
+                if depth == 0:
+                    break
+                depth -= 1
+            i += 1
+        tex = tex[:m.start()] + "\\" + _FONT_DECL[m.group(1)] + "{" + tex[m.end():i] + "}" + tex[i:]
+
+
 def _unwrap_command(tex: str, cmd: str) -> str:
     """Bỏ lệnh `\\cmd{...}` nhưng giữ nội dung (có đếm ngoặc lồng)."""
     pat = re.compile(r"\\" + cmd + r"\s*\{")
@@ -420,7 +474,7 @@ def _unwrap_command(tex: str, cmd: str) -> str:
 
 
 def fix_texmath_compat_one(tex: str) -> str:
-    t = tex
+    t = fix_font_declarations(tex)
     t = re.sub(r"\\begin\{array\}\s*\{([^}]*)\}",
                lambda m: "\\begin{array}{" + re.sub(r"\s+", "", m.group(1)) + "}", t)
     t = re.sub(r"\\hline\b", " ", t)
@@ -527,9 +581,58 @@ def apply_math_alignment(docx_path: Path) -> Path:
     return docx_path
 
 
+_DISPLAY_RE = re.compile(r"\$\$(.*?)\$\$", re.S)
+
+
+def _norm_tex(t: str) -> str:
+    return re.sub(r"\s+", " ", t).strip()
+
+
+_TABLE_AS_FRAC_RE = re.compile(r"\\begin\{array\}\s*\{c\}\s*\\frac\s*\{(?:[^{}]*\\(?:quad|qquad)){3,}")
+
+
+def looks_like_ocr_table(body: str) -> bool:
+    """Bảng xét dấu/biến thiên bị OCR thành `\\frac{ x \\quad -3 \\quad ...}{ y' \\quad 0 ...}`: pandoc dịch được nhưng ra rác."""
+    return bool(_TABLE_AS_FRAC_RE.search(body))
+
+
+def build_math_image_map(markdown_text: str, md_path: Path) -> dict:
+    """{latex đã qua fix_texmath_compat (chuẩn hoá khoảng trắng): đường dẫn ảnh gốc của công thức}.
+    MinerU cắt ảnh cho mỗi công thức display (equation.img_path) -> khi pandoc không dịch nổi một công
+    thức (bảng xét dấu bị OCR thành `\\frac`, hàng đáp án vỡ...) thì chèn ảnh gốc thay vì để TeX thô."""
+    cands = list(md_path.parent.rglob("*_content_list.json"))
+    if not cands:
+        return {"map": {}, "force": []}
+    items = json.loads(max(cands, key=lambda q: q.stat().st_size).read_text(encoding="utf-8"))
+    img_by_tex = {}
+    for it in items:
+        if it.get("type") == "equation" and it.get("img_path") and isinstance(it.get("text"), str):
+            body = it["text"].strip()
+            if body.startswith("$$") and body.endswith("$$"):
+                body = body[2:-2]
+            img = (md_path.parent / it["img_path"]).resolve()
+            if img.exists():
+                img_by_tex[_norm_tex(body)] = str(img)
+    out, force = {}, []
+    for m in _DISPLAY_RE.finditer(markdown_text):
+        img = img_by_tex.get(_norm_tex(m.group(1)))
+        if img:
+            key = _norm_tex(fix_texmath_compat_one(m.group(1)))
+            out[key] = img
+            if looks_like_ocr_table(m.group(1)):
+                force.append(key)
+    return {"map": out, "force": force}
+
+
 def prepare_work_md(markdown_text: str, md_path: Path, work_md: Path) -> Path:
+    markdown_text = fix_symbol_pua(markdown_text)
     markdown_text = fix_answer_key_tables(markdown_text)
     markdown_text = fix_legacy_tex_bf(markdown_text)
+    try:
+        work_md.with_name("math_images.json").write_text(
+            json.dumps(build_math_image_map(markdown_text, md_path), ensure_ascii=False), encoding="utf-8")
+    except Exception as e:  # noqa: BLE001 - đường lui ảnh chỉ là tiện ích, không được làm hỏng DOCX
+        print("[CẢNH BÁO] không dựng được bản đồ công thức->ảnh:", e)
     markdown_text = fix_texmath_compat(markdown_text)
     markdown_text = tag_left_math_blocks(markdown_text)
     markdown_text = fix_broken_double_prime(markdown_text)
@@ -785,9 +888,46 @@ def format_answer_key_paragraphs(docx_path: Path, ncols: int = 5,
     return docx_path
 
 
-def md_to_docx(work_md: Path, docx_path: Path, resource_dir: Path,
-                number_pages: bool = True, font_name: str = "Times New Roman",
-                justify: bool = True) -> Path:
+def _swap_failed_math_for_images(work_md: Path, pandoc_stderr: str) -> int:
+    """Công thức display mà pandoc báo 'Could not convert TeX math' -> thay bằng ảnh gốc (nếu có). Trả số khối đã đổi."""
+    map_path = work_md.with_name("math_images.json")
+    if not map_path.exists():
+        return 0
+    data = json.loads(map_path.read_text(encoding="utf-8"))
+    img_map = data["map"]
+    failed = {_norm_tex(x) for x in re.findall(
+        r"Could not convert TeX math(.*?), rendering as TeX:", pandoc_stderr, re.S)} | set(data["force"])
+    n = 0
+
+    def _sub(m):
+        nonlocal n
+        key = _norm_tex(m.group(1))
+        if key in failed and key in img_map:
+            n += 1
+            return f"\n![]({img_map[key]})\n"
+        return m.group(0)
+
+    text = _DISPLAY_RE.sub(_sub, work_md.read_text(encoding="utf-8"))
+    if n:
+        work_md.write_text(text, encoding="utf-8")
+    return n
+
+
+def md_to_docx(work_md: Path, docx_path: Path, resource_dir: Path, **kwargs) -> Path:
+    """Dựng DOCX vào file tạm rồi đổi tên một lần: backend coi `docx_path` tồn tại = đã xong, nên nó không
+    được xuất hiện nửa chừng (pandoc ghi, chạy lại với ảnh, python-docx ghi đè) -> client tải phải file 0 byte/hỏng."""
+    tmp = docx_path.with_name(docx_path.stem + ".building.docx")
+    try:
+        _md_to_docx_inplace(work_md, tmp, resource_dir, **kwargs)
+        os.replace(tmp, docx_path)
+    finally:
+        tmp.unlink(missing_ok=True)
+    return docx_path
+
+
+def _md_to_docx_inplace(work_md: Path, docx_path: Path, resource_dir: Path,
+                        number_pages: bool = True, font_name: str = "Times New Roman",
+                        justify: bool = True) -> Path:
     cmd = [
         "pandoc",
         str(work_md),
@@ -795,8 +935,11 @@ def md_to_docx(work_md: Path, docx_path: Path, resource_dir: Path,
         f"--from={PANDOC_FROM}",
         "--resource-path", str(resource_dir),
         "--standalone",
-        "--toc",
     ]
+    # Mục lục chỉ có ích với tài liệu dài: đề thi vài trang mà có "Table of Contents" rỗng + hộp thoại
+    # "cập nhật trường" của Word là thừa.
+    if len(re.findall(r"^#{1,6}\s", work_md.read_text(encoding="utf-8"), re.M)) >= 8:
+        cmd.append("--toc")
     print("Running Pandoc...")
     result = subprocess.run(cmd, capture_output=True, text=True,
                             encoding="utf-8", errors="replace")
@@ -804,6 +947,13 @@ def md_to_docx(work_md: Path, docx_path: Path, resource_dir: Path,
     if result.returncode != 0:
         print(result.stderr)
         raise RuntimeError("Pandoc tạo DOCX thất bại.")
+    if _swap_failed_math_for_images(work_md, result.stderr):
+        print("Chạy lại Pandoc: công thức không dịch được đã đổi sang ảnh gốc.")
+        result = subprocess.run(cmd, capture_output=True, text=True,
+                                encoding="utf-8", errors="replace")
+        if result.returncode != 0:
+            print(result.stderr)
+            raise RuntimeError("Pandoc tạo DOCX thất bại.")
     assert docx_path.exists() and docx_path.stat().st_size > 0, "DOCX rỗng."
     print(f"Đã tạo DOCX: {docx_path} ({docx_path.stat().st_size} bytes)")
     if font_name:
