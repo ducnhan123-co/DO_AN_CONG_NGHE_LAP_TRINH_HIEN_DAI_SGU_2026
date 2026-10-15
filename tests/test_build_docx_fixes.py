@@ -89,3 +89,27 @@ def test_html_table_ends_up_as_real_word_table(tmp_path):
     prepare_work_md(text, md, work)
     out = md_to_docx(work, tmp_path / "o.docx", tmp_path, number_pages=False)
     assert zipfile.ZipFile(out).read("word/document.xml").decode("utf8").count("<w:tbl>") == 1
+
+
+def test_first_page_header_recovered_but_later_headers_not(tmp_path):
+    from llm.src.build_docx import recover_first_page_header
+    md = tmp_path / "d.md"
+    md.write_text("x", encoding="utf-8")
+    (tmp_path / "d_content_list.json").write_text(json.dumps([
+        {"type": "discarded", "page_idx": 0, "bbox": [504, 46, 885, 123], "text": "ĐỀ KHẢO SÁT"},
+        {"type": "discarded", "page_idx": 0, "bbox": [119, 46, 389, 110], "text": "SỞ GIÁO DỤC"},
+        {"type": "discarded", "page_idx": 0, "bbox": [456, 952, 542, 978], "text": "www.footer.vn"},
+        {"type": "discarded", "page_idx": 1, "bbox": [119, 46, 389, 110], "text": "TÊN CHƯƠNG"}]), encoding="utf-8")
+    out = recover_first_page_header("Thân bài", md)
+    assert out == "SỞ GIÁO DỤC\n\nĐỀ KHẢO SÁT\n\nThân bài"
+
+
+def test_crop_pdf_region_makes_image(tmp_path):
+    import fitz
+    from llm.src.build_docx import _crop_pdf_region
+    pdf = tmp_path / "a.pdf"
+    doc = fitz.open()
+    doc.new_page(width=200, height=200).insert_text((20, 50), "Xin chao")
+    doc.save(str(pdf))
+    out = tmp_path / "c" / "x.png"
+    assert _crop_pdf_region(str(pdf), 0, [0, 0, 1000, 500], out) and out.stat().st_size > 100
