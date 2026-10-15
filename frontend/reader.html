@@ -44,6 +44,7 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
   mark{background:#FEF3C7;color:inherit;border-radius:3px;padding:0 2px}
   .toolbtn{display:flex;align-items:center;gap:4px;border-radius:9px;padding:6px 8px;font-size:13px;color:#57534E;transition:all .15s}
   .toolbtn:hover{background:#F5F5F4;color:#1C1917}
+  #docxPane.docx-max{position:fixed;left:0;right:0;top:56px;bottom:0;width:auto !important;min-width:0 !important;z-index:60}
   #btnDocx.glow-once{animation:docxGlow 1.6s ease-out 1}
   @keyframes docxGlow{0%{box-shadow:0 0 0 0 rgba(16,185,129,.7)}70%{box-shadow:0 0 0 14px rgba(16,185,129,0)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}}
   [data-ol].is-active,[data-ol].is-active:hover{background:#1C1917!important;color:#fff!important}
@@ -141,11 +142,13 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
     <div class="flex shrink-0 items-center gap-2 border-b border-stone-200 px-3 py-2">
       <i class="ph-duotone ph-file-doc text-xl text-emerald-600"></i>
       <p id="docxPaneTitle" class="min-w-0 flex-1 truncate text-[13px] font-bold">Bản DOCX</p>
+      <button id="docxMax" onclick="toggleDocxMax()" title="Phóng to khung sửa (ẩn PDF)" class="grid h-7 w-7 place-items-center rounded-full hover:bg-stone-100"><i class="ph-bold ph-arrows-out-simple"></i></button>
       <span id="docxEdited" class="hidden rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">Đã sửa</span>
       <button onclick="downloadEdited()" title="Tải bản đang sửa trong khung này" class="rounded-lg bg-brand-500 px-2.5 py-1 text-xs font-bold text-white hover:bg-brand-600">Tải bản đã sửa</button>
       <button onclick="hideDocxPreview(true)" title="Đóng" class="grid h-7 w-7 place-items-center rounded-full hover:bg-stone-100"><i class="ph-bold ph-x"></i></button>
     </div>
-    <div id="docxToolbar" class="shrink-0 border-b border-stone-200 bg-white"></div>
+    <p class="shrink-0 bg-stone-50 px-3 py-1 text-[11px] text-stone-500">Sửa chữ, bảng, ảnh ngay tại đây. <b>Công thức</b> không gõ sửa được trong khung này: bấm <b>Tải bản đã sửa</b> rồi mở bằng Word để sửa công thức.</p>
+    <div id="docxToolbar" class="shrink-0 overflow-x-auto border-b border-stone-200 bg-white"></div>
     <div id="docxView" class="min-h-0 flex-1 overflow-auto bg-stone-100"></div>
   </section>
 
@@ -377,6 +380,15 @@ function autoDone(id){ AUTO.delete(id); try{ sessionStorage.setItem('matchpdf_au
 let autoQ=Promise.resolve(); // tải lần lượt, tránh trình duyệt chặn nhiều download cùng lúc
 /* DOCX bên phải = trình SỬA SuperDoc (AGPL-3.0; công thức OMML, bảng, ảnh giữ nguyên khi xuất lại). Đóng tay thì không tự mở lại cho đến khi đổi tài liệu. */
 let SD=null;
+const fitSd=()=>{ try{ if(SD&&SD.setZoomMode) SD.setZoomMode('fit-width'); }catch(e){} };   // khung hẹp vẫn thấy cả bề ngang trang
+window.addEventListener('resize',()=>setTimeout(fitSd,200));
+function toggleDocxMax(){
+  const p=$('docxPane'), on=!p.classList.contains('docx-max');
+  p.classList.toggle('docx-max',on);
+  $('docxMax').innerHTML=on?'<i class="ph-bold ph-arrows-in-simple"></i>':'<i class="ph-bold ph-arrows-out-simple"></i>';
+  $('docxMax').title=on?'Thu nhỏ về cạnh PDF':'Phóng to khung sửa (ẩn PDF)';
+  setTimeout(fitSd,250); refitPdf();
+}
 function destroySd(){ try{ if(SD&&SD.destroy) SD.destroy(); }catch(e){} SD=null; const v=$('docxView'); if(v) v.innerHTML=''; const t=$('docxToolbar'); if(t) t.innerHTML=''; $('docxEdited').classList.add('hidden'); }
 async function downloadEdited(){
   if(!SD){ toast('Chưa có bản DOCX đang mở'); return; }
@@ -388,7 +400,7 @@ async function downloadEdited(){
 let DOCX_SHOWN=null, DOCX_CLOSED=new Set(), prevTok=0;
 function hideDocxPreview(byUser){
   if(byUser&&DOCX_SHOWN) DOCX_CLOSED.add(DOCX_SHOWN);
-  DOCX_SHOWN=null; prevTok++; destroySd(); $('docxPane').classList.add('hidden'); $('docxPane').classList.remove('flex'); refitPdf(); refreshDocxUI();
+  DOCX_SHOWN=null; prevTok++; destroySd(); $('docxPane').classList.remove('docx-max'); $('docxPane').classList.add('hidden'); $('docxPane').classList.remove('flex'); refitPdf(); refreshDocxUI();
 }
 function refitPdf(){ setTimeout(()=>{ if(pdfViewer&&pdfViewer.pdfDocument) pdfViewer.currentScaleValue='page-width'; },50); }
 function toggleDocxPreview(){
@@ -409,7 +421,9 @@ async function previewDocx(id){
     const file=new File([buf],docxFile(id),{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
     SD=new window.SuperDoc({selector:'#docxView',toolbar:'#docxToolbar',documentMode:'editing',
       documents:[{id:'doc-'+id,type:'docx',data:file}],
+      onReady:()=>setTimeout(fitSd,100),
       onEditorUpdate:()=>$('docxEdited').classList.remove('hidden')});
+    setTimeout(fitSd,1200);
     refreshDocxUI();
   }catch(e){ destroySd(); DOCX_SHOWN=null; toast('Chưa mở được trình sửa DOCX — bấm Tải DOCX để mở bằng Word'); }
 }
