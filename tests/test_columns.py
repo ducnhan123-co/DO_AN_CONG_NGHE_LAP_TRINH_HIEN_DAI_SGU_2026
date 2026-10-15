@@ -42,3 +42,20 @@ def test_degenerate_latex_block_becomes_image(tmp_path):
     out = swap_degenerate_math_for_images(mdp.read_text(encoding="utf-8"), mdp, tmp_path / "work.md")
     assert r"\begin{array}" not in out and "![](" in out and "intro" in out and "outtro" in out
     assert (tmp_path / "crops" / "degenerate_0.png").exists()
+
+
+def test_scanfix_empty_block_on_scan_page_becomes_image(tmp_path):
+    import json
+
+    import fitz
+
+    from llm.src import scanfix as F
+    pdf = tmp_path / "input.pdf"
+    doc = fitz.open(); pg = doc.new_page(width=300, height=400)
+    pg.insert_image(fitz.Rect(0, 0, 300, 400), pixmap=fitz.Pixmap(fitz.csGRAY, 60, 80, b"\xf0" * 4800, False)); doc.save(str(pdf))
+    md = "first block here\n\nsecond\n"
+    items = [{"type": "text", "text": "first block here", "page_idx": 0, "bbox": [50, 50, 950, 400]},
+             {"type": "text", "text": "", "page_idx": 0, "bbox": [50, 450, 950, 900]}]
+    out = F.swap_unreadable_blocks(md, items, pdf, tmp_path)
+    assert "![](" in out and (tmp_path / "crops" / "unreadable_0.png").exists()
+    assert F.swap_unreadable_blocks(md, [dict(items[0], page_idx=0)], pdf, tmp_path) is not None

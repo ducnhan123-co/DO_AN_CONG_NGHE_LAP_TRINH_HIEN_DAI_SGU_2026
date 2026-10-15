@@ -11,10 +11,12 @@ try:
     from .config import PANDOC_FROM
     from . import columns as _columns
     from . import layout as _layout
+    from . import scanfix as _scanfix
 except ImportError:
     from config import PANDOC_FROM
     import columns as _columns
     import layout as _layout
+    import scanfix as _scanfix
 
 
 def fix_legacy_tex_bf(markdown_text: str) -> str:
@@ -722,20 +724,7 @@ def build_block_regions(md_path: Path) -> dict:
     return {"pdf": str(pdf), "blocks": blocks}
 
 
-def _crop_pdf_region(pdf: str, page: int, bbox: list, out_png: Path) -> bool:
-    try:
-        import fitz
-        doc = fitz.open(pdf)
-        pg = doc[page]
-        r = pg.rect
-        pad = 4
-        clip = fitz.Rect(r.x0 + bbox[0] / 1000 * r.width - pad, r.y0 + bbox[1] / 1000 * r.height - pad,
-                         r.x0 + bbox[2] / 1000 * r.width + pad, r.y0 + bbox[3] / 1000 * r.height + pad) & r
-        out_png.parent.mkdir(parents=True, exist_ok=True)
-        pg.get_pixmap(dpi=200, clip=clip).save(str(out_png))
-        return True
-    except Exception:  # noqa: BLE001
-        return False
+_crop_pdf_region = _scanfix.crop_region
 
 
 def swap_degenerate_math_for_images(markdown_text: str, md_path: Path, work_md: Path) -> str:
@@ -808,6 +797,14 @@ def prepare_work_md(markdown_text: str, md_path: Path, work_md: Path) -> Path:
             print(f"[DOCX] bố cục nhiều cột: {[len(p['cols']) for p in lay['pages'].values()]} cột/trang")
     except Exception as e:  # noqa: BLE001 - bố cục chỉ là tinh chỉnh, lỗi thì rơi về văn bản chảy như cũ
         print("[CẢNH BÁO] không dựng được bố cục:", e)
+    try:   # trang scan: OCR chữ MinerU bỏ sót, khối rỗng/thưa (viết tay) -> ảnh gốc
+        pdf_ = _find_input_pdf(md_path)
+        if pdf_.exists():
+            items_ = _content_items(md_path)
+            markdown_text = _scanfix.recover_gap_text(markdown_text, items_, pdf_, work_md.parent)
+            markdown_text = _scanfix.swap_unreadable_blocks(markdown_text, items_, pdf_, work_md.parent)
+    except Exception as e:  # noqa: BLE001 - tiện ích, không được làm hỏng DOCX
+        print("[CẢNH BÁO] không vá được trang scan:", e)
     try:
         markdown_text = swap_degenerate_math_for_images(markdown_text, md_path, work_md)
     except Exception as e:  # noqa: BLE001 - tiện ích, không được làm hỏng DOCX
