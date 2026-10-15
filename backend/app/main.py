@@ -188,6 +188,20 @@ async def lifespan(_: FastAPI):
     import threading as _threading
     _threading.Thread(target=_warm_embed, daemon=True,
                       name="warm-embed").start()
+
+    # Nạp sẵn model MinerU (2 server nóng) ở nền: upload đầu tiên khỏi chờ ~25-30s. MINERU_PREWARM=0 để tắt.
+    def _warm_mineru() -> None:
+        try:
+            import os
+            from llm.src.config import MINERU_DEVICE, MINERU_LANG, MINERU_WORKERS
+            from llm.src.mineru_pool import prewarm
+            if MINERU_WORKERS > 0 and os.getenv("MINERU_PREWARM", "1") != "0":
+                prewarm(MINERU_WORKERS, MINERU_DEVICE, MINERU_LANG)
+                logger.info("Preload MinerU xong (%d server nóng)", MINERU_WORKERS)
+        except Exception as e:                            # noqa: BLE001
+            logger.warning("Preload MinerU thất bại: %s", e)
+
+    _threading.Thread(target=_warm_mineru, daemon=True, name="warm-mineru").start()
     yield
     pipeline_model.shutdown()
  

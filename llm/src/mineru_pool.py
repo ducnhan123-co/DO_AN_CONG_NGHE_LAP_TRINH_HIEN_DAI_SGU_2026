@@ -162,3 +162,18 @@ def run_pool(pdf_path: Path, out_dir: Path, *, workers: int = 2, device: str = "
     stem = pdf_path.stem
     (out_dir / f"{stem}.md").write_text(md, encoding="utf-8")
     (out_dir / f"{stem}_content_list.json").write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
+
+
+def prewarm(n: int, device: str, lang: str = "latin") -> None:
+    """Khởi động n server và cho mỗi server parse 1 trang mẫu (chữ + OCR) để model nạp sẵn: upload đầu tiên khỏi chờ ~25-30s.
+    Gọi ở thread nền lúc khởi động backend; mọi lỗi để caller nuốt."""
+    import tempfile
+    import fitz
+    d = fitz.open()
+    pg = d.new_page(width=300, height=200)
+    pg.insert_text((20, 60), "Warm up: x^2 + y^2 = z^2", fontsize=14)
+    tmp = Path(tempfile.gettempdir()) / "mineru_warm.pdf"
+    d.save(str(tmp))
+    urls = get_servers(n, device)
+    with ThreadPoolExecutor(max_workers=n) as ex:
+        list(ex.map(lambda u: [_parse_range(u, tmp, 0, 0, lang, m, True, True) for m in ("txt", "ocr")], urls))

@@ -143,6 +143,7 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
       <i class="ph-duotone ph-file-doc text-xl text-emerald-600"></i>
       <p id="docxPaneTitle" class="min-w-0 flex-1 truncate text-[13px] font-bold">Bản DOCX</p>
       <button id="docxMax" onclick="toggleDocxMax()" title="Phóng to khung sửa (ẩn PDF)" class="grid h-7 w-7 place-items-center rounded-full hover:bg-stone-100"><i class="ph-bold ph-arrows-out-simple"></i></button>
+      <button id="docxMode" onclick="forceEdit()" class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700" title="Chế độ của khung. Bấm để bật chế độ SỬA">✏️ Đang sửa</button>
       <span id="docxEdited" class="hidden rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">Đã sửa</span>
       <button onclick="downloadEdited()" title="Tải bản đang sửa trong khung này" class="rounded-lg bg-brand-500 px-2.5 py-1 text-xs font-bold text-white hover:bg-brand-600">Tải bản đã sửa</button>
       <button onclick="hideDocxPreview(true)" title="Đóng" class="grid h-7 w-7 place-items-center rounded-full hover:bg-stone-100"><i class="ph-bold ph-x"></i></button>
@@ -389,7 +390,15 @@ function toggleDocxMax(){
   $('docxMax').title=on?'Thu nhỏ về cạnh PDF':'Phóng to khung sửa (ẩn PDF)';
   setTimeout(fitSd,250); refitPdf();
 }
-function destroySd(){ try{ if(SD&&SD.destroy) SD.destroy(); }catch(e){} SD=null; const v=$('docxView'); if(v) v.innerHTML=''; const t=$('docxToolbar'); if(t) t.innerHTML=''; $('docxEdited').classList.add('hidden'); }
+let modeTimer=null;
+function syncMode(){
+  const b=$('docxMode'); if(!b||!SD||!SD.config) return;
+  const ed=SD.config.documentMode==='editing';
+  b.textContent=ed?'✏️ Đang sửa':'👁 Chỉ xem — bấm để sửa';
+  b.className='rounded-full px-2.5 py-0.5 text-[11px] font-bold '+(ed?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-700 animate-pulse');
+}
+function forceEdit(){ try{ if(SD){ SD.setDocumentMode('editing'); setTimeout(syncMode,200); toast('Đã bật chế độ sửa'); } }catch(e){} }
+function destroySd(){ clearInterval(modeTimer); try{ if(SD&&SD.destroy) SD.destroy(); }catch(e){} SD=null; const v=$('docxView'); if(v) v.innerHTML=''; const t=$('docxToolbar'); if(t) t.innerHTML=''; $('docxEdited').classList.add('hidden'); }
 async function downloadEdited(){
   if(!SD){ toast('Chưa có bản DOCX đang mở'); return; }
   try{ const blob=await SD.export({triggerDownload:false});
@@ -411,7 +420,8 @@ function toggleDocxPreview(){
 async function previewDocx(id){
   if(id!==API.docId) return;
   const d=DOCX[id]; if(!d||!d.url){ if(DOCX_SHOWN) hideDocxPreview(); return; }
-  if(DOCX_SHOWN===id||DOCX_CLOSED.has(id)||!window.SuperDoc) return;
+  if(DOCX_SHOWN===id||DOCX_CLOSED.has(id)) return;
+  if(!window.SuperDoc){ toast('Không tải được trình sửa DOCX (trình duyệt/Shields chặn cdn.jsdelivr.net?) — tắt chặn rồi tải lại trang (Cmd+Shift+R)'); return; }
   const my=++prevTok;
   try{
     const r=await fetch(API.base+d.url); if(!r.ok) throw 0;
@@ -423,7 +433,7 @@ async function previewDocx(id){
       documents:[{id:'doc-'+id,type:'docx',data:file}],
       onReady:()=>setTimeout(fitSd,100),
       onEditorUpdate:()=>$('docxEdited').classList.remove('hidden')});
-    setTimeout(fitSd,1200);
+    setTimeout(fitSd,1200); clearInterval(modeTimer); modeTimer=setInterval(syncMode,1000);
     refreshDocxUI();
   }catch(e){ destroySd(); DOCX_SHOWN=null; toast('Chưa mở được trình sửa DOCX — bấm Tải DOCX để mở bằng Word'); }
 }

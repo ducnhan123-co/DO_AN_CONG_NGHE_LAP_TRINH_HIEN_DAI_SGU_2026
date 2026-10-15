@@ -176,6 +176,11 @@ def run_mineru(pdf_path: Path, out_dir: Path, backend: str = "pipeline",
     if not force and find_content_list(out_dir):
         print(f"[MinerU] Đã có output cho PDF này, bỏ qua chạy lại: {out_dir}")
         return
+    try:   # scan độ phân giải thấp/nhòe: phóng to + làm nét trước khi OCR (đã đo F1 0.25->0.81 / 0.64->0.90)
+        from llm.src.prep_scan import enhance_if_needed
+        pdf_path = enhance_if_needed(pdf_path, out_dir.parent / "enhanced")
+    except Exception as e:  # noqa: BLE001 - chỉ là tăng chất lượng, lỗi thì dùng PDF gốc
+        print(f"[MinerU] bỏ qua bước nâng chất lượng scan: {e!r}")
     kit = shutil.which("mineru-kit")
     if kit:
         _run_kit(kit, pdf_path, out_dir, tier,
