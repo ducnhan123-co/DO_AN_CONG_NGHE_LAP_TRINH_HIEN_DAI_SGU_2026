@@ -12,6 +12,9 @@ RUN apt-get update \
 		libglib2.0-0 \
 		libgl1 \
 		libgomp1 \
+		tesseract-ocr \
+		tesseract-ocr-eng \
+		tesseract-ocr-vie \
 	&& rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./requirements.txt

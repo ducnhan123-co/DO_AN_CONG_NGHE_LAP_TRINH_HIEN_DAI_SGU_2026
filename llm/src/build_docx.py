@@ -694,7 +694,12 @@ def html_tables_to_pipe(markdown_text: str) -> str:
 
 def _content_items(md_path: Path) -> list:
     cands = list(md_path.parent.rglob("*_content_list.json"))
-    return json.loads(max(cands, key=lambda q: q.stat().st_size).read_text(encoding="utf-8")) if cands else []
+    items = json.loads(max(cands, key=lambda q: q.stat().st_size).read_text(encoding="utf-8")) if cands else []
+    # bản MinerU cũ cho bbox 0-1, bản hiện tại 0-1000; mọi nơi trong file này giả định 0-1000 -> chuẩn hoá một lần ở đây
+    top = max((v for it in items for v in (it.get("bbox") or [])), default=1000)
+    if 0 < top <= 1.5:
+        items = [dict(it, bbox=[v * 1000 for v in it["bbox"]]) if it.get("bbox") else it for it in items]
+    return items
 
 
 def recover_first_page_header(markdown_text: str, md_path: Path) -> str:
@@ -788,7 +793,7 @@ def prepare_work_md(markdown_text: str, md_path: Path, work_md: Path) -> Path:
         cols_json.unlink(missing_ok=True)
         # Ưu tiên: PDF nhiều cột (tờ rơi, cheat-sheet 2-4 cột) -> dò rãnh trắng + OCR từng cột để chèn NGẮT CỘT đúng chỗ PDF ngắt.
         # Không dò được ngắt cột (PDF 1 cột / sách dài / thiếu tesseract) -> rơi về bố cục theo toạ độ MinerU bên dưới.
-        cl = _columns.layout_of(pdf) if pdf.exists() else None
+        cl = _columns.layout_of(pdf, lang=_scanfix._lang() or "eng") if pdf.exists() else None   # vie+eng nếu có: neo khớp chữ có dấu
         if cl and cl["cells"]:
             markdown_text = _columns.insert_column_breaks(_columns.drop_ocr_details(markdown_text), cl)
             cols_json.write_text(json.dumps({"n_cols": cl["n_cols"], "page_pt": cl["page_pt"]}), encoding="utf-8")

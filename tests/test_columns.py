@@ -59,3 +59,14 @@ def test_scanfix_empty_block_on_scan_page_becomes_image(tmp_path):
     out = F.swap_unreadable_blocks(md, items, pdf, tmp_path)
     assert "![](" in out and (tmp_path / "crops" / "unreadable_0.png").exists()
     assert F.swap_unreadable_blocks(md, [dict(items[0], page_idx=0)], pdf, tmp_path) is not None
+
+
+def test_find_gaps_reports_uncovered_ink_only(tmp_path):
+    import fitz
+
+    from llm.src import scanfix as F
+    doc = fitz.open(); pg = doc.new_page(width=300, height=400)
+    pg.draw_rect(fitz.Rect(40, 300, 260, 330), color=(0, 0, 0), fill=(0, 0, 0))     # mực chưa ai phủ
+    pg.draw_rect(fitz.Rect(40, 60, 260, 90), color=(0, 0, 0), fill=(0, 0, 0))       # mực đã được khối MinerU phủ
+    gaps = F.find_gaps(pg, [[100, 130, 900, 270]])
+    assert len(gaps) == 1 and 700 < gaps[0][1] < 800

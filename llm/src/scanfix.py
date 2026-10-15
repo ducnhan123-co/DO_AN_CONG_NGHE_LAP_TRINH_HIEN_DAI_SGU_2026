@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import List, Optional
 
 KEEP = ("text", "equation", "table", "image")
+MAX_OCR = 60         # trần số vùng OCR mỗi tài liệu: sách scan dài không được kéo DOCX chậm hàng chục phút
+MIN_CONF = 80        # ngưỡng tin cậy OCR để chèn chữ khôi phục (đo: đúng >= 86, rác <= 73)
 
 
 def crop_region(pdf: str, page: int, bbox: list, out_png: Path, dpi: int = 200, pad: float = 4) -> bool:
@@ -40,13 +42,20 @@ def _lang() -> str:
     return "vie+eng" if "vie" in out and "eng" in out else ("eng" if "eng" in out else "")
 
 
-def _ocr_png(png: Path) -> str:
+def _ocr_png(png: Path):
+    """-> (văn bản, độ tin cậy trung bình 0-100 của tesseract). Đo: dòng đúng >= 86, dòng rác 58-73."""
     lang = _lang()
     if not lang:
-        return ""
-    r = subprocess.run(["tesseract", str(png), "stdout", "-l", lang, "--psm", "6"],
-                       capture_output=True, text=True, encoding="utf-8", errors="replace")
-    return r.stdout.strip()
+        return "", 0.0
+    out = subprocess.run(["tesseract", str(png), "stdout", "-l", lang, "--psm", "6", "tsv"],
+                         capture_output=True, text=True, encoding="utf-8", errors="replace").stdout.splitlines()[1:]
+    lines, confs = {}, []
+    for ln in out:
+        c = ln.split("\t")
+        if len(c) >= 12 and c[11].strip() and float(c[10]) >= 0:
+            lines.setdefault(tuple(c[2:5]), []).append(c[11].strip())
+            confs.append(float(c[10]))
+    return "\n".join(" ".join(w) for w in lines.values()), (sum(confs) / len(confs) if confs else 0.0)
 
 
 def _is_scan_page(page) -> bool:
@@ -105,7 +114,7 @@ def recover_gap_text(md: str, items: List[dict], pdf: Path, work_dir: Path) -> s
         return md
     if not _lang():
         return md
-    found, inserts = 0, []
+    found, tried, inserts = 0, 0, []
     for pi, page in enumerate(doc):
         if not _is_scan_page(page):
             continue
@@ -115,12 +124,16 @@ def recover_gap_text(md: str, items: List[dict], pdf: Path, work_dir: Path) -> s
         except Exception:  # noqa: BLE001 - thiếu cv2 / lỗi render
             continue
         for k, gb in enumerate(gaps):
+            if tried >= MAX_OCR:
+                break
+            tried += 1
             png = work_dir / f"gap_{pi}_{k}.png"
             if not crop_region(str(pdf), pi, gb, png, dpi=300, pad=6):
                 continue
-            text = _ocr_png(png)
+            text, conf = _ocr_png(png)
+            text = text.lstrip("| ")
             alnum = sum(c.isalnum() for c in text)
-            if alnum < 4 or alnum < .5 * len(re.sub(r"\s", "", text)):    # rác/nét vẽ -> bỏ
+            if conf < MIN_CONF or alnum < 4 or alnum < .5 * len(re.sub(r"\s", "", text)):    # rác/nét vẽ/đọc không chắc -> bỏ
                 continue
             nxt = next((it for it in on_page if it["type"] in KEEP and it["bbox"][1] >= gb[1] and _locate(md, it)), None)
             at = None
