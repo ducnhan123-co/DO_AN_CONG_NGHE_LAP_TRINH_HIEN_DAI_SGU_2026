@@ -45,6 +45,27 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
   .toolbtn{display:flex;align-items:center;gap:4px;border-radius:9px;padding:6px 8px;font-size:13px;color:#57534E;transition:all .15s}
   .toolbtn:hover{background:#F5F5F4;color:#1C1917}
   #docxPane.docx-max{position:fixed;left:0;right:0;top:56px;bottom:0;width:auto !important;min-width:0 !important;z-index:60}
+  /* khung sửa DOCX: thanh cuộn ngang LUÔN hiện ở đáy (macOS hay ẩn), kéo qua lại xem hết bề ngang trang */
+  #docxView{overflow-x:scroll;overflow-y:auto;scrollbar-width:auto;scrollbar-color:#78716C #E7E5E4}
+  #docxView::-webkit-scrollbar{width:13px;height:15px}
+  #docxView::-webkit-scrollbar-track{background:#E7E5E4}
+  #docxView::-webkit-scrollbar-thumb{background:#78716C;border-radius:8px;border:3px solid #E7E5E4;background-clip:padding-box}
+  #docxView::-webkit-scrollbar-thumb:hover{background:#44403C}
+  /* 4 góc kéo-resize ảnh/bảng-ảnh của SuperDoc: to + cam + mũi tên chéo cho dễ thấy, dễ bắt */
+  #docxView .superdoc-image-resize-overlay{outline:2px solid #EA580C !important}
+  #docxView .resize-handle{transform:scale(1.5);background:#EA580C !important;border:2px solid #fff !important;border-radius:4px !important;box-shadow:0 1px 4px rgba(0,0,0,.45);transition:transform .1s}
+  #docxView .resize-handle:hover{transform:scale(1.9)}
+  #docxView .resize-handle::after{content:"";position:absolute;inset:0;background:center/70% no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 10L10 2M2 10h4M2 10V6M10 2H6m4 0v4' stroke='white' stroke-width='1.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")}
+  #docxView .resize-handle--nw::after,#docxView .resize-handle--se::after{transform:scaleX(-1)}
+  /* thanh kéo đổi độ rộng khung DOCX (cạnh trái khung) */
+  #docxSplit{position:absolute;left:-5px;top:0;bottom:0;width:10px;cursor:col-resize;z-index:5;touch-action:none}
+  #docxSplit::before{content:"";position:absolute;left:4px;top:0;bottom:0;width:2px;background:transparent;transition:background .15s}
+  #docxSplit:hover::before,#docxSplit.drag::before{background:#EA580C}
+  #docxSplit .grip{position:absolute;left:-7px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:24px;height:44px;border-radius:12px;background:#1C1917;color:#fff;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.3);opacity:.85}
+  #docxSplit:hover .grip,#docxSplit.drag .grip{opacity:1;background:#EA580C}
+  #docxPane.docx-max #docxSplit{display:none}
+  body.splitting{cursor:col-resize;user-select:none}
+  body.splitting #docxView,body.splitting #viewerContainer{pointer-events:none}
   #btnDocx.glow-once{animation:docxGlow 1.6s ease-out 1}
   @keyframes docxGlow{0%{box-shadow:0 0 0 0 rgba(16,185,129,.7)}70%{box-shadow:0 0 0 14px rgba(16,185,129,0)}100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}}
   [data-ol].is-active,[data-ol].is-active:hover{background:#1C1917!important;color:#fff!important}
@@ -138,7 +159,8 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
   </section>
 
   <!-- ===== RIGHT: XEM TRƯỚC DOCX (tự mở khi DOCX xong) ===== -->
-  <section id="docxPane" class="hidden w-[50%] min-w-[380px] shrink-0 flex-col border-l border-stone-300 bg-white">
+  <section id="docxPane" class="relative hidden w-[50%] min-w-[380px] shrink-0 flex-col border-l border-stone-300 bg-white">
+    <div id="docxSplit" title="Kéo để đổi độ rộng khung DOCX (bấm đúp để về 50%)"><span class="grip"><i class="ph-bold ph-arrows-left-right"></i></span></div>
     <div class="flex shrink-0 items-center gap-2 border-b border-stone-200 px-3 py-2">
       <i class="ph-duotone ph-file-doc text-xl text-emerald-600"></i>
       <p id="docxPaneTitle" class="min-w-0 flex-1 truncate text-[13px] font-bold">Bản DOCX</p>
@@ -390,6 +412,16 @@ function toggleDocxMax(){
   $('docxMax').title=on?'Thu nhỏ về cạnh PDF':'Phóng to khung sửa (ẩn PDF)';
   setTimeout(fitSd,250); refitPdf();
 }
+/* kéo cạnh trái khung DOCX để đổi độ rộng; bấm đúp = về 50% */
+(function(){
+  const h=$('docxSplit'), pane=$('docxPane'); if(!h||!pane) return;
+  let t=null; const refit=()=>{ clearTimeout(t); t=setTimeout(()=>{ fitSd(); refitPdf(); },120); };
+  const move=e=>{ const w=Math.round(Math.min(innerWidth-300,Math.max(380,innerWidth-e.clientX))); pane.style.width=w+'px'; refit(); };
+  const up=()=>{ h.classList.remove('drag'); document.body.classList.remove('splitting'); removeEventListener('pointermove',move); removeEventListener('pointerup',up); };
+  h.addEventListener('pointerdown',e=>{ e.preventDefault(); h.classList.add('drag'); document.body.classList.add('splitting'); addEventListener('pointermove',move); addEventListener('pointerup',up); });
+  h.addEventListener('dblclick',()=>{ pane.style.width=''; refit(); });
+  if(window.ResizeObserver) new ResizeObserver(()=>{ if(!pane.classList.contains('hidden')) refit(); }).observe(pane);   // khung đổi cỡ (kéo, phóng to, đổi cửa sổ) -> fit lại bề ngang trang
+})();
 let modeTimer=null;
 function syncMode(){
   const b=$('docxMode'); if(!b||!SD||!SD.config) return;
