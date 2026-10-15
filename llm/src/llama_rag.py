@@ -1,16 +1,28 @@
 """Chunks -> LlamaIndex TextNode -> VectorStoreIndex (E5) -> retriever (score + source/page)."""
+import threading
 from pathlib import Path
 from typing import Dict, List
 
 META_KEYS = ["chunk_id", "doc_id", "source", "section", "page", "page_end", "pages",
              "content_types", "has_formula", "formula_latex", "block_ids", "n_chars"]
 
+# Singleton: E5 ~1GB, load 10-30s trên CPU — nạp 1 lần, dùng lại cho mọi
+# build_index / load_index / retrieve trong process này.
+_embed_cache: Dict[str, object] = {}
+_embed_lock = threading.Lock()
+
 
 def get_embed_model(name: str):
+    with _embed_lock:
+        if name in _embed_cache:
+            return _embed_cache[name]
     from llama_index.embeddings.huggingface import HuggingFaceEmbedding
     # E5 bắt buộc prefix; nếu thiếu retrieval sẽ tụt chất lượng
-    return HuggingFaceEmbedding(model_name=name, query_instruction="query: ",
-                                text_instruction="passage: ")
+    model = HuggingFaceEmbedding(model_name=name, query_instruction="query: ",
+                                 text_instruction="passage: ")
+    with _embed_lock:
+        _embed_cache.setdefault(name, model)
+        return _embed_cache[name]
 
 
 def chunks_to_nodes(chunks: List[Dict]):

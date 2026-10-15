@@ -136,7 +136,7 @@ def run_pipeline(document_id: str, job_id: str) -> None:
             from llm.src.chunking import build_chunks
             from llm.src.config import (EMBED_MODEL, MAX_CHARS, MINERU_DEVICE,
                                         MINERU_LANG, MINERU_METHOD, MINERU_TIER,
-                                        OVERLAP)
+                                        MINERU_WORKERS, OVERLAP)
             from llm.src.llama_rag import build_index, chunks_to_nodes
             from llm.src.run_mineru import (find_content_list,
                                             find_mineru_outputs,
@@ -163,7 +163,7 @@ def run_pipeline(document_id: str, job_id: str) -> None:
                 logger.info("Tài liệu %s: PDF %s -> MinerU method=%s",
                             doc.id, "chữ" if _method == "txt" else "scan", _method)
             run_mineru(pdf_path, mineru_dir, tier=MINERU_TIER, method=_method,
-                       lang=MINERU_LANG, device=MINERU_DEVICE)
+                       lang=MINERU_LANG, device=MINERU_DEVICE, workers=MINERU_WORKERS)
             content_list_path = find_content_list(mineru_dir)
             md_path, _, _ = find_mineru_outputs(mineru_dir)
             markdown_text = md_path.read_text(encoding="utf-8", errors="ignore")

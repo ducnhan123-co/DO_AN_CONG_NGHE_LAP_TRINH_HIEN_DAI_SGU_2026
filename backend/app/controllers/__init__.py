@@ -27,9 +27,13 @@ def health(db: Annotated[Session, Depends(get_db)]):
         llm_name = s.llm_name or LLM_NAME
     elif s.llm_backend == "ollama":
         llm_name = s.ollama_model
- 
+
+    from llm.src.config import (MINERU_BACKEND, MINERU_DEVICE,
+                                MINERU_METHOD, MINERU_TIER)
     return {"status": "ok", "database": "ok", "llm_backend": s.llm_backend,
-           "ok": True, "llm": llm_name}
+            "ok": True, "llm": llm_name,
+            "mineru": {"backend": MINERU_BACKEND, "device": MINERU_DEVICE,
+                       "method": MINERU_METHOD, "tier": MINERU_TIER}}
  
 __all__ = ["router"]
  

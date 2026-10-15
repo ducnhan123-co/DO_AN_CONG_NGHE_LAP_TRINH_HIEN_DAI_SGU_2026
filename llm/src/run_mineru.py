@@ -11,6 +11,7 @@ vỡ các đoạn code debug thủ công trong HUONG_DAN_CHAY_CHI_TIET.md.
 """
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import zipfile
@@ -39,6 +40,40 @@ def find_content_list(mineru_dir: Path) -> Optional[Path]:
     """File *_content_list.json của MinerU: có type/page_idx/text_level cho từng block."""
     cands = [p for p in mineru_dir.rglob("*_content_list.json")]
     return max(cands, key=lambda p: p.stat().st_size) if cands else None
+
+
+# Lỗi OCR dấu tiếng Việt hay gặp ở bản scan (nhánh mineru4-adapter; thêm dần). Chỉ sửa ngoài công thức $...$.
+_VI_FIX = [(re.compile(a), b) for a, b in [
+    (r"đăng thức", "đẳng thức"), (r"ĐĂNG CẤP", "ĐẲNG CẤP"), (r"xây ra", "xảy ra"), (r"bắt phương", "bất phương"),
+    (r"Cổ si", "Cô si"), (r"Đề giải", "Để giải"), (r"Đế xác", "Để xác"), (r"B[ẮẶ]C NHẤT", "BẬC NHẤT"),
+    (r"HAI ẮN", "HAI ẨN"), (r"\b[ĐD][ặạ]ng ?:", "Dạng:"), (r"thể vào", "thế vào"), (r"Chú y\b", "Chú ý"),
+    (r"cùng chẩn", "cùng chẵn"), (r"PHẦN XỨNG", "PHẢN XỨNG"), (r"THỨC M[ỸỮ]\b", "THỨC MŨ"),
+    (r"tử diện", "tứ diện"), (r"tám giác", "tam giác"), (r"Thế tích", "Thể tích"), (r"Đình trực", "Đỉnh trục"),
+    (r"Phường pháp", "Phương pháp"), (r"CÁC VĂN ĐỀ", "CÁC VẤN ĐỀ"), (r"\bTîm\b", "Tìm"), (r"\bDụng\b", "Dựng"),
+    (r"số phúc", "số phức"), (r"\bNéu\b", "Nếu"), (r"đói nhau", "đối nhau"), (r"Lutu ý", "Lưu ý"),
+    (r"lường giác", "lượng giác"), (r"Đường thăng", "Đường thẳng"), (r"Công thúc", "Công thức"),
+]]
+_MATH = re.compile(r"(\$\$.*?\$\$|\$[^$\n]+\$)", re.S)
+
+
+def fix_vi_ocr(text: str) -> str:
+    def fix(part: str) -> str:
+        for rx, rep in _VI_FIX:
+            part = rx.sub(rep, part)
+        return part
+    return "".join(p if i % 2 else fix(p) for i, p in enumerate(_MATH.split(text)))
+
+
+def _postprocess(out_dir: Path) -> None:
+    """Sửa lỗi dấu OCR trong .md và trường text của *_content_list.json (công thức giữ nguyên)."""
+    for md in out_dir.rglob("*.md"):
+        md.write_text(fix_vi_ocr(md.read_text(encoding="utf-8", errors="ignore")), encoding="utf-8")
+    for cl in out_dir.rglob("*_content_list.json"):
+        items = json.loads(cl.read_text(encoding="utf-8"))
+        for it in items:
+            if it.get("type") == "text" and isinstance(it.get("text"), str):
+                it["text"] = fix_vi_ocr(it["text"])
+        cl.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
 
 
 _SKIP = {"header", "footer", "page_number", "aside_text", "page_footnote"}
@@ -128,14 +163,15 @@ def has_extractable_text(pdf_path: Path, pages_to_check: int = 3,
 def run_mineru(pdf_path: Path, out_dir: Path, backend: str = "pipeline",
                tier: str = "standard", force: bool = False,
                method: str = "auto", lang: str = "latin", device: str = "cpu",
-               formula: bool = True, table: bool = True) -> None:
+               formula: bool = True, table: bool = True, workers: int = 0) -> None:
     """Chạy MinerU. Có `mineru-kit` (MinerU 4.x) thì dùng — công thức LaTeX sạch hơn rõ rệt;
     không có thì rơi về CLI cũ `mineru -p -o -b pipeline` (2.x) để máy chưa nâng cấp vẫn chạy.
 
     method: 'auto' | 'txt' (PDF chữ, bỏ OCR — nhanh nhất) | 'ocr' (PDF scan).
     lang: mã ngôn ngữ cho OCR ('latin' hợp PDF tiếng Việt nhất; mặc định CLI là 'ch').
     device: 'cpu' ổn định nhất trên Mac; có CUDA thì đổi 'cuda:0'.
-    formula/table: PDF toán GIỮ True (công thức Equation cần formula=True)."""
+    formula/table: PDF toán GIỮ True (công thức Equation cần formula=True).
+    workers>0: parse qua pool `mineru-api` giữ model nóng (mineru_pool.py), lỗi thì rơi về CLI."""
     out_dir.mkdir(parents=True, exist_ok=True)
     if not force and find_content_list(out_dir):
         print(f"[MinerU] Đã có output cho PDF này, bỏ qua chạy lại: {out_dir}")
@@ -144,7 +180,19 @@ def run_mineru(pdf_path: Path, out_dir: Path, backend: str = "pipeline",
     if kit:
         _run_kit(kit, pdf_path, out_dir, tier,
                  ocr_mode=method if method in ("txt", "ocr", "auto") else "auto")
+        _postprocess(out_dir)
         return
+    if workers > 0:
+        try:
+            from llm.src.mineru_pool import run_pool
+            run_pool(pdf_path, out_dir, workers=workers, device=device, lang=lang,
+                     method=method, formula=formula, table=table)
+            _postprocess(out_dir)
+            return
+        except Exception as e:  # noqa: BLE001 - mọi lỗi pool đều có đường lui CLI
+            print(f"[MinerU-pool] lỗi ({e!r}) -> chạy CLI cũ")
+            shutil.rmtree(out_dir, ignore_errors=True)
+            out_dir.mkdir(parents=True, exist_ok=True)
     cmd = ["mineru", "-p", str(pdf_path), "-o", str(out_dir), "-b", backend,
            "-m", method, "-l", lang, "-d", device,
            "-f", "true" if formula else "false",
@@ -154,6 +202,7 @@ def run_mineru(pdf_path: Path, out_dir: Path, backend: str = "pipeline",
     if result.returncode != 0:
         print(result.stderr[-2000:])
         raise RuntimeError("MinerU thất bại (không có mineru-kit; CLI cũ `mineru` cũng lỗi).")
+    _postprocess(out_dir)
 
 
 def find_mineru_outputs(mineru_dir: Path):

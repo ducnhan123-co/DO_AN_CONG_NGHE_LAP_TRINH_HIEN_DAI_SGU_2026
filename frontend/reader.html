@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MatchPDF — Chat với PDF</title>
+<title>MatchPDF — PDF sang DOCX</title>
 <script src="config.js"></script>
 <script src="lib.js"></script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23EA580C'/><text x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>P</text></svg>" />
@@ -64,7 +64,7 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
   <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-500 text-white text-xs font-extrabold">PDF</span>
   <div class="min-w-0 flex-1 text-center">
     <h1 id="docTitle" class="truncate text-[13.5px] font-bold leading-tight">Chưa mở tài liệu</h1>
-    <p id="docMeta" class="truncate font-mono text-[11px] text-stone-500">Về Thư viện tải PDF lên để đọc + chat AI</p>
+    <p id="docMeta" class="truncate font-mono text-[11px] text-stone-500">Về Thư viện tải PDF lên để chuyển sang DOCX</p>
   </div>
   <div class="ml-auto flex items-center gap-1">
     <button onclick="toast('Tách PDF sắp có — đang làm')" class="toolbtn font-semibold" title="Tách PDF (sắp có)"><i class="ph-bold ph-scissors text-base"></i><span class="hidden lg:inline">Tách PDF</span></button>
@@ -74,22 +74,13 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
   </div>
 </header>
 
-<!-- mobile tabs -->
-<div class="flex shrink-0 gap-1 border-b border-stone-200 bg-white p-1.5 lg:hidden">
-  <button id="tabPdf" class="flex-1 rounded-lg bg-stone-900 py-2 text-[13px] font-bold text-white">📄 Đọc PDF</button>
-  <button id="tabChat" class="flex-1 rounded-lg py-2 text-[13px] font-bold text-stone-500">💬 Chat AI</button>
-</div>
-
-<!-- ===== SPLIT PDF | CHAT ===== -->
+<!-- ===== PDF ====== -->
 <div id="splitWrap" class="flex min-h-0 flex-1">
 
   <!-- ===== LEFT: THƯ VIỆN (Tài liệu gần đây + Ủng hộ) ===== -->
   <aside id="libSide" class="hidden w-[248px] shrink-0 flex-col overflow-y-auto border-r border-stone-200 bg-white px-3 py-4 lg:flex">
-    <button onclick="newSession()" title="Thêm phiên chat mới" class="flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-bold transition hover:border-brand-500 hover:text-brand-600 active:translate-y-[1px]"><i class="ph-bold ph-plus"></i> Mới</button>
     <p class="px-2 pb-1 pt-4 font-mono text-[10px] font-bold uppercase tracking-widest text-stone-400">Tài liệu gần đây</p>
     <div id="recentDocs" class="space-y-1"></div>
-    <p class="px-2 pb-1 pt-4 font-mono text-[10px] font-bold uppercase tracking-widest text-stone-400">Phiên chat</p>
-    <div id="sessionList" class="space-y-1"></div>
     <div class="mt-auto rounded-2xl border border-orange-100 bg-gradient-to-br from-brand-50 to-amber-50 p-3.5 text-center">
       <span class="mx-auto grid h-10 w-10 place-items-center rounded-2xl bg-brand-500 text-white text-xl shadow-[0_8px_20px_-8px_rgba(234,88,12,.8)]"><i class="ph-duotone ph-heart"></i></span>
       <p class="mt-2 text-sm font-extrabold tracking-tight">Ủng hộ MatchPDF</p>
@@ -134,10 +125,10 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
     <!-- banner khi chưa mở tài liệu -->
     <div id="demoBanner" class="flex shrink-0 flex-wrap items-center gap-2 border-b border-orange-200 bg-gradient-to-r from-orange-50 to-amber-50 px-3 py-2 text-[12.5px]">
       <i class="ph-duotone ph-warning-circle text-base text-brand-600"></i>
-      <span><b>Chưa mở tài liệu</b> — mở PDF từ máy để đọc, hoặc tải lên server để chat AI.</span>
+      <span><b>Chưa mở tài liệu</b> — mở PDF từ máy để đọc, hoặc tải lên server để chuyển sang DOCX.</span>
       <span class="ml-auto flex gap-1.5">
         <button id="demoRead" class="rounded-lg border border-stone-300 bg-white px-2.5 py-1 font-bold text-stone-700 hover:border-brand-500">📄 Mở PDF từ máy</button>
-        <button id="demoChat" class="rounded-lg bg-brand-500 px-2.5 py-1 font-bold text-white hover:bg-brand-600">✨ Tải lên để chat AI</button>
+        <button id="demoChat" class="rounded-lg bg-brand-500 px-2.5 py-1 font-bold text-white hover:bg-brand-600">✨ Tải lên để chuyển DOCX</button>
       </span>
     </div>
 
@@ -146,9 +137,6 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
       <aside id="outline" class="hidden w-[210px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-stone-300/60 bg-[#F5F5F4] p-2 text-[13px] md:flex">
         <p class="px-2 pb-1 pt-1 font-mono text-[10px] font-bold uppercase tracking-widest text-stone-400">Mục lục tài liệu</p>
         <div id="outlineList"></div>
-        <div class="mt-2 rounded-xl border border-orange-200 bg-orange-50 p-2.5 text-xs leading-relaxed">
-          <p class="font-bold text-brand-600">💡 Bấm số trích dẫn <span class="cite">[2]</span> trong chat để nhảy tới đúng trang.</p>
-        </div>
       </aside>
       <!-- pages -->
       <div id="pdfScroll" class="min-w-0 flex-1 overflow-y-auto px-3 py-5 sm:px-8">
@@ -158,46 +146,6 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
     </div>
   </section>
 
-  <!-- divider -->
-  <div class="hidden w-px shrink-0 bg-stone-300/70 lg:block"></div>
-
-  <!-- ===== RIGHT: CHAT ===== -->
-  <section id="chatPane" class="hidden w-full shrink-0 flex-col bg-white lg:flex lg:w-[400px] xl:w-[440px]">
-    <div class="flex shrink-0 items-center gap-2.5 border-b border-stone-200 px-4 py-3">
-      <span class="relative grid h-9 w-9 place-items-center rounded-2xl bg-gradient-to-br from-brand-500 to-amber-500 text-white"><i class="ph-duotone ph-sparkle text-lg"></i><span class="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500"></span></span>
-      <div class="min-w-0">
-        <p class="text-sm font-extrabold tracking-tight">Trợ lý đọc tài liệu</p>
-        <p class="truncate text-xs text-stone-500">Trả lời dựa trên nội dung PDF · kèm số trang</p>
-      </div>
-      <button onclick="resetChat()" class="toolbtn" title="Đoạn chat mới"><i class="ph-bold ph-plus"></i> Mới</button>
-    </div>
-    <div class="flex shrink-0 items-center gap-2 border-b border-stone-200 bg-stone-50 px-4 py-1.5 text-xs">
-      <i class="ph-duotone ph-cpu text-sm text-stone-500"></i>
-      <select id="modelSel" class="rounded-lg border border-stone-200 bg-white px-2 py-1 font-semibold text-stone-700 outline-none focus:border-brand-500">
-        <option value="qwen2.5:1.5b">⚡ Nhanh (1.5B)</option>
-        <option value="qwen3:8b" selected>⚖️ Chuẩn (8B)</option>
-        <option value="qwen3:14b">🧠 Hay nhất (14B, chậm)</option>
-      </select>
-      <span class="text-stone-400">chữ hiện dần khi trả lời</span>
-    </div>
-
-    <div id="chatScroll" class="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4"></div>
-
-    <div class="shrink-0 border-t border-stone-200 bg-white px-3 pb-3 pt-2">
-      <div class="flex gap-1.5 overflow-x-auto pb-2" id="chips">
-        <button class="chip shrink-0 rounded-full border border-stone-200 px-3 py-1.5 text-xs font-semibold text-stone-600" data-q="Tóm tắt tài liệu này trong 5 gạch đầu dòng">✨ Tóm tắt 5 ý</button>
-        <button class="chip shrink-0 rounded-full border border-stone-200 px-3 py-1.5 text-xs font-semibold text-stone-600" data-q="Chương 2 nói gì về mô hình RAG?">📖 Chương 2 nói gì?</button>
-        <button class="chip shrink-0 rounded-full border border-stone-200 px-3 py-1.5 text-xs font-semibold text-stone-600" data-q="Giải thích đơn giản khái niệm RAG cho sinh viên năm nhất">🎓 Giải thích đơn giản</button>
-        <button class="chip shrink-0 rounded-full border border-stone-200 px-3 py-1.5 text-xs font-semibold text-stone-600" data-q="Liệt kê các bảng biểu quan trọng và số trang">📊 Bảng biểu</button>
-      </div>
-      <div class="flex items-end gap-2 rounded-2xl border border-stone-300 bg-stone-50 p-1.5 pl-3 transition focus-within:border-brand-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/20">
-        <button class="mb-1.5 text-stone-400 hover:text-stone-700" title="Đính kèm"><i class="ph-bold ph-paperclip text-lg"></i></button>
-        <textarea id="chatInput" rows="1" placeholder="Hỏi gì về tài liệu này…" class="max-h-28 min-h-[36px] flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-stone-400"></textarea>
-        <button id="sendBtn" class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-500 text-white transition hover:bg-brand-600 active:scale-95 disabled:opacity-40" title="Gửi (Enter)"><i class="ph-fill ph-paper-plane-tilt"></i></button>
-      </div>
-      <p class="mt-1.5 flex items-center justify-between px-1 text-[11px] text-stone-400"><span><kbd>Enter</kbd> gửi · <kbd>Shift</kbd>+<kbd>Enter</kbd> xuống dòng</span><span class="font-mono">AI local · kèm số trang</span></p>
-    </div>
-  </section>
 </div>
 
 <!-- toast -->
@@ -219,11 +167,11 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
 </dialog>
 
 <script>
-/* PDF THẬT bằng PDF.js + chat AI qua server (không còn bản mẫu) */
+/* PDF THẬT bằng PDF.js + chuyển DOCX qua server */
 const params=new URLSearchParams(location.search);
 window.addEventListener('error',e=>{ try{ const m=String((e&&e.message)||'lỗi không rõ'); if(/pdfjsLib|pdf_viewer|katex/i.test(m)) toast('Không tải được thư viện đọc PDF (trình duyệt chặn CDN?) — tắt Shields/chặn quảng cáo rồi tải lại'); else toast('Lỗi trang: '+m.slice(0,150)); }catch(_){} });
 window.addEventListener('unhandledrejection',e=>{ try{ toast('Lỗi mạng: '+String((e.reason&&e.reason.message)||e.reason||'không rõ').slice(0,150)); }catch(_){} });
-if(params.get('name')){document.getElementById('docTitle').textContent=decodeURIComponent(params.get('name'));document.getElementById('docMeta').textContent='File chưa lên server — dùng nút bên dưới để tải lên chat thật';}
+if(params.get('name')){document.getElementById('docTitle').textContent=decodeURIComponent(params.get('name'));document.getElementById('docMeta').textContent='File chưa lên server — dùng nút bên dưới để tải lên và chuyển DOCX';}
 
 const pagesEl=document.getElementById('pages');
 function hideDemo(){ const b=document.getElementById('demoBanner'); if(b) b.classList.add('hidden'); }
@@ -256,7 +204,7 @@ async function showPdf(src,headers){
     const old=window.curPdf; window.curPdf=doc; if(old){ try{ old.destroy(); }catch(e){} }
     pdfViewer.setDocument(doc); pdfViewer._link.setDocument(doc);
     hideDemo(); document.getElementById('pdfScroll').classList.add('hidden'); document.getElementById('pdfWrap').classList.remove('hidden');
-    if(isFile){ document.getElementById('docTitle').textContent=src.name; document.getElementById('docMeta').textContent='File mở từ máy · chỉ đọc (muốn chat AI thì tải lên từ thư viện)'; DOCX={}; refreshDocxUI() }
+    if(isFile){ document.getElementById('docTitle').textContent=src.name; document.getElementById('docMeta').textContent='File mở từ máy · chỉ đọc (muốn chuyển DOCX thì tải lên từ thư viện)'; DOCX={}; refreshDocxUI() }
     const n=doc.numPages; document.getElementById('pageTotal').textContent=n;
     olActive=null; document.getElementById('outlineList').innerHTML=Array.from({length:n},(_,i)=>`<button onclick="gotoPage(${i+1})" data-ol="${i+1}" class="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-stone-200"><span class="font-mono text-[11px] text-stone-400 w-6">${i+1}</span><span class="truncate text-stone-600">Trang ${i+1}</span></button>`).join('');
     setActivePage(1);
@@ -268,7 +216,6 @@ async function showPdf(src,headers){
 let olActive=null;
 function setActivePage(n){ document.getElementById('pageInput').value=n; if(olActive) olActive.classList.remove('is-active'); olActive=document.querySelector('[data-ol="'+n+'"]'); if(olActive) olActive.classList.add('is-active'); }
 function gotoPage(n){
-  if(window.innerWidth<1024) showTab('pdf');
   if(pdfViewer&&pdfViewer.pdfDocument){ pdfViewer.currentPageNumber=Math.min(Math.max(1,n),pdfViewer.pagesCount); return; }
   const el=document.getElementById('page-'+n); if(!el) return; el.scrollIntoView({behavior:'smooth',block:'start'}); el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),1400); }
 window.gotoPage=gotoPage;
@@ -283,36 +230,10 @@ document.getElementById('zoomFit').onclick=()=>{ if(pdfViewer&&pdfViewer.pdfDocu
 document.getElementById('btnThumbs').onclick=()=>document.getElementById('outline').classList.toggle('md:flex');
 
 
-/* ================================================================
-   CHAT GIẢ LẬP (mock): trả lời theo từ khóa + trích dẫn bấm được
-   ================================================================ */
-const chatScroll=document.getElementById('chatScroll'), chatInput=document.getElementById('chatInput');
-function cite(n){return `<button class="cite" onclick="gotoPage(${n})" title="Nhảy tới trang ${n}">[${n}]</button>`;}
-function bubble(role,html){
-  const w=document.createElement('div'); w.className='msg-in flex gap-2.5 '+(role==='user'?'flex-row-reverse':'');
-  w.innerHTML=(role==='user'
-    ? `<div class="max-w-[85%] rounded-2xl rounded-br-md bg-stone-900 px-3.5 py-2.5 text-[13.5px] leading-relaxed text-white">${html}</div>`
-    : `<span class="grid h-7 w-7 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-500 to-amber-500 text-white text-sm"><i class="ph-duotone ph-sparkle"></i></span>
-       <div class="max-w-[88%] rounded-2xl rounded-bl-md border border-stone-200 bg-stone-50 px-3.5 py-2.5 text-[13.5px] leading-relaxed text-stone-800">${html}</div>`);
-  chatScroll.appendChild(w); chatScroll.scrollTop=chatScroll.scrollHeight; return w;
-}
-function send(text){
-  const q=(text??chatInput.value).trim(); if(!q) return;
-  if(API.busy){ toast('Đợi AI trả lời xong câu trước nhé'); return; }
-  if(API.docId&&!API.ready){ toast('AI đang đọc nội dung PDF ở nền — xong là chat được ngay'); return; }
-  if(API.docId){ sendReal(q); chatInput.value=''; chatInput.style.height='auto'; return; }
-  bubble('user',q.replace(/</g,'&lt;')); chatInput.value=''; chatInput.style.height='auto';
-  bubble('bot','Chưa mở tài liệu nào — về <b>Thư viện</b> tải PDF lên để mình đọc và trả lời kèm số trang nhé.');
-}
-document.getElementById('sendBtn').onclick=()=>send();
-chatInput.addEventListener('keydown',e=>{ if(e.isComposing||e.keyCode===229) return; // bộ gõ tiếng Việt đang ghép chữ
-  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
-chatInput.addEventListener('input',()=>{chatInput.style.height='auto';chatInput.style.height=Math.min(112,chatInput.scrollHeight)+'px';});
-document.querySelectorAll('#chips .chip').forEach(c=>c.onclick=()=>send(c.dataset.q));
-/* ===== THƯ VIỆN TRÊN SERVER (SQLite, cùng cổng 8000): tài liệu gần đây, phiên chat, tin nhắn ===== */
-let RECENTS=[], SESS=[], libWarned=false;
+/* ===== THƯ VIỆN TRÊN SERVER (SQLite, cùng cổng 8000): tài liệu gần đây, lịch sử DOCX ===== */
+let RECENTS=[], libWarned=false;
 const escH=t=>String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-function libDown(){ if(!libWarned){ libWarned=true; toast('Chưa kết nối thư viện (cùng cổng 8000) — chat vẫn chạy nhưng không được lưu'); } }
+function libDown(){ if(!libWarned){ libWarned=true; toast('Chưa kết nối thư viện (cùng cổng 8000) — lịch sử không được lưu'); } }
 async function loadRecents(){ const r=await LIB.get('/doc'); if(r.ok) RECENTS=r.data; renderRecents(); return r; }
 function renderRecents(){ const box=document.getElementById('recentDocs'); if(!box) return; const cur=API.docId;
   box.innerHTML=RECENTS.length?RECENTS.map(d=>{ const on=d.doc_id===cur; return `<div class="flex items-center gap-0.5 rounded-lg ${on?'bg-stone-900 text-white':'hover:bg-stone-100'}">
@@ -325,53 +246,21 @@ const MI='flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left hove
 function toggleMenu(kind,id,btn){ const m=document.getElementById('docMenu'); if(!m) return;
   if(menu&&menu.kind===kind&&menu.id===id&&!m.classList.contains('hidden')){ closeMenu(); return; }
   menu={kind,id}; const r=btn.getBoundingClientRect();
-  m.innerHTML=kind==='doc'
-    ? `<button onclick="renameItem()" class="${MI}">✏️ Đổi tên</button><button onclick="deleteItem()" class="${MI} text-red-600">🗑 Xóa tài liệu + PDF</button><button onclick="location.href='index.html'" class="${MI}">📤 Tải PDF mới</button>`
-    : `<button onclick="renameItem()" class="${MI}">✏️ Đổi tên phiên</button><button onclick="deleteItem()" class="${MI} text-red-600">🗑 Xóa phiên</button>`;
+  m.innerHTML=`<button onclick="renameItem()" class="${MI}">✏️ Đổi tên</button><button onclick="deleteItem()" class="${MI} text-red-600">🗑 Xóa tài liệu + PDF</button><button onclick="location.href='index.html'" class="${MI}">📤 Tải PDF mới</button>`;
   m.classList.remove('hidden'); m.style.left=Math.min(r.left,window.innerWidth-210)+'px'; m.style.top=(r.bottom+4)+'px'; }
 function closeMenu(){ const m=document.getElementById('docMenu'); if(m) m.classList.add('hidden'); menu=null; }
 document.addEventListener('click',e=>{ const m=document.getElementById('docMenu'); if(m&&menu&&!m.classList.contains('hidden')&&!m.contains(e.target)) closeMenu(); });
 async function renameItem(){ const t=menu; closeMenu(); if(!t) return;
-  if(t.kind==='doc'){ const d=RECENTS.find(x=>x.doc_id===t.id); const n=prompt('Tên mới:',d?(d.display_name||d.name):''); if(!n||!n.trim()) return;
-    const r=await LIB.patch('/doc/'+t.id,{display_name:n.trim().slice(0,120)}); if(!r.ok){ libDown(); return; }
-    await loadRecents(); if(t.id===API.docId) document.getElementById('docTitle').textContent=n.trim(); }
-  else { const x=SESS.find(v=>v.id===t.id); const n=prompt('Tên phiên:',x?x.title:''); if(!n||!n.trim()) return;
-    const r=await LIB.patch('/session/'+t.id,{title:n.trim().slice(0,120)}); if(!r.ok){ libDown(); return; } await loadSessions(); } }
+  const d=RECENTS.find(x=>x.doc_id===t.id); const n=prompt('Tên mới:',d?(d.display_name||d.name):''); if(!n||!n.trim()) return;
+  const r=await LIB.patch('/doc/'+t.id,{display_name:n.trim().slice(0,120)}); if(!r.ok){ libDown(); return; }
+  await loadRecents(); if(t.id===API.docId) document.getElementById('docTitle').textContent=n.trim(); }
 async function deleteItem(){ const t=menu; closeMenu(); if(!t) return;
-  if(t.kind==='session'){ if(!confirm('Xóa phiên chat này?')) return;
-    const r=await LIB.del('/session/'+t.id); if(!r.ok){ libDown(); return; }
-    const was=t.id===API.sess; await loadSessions(); if(was) newSession(true); toast('Đã xóa phiên'); return; }
-  if(!confirm('Xóa tài liệu này khỏi thư viện, kèm các phiên chat, công thức và bản DOCX?')) return;
+  if(!confirm('Xóa tài liệu này khỏi thư viện, kèm công thức và các bản DOCX?')) return;
   const r=await LIB.del('/doc/'+t.id); if(!r.ok){ libDown(); return; }
   toast(r.data&&r.data.pdf==='deleted'?'Đã xóa tài liệu và PDF':'Đã xóa khỏi thư viện — PDF trên server chưa xóa được (BE chưa hỗ trợ)');
   await loadRecents(); if(t.id===API.docId) setTimeout(()=>location.href='index.html',900); }
 function syncDlTop(){}
 // document.getElementById('btnDocx').onclick=downloadDocx;
-/* phiên chat: lưu trên server theo tài liệu; đổi tài liệu/reload vẫn nạp lại */
-async function loadSessions(){ if(!API.docId){ SESS=[]; renderSessions(); return; }
-  const r=await LIB.get('/doc/'+API.docId+'/sessions'); SESS=r.ok?r.data:[]; renderSessions(); }
-function renderSessions(){ const box=document.getElementById('sessionList'); if(!box) return;
-  box.innerHTML=SESS.length?SESS.map((s,i)=>{ const on=s.id===API.sess; return `<div class="flex items-center gap-0.5 rounded-lg ${on?'bg-stone-900 text-white':'hover:bg-stone-100'}">
-    <button onclick="loadSession('${s.id}')" class="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-[13px] ${on?'font-bold':'text-stone-600'}"><span class="font-mono text-[11px] ${on?'text-stone-300':'text-stone-400'}">${String(i+1).padStart(2,'0')}</span><span class="truncate">${escH(s.title)}</span></button>
-    <button onclick="event.stopPropagation();toggleMenu('session','${s.id}',this)" class="shrink-0 rounded-md px-1.5 py-1 ${on?'text-stone-300 hover:text-white':'text-stone-400 hover:text-stone-700'}" title="Tùy chọn"><i class="ph-bold ph-dots-three"></i></button>
-  </div>`; }).join(''):'<p class="px-2 text-xs text-stone-400">Chưa có phiên — hỏi câu đầu tiên để lưu lại.</p>'; }
-function renderMessage(m){
-  if(m.role==='user'){ bubble('user',escH(m.content)); return; }
-  const meta=[m.model,m.elapsed_s!=null?m.elapsed_s+'s':null,(m.citations&&m.citations.length)?'trang '+m.citations.join(', '):null].filter(Boolean).join(' · ');
-  bubble('bot',fmtAnswer(m.content)+(meta?`<p class="mt-2 font-mono text-[10px] text-stone-400">${escH(meta)}</p>`:'')); }
-async function loadSession(id){ const r=await LIB.get('/session/'+id+'/messages'); if(!r.ok){ libDown(); return; }
-  API.sess=id; API.busy=false; API.history=r.data.slice(-6).map(m=>({role:m.role,content:m.content}));
-  chatScroll.innerHTML=''; r.data.forEach(renderMessage); if(!r.data.length) seed();
-  renderSessions(); chatScroll.scrollTop=chatScroll.scrollHeight; }
-function newSession(quiet){ API.sess=null; API.history=[]; API.busy=false; chatScroll.innerHTML=''; chatInput.value=''; chatInput.style.height='auto';
-  const b=document.getElementById('sendBtn'); if(b) b.disabled=false; seed(); renderSessions(); if(!quiet) toast('Phiên mới — hỏi câu đầu tiên để lưu lại'); }
-function resetChat(){ newSession(); }
-window.resetChat=resetChat;
-async function saveTurn(q,raw,ev){ if(!API.docId) return;
-  if(!API.sess){ const c=await LIB.post('/doc/'+API.docId+'/sessions',{title:q.slice(0,30)}); if(!c.ok){ libDown(); return; } API.sess=c.data.id; }
-  const r=await LIB.post('/session/'+API.sess+'/messages',{messages:[{role:'user',content:q.slice(0,20000)},
-    {role:'assistant',content:raw.slice(0,20000),citations:ev.citations||[],model:curModel(),elapsed_s:ev.elapsed_s}]});
-  if(!r.ok) libDown(); await loadSessions(); }
 /* đồng bộ sang thư viện: bản chụp DOCX (trùng hash thì bỏ qua) + nạp công thức khi MinerU xong */
 const synced=new Set();
 function libSync(j, docId){ const id=docId||API.docId; if(!id) return;
@@ -396,8 +285,7 @@ async function downloadVersion(vid,ver){ toast('Đang tải DOCX v'+ver+'…'); 
 /* ================================================================
    API THẬT: FastAPI (backend, cổng 8000) + Ollama local qwen3.
    Upload -> nhận doc_id -> pane PDF hiện FILE GỐC qua /api/file,
-   chat gọi /api/chat, trích dẫn [N] bấm để nhảy trang PDF gốc.
-   Server tắt thì tự rơi về chat mock demo.
+   DOCX xong thì tự tải.
    ================================================================ */
 /* ===== helpers dùng chung cho multi-file (tab + DOCX) ===== */
 const $=id=>document.getElementById(id);
@@ -408,14 +296,10 @@ function dispName(id){ const d=(typeof RECENTS!=='undefined'?RECENTS:[]).find(x=
 function docxFile(id){ const n=dispName(id); return String(n).replace(/\.pdf$/i,'')+'.docx'; }
 function savePage(id,page){ if(!id) return; RESUME[id]=page; try{ localStorage.setItem('matchpdf_pages',JSON.stringify(RESUME)); }catch(e){} }
 const API={base:(window.MATCHPDF_API_BASE||'http://127.0.0.1:8000').replace(/\/$/,''),docId:null,fileUrl:null,online:false,ready:false,sess:null,history:[]}; // history: các lượt hỏi-đáp gửi kèm để model nhớ ngữ cảnh
-function curModel(){ const s=document.getElementById('modelSel'); return s?s.value:'qwen3:8b'; }
-const warmed=new Set();
-function warmOnce(){ const m=curModel(); if(warmed.has(m)) return; warmed.add(m); warmModel(); }
-function warmModel(){ try{ fetch(API.base+'/api/warm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:curModel()})}).catch(()=>{}); }catch(e){} }
-document.addEventListener('change',e=>{ if(e.target&&e.target.id==='modelSel'&&API.docId){ toast('Đang nạp model '+curModel()+'…'); warmModel(); } });
 async function apiHealth(){
   try{ const r=await fetch(API.base+'/api/health'); const j=await r.json();
-    API.online=!!j.ok; setBadge(API.online, j.ok?('AI thật · '+(j.llm||'qwen3')):'Server lỗi');
+    API.online=!!j.ok;
+    setBadge(API.online, j.ok?('MinerU · '+(j.mineru?j.mineru.device:'sẵn sàng')):'Server lỗi');
   }catch(e){ API.online=false; setBadge(false,'Chế độ demo'); }
 }
 function setBadge(online,txt){
@@ -473,22 +357,28 @@ let docxUrl=null, docxName='document.docx';
 // function showParser(j){
 //   const wasReady=API.ready; API.ready=j.status==='ready'; if(API.ready&&!wasReady) warmOnce();
 //   const meta=document.getElementById('docMeta');
-//   if(j.status==='indexing') meta.textContent=j.num_pages+' trang · ⏳ AI đang đọc nội dung ở nền — PDF đọc được ngay, chat sau ít phút';
+//   if(j.status==='indexing') meta.textContent=j.num_pages+' trang · ⏳ đang xử lý ở nền — PDF đọc được ngay, DOCX tự tải khi xong';
 //   else if(j.status==='failed') meta.textContent='❌ '+(j.error||'Không đọc được nội dung PDF');
-//   else meta.textContent=j.num_pages+' trang · '+j.num_chunks+' chunks · '+(PARSER[j.parser]||j.parser||'')+(j.embed==='building'?' · 🔎 đang lập chỉ mục ngữ nghĩa (chat vẫn dùng được)':j.embed==='failed'?' · chỉ tìm theo từ khóa (embedding lỗi)':'');
+//   else meta.textContent=j.num_pages+' trang · '+j.num_chunks+' chunks · '+(PARSER[j.parser]||j.parser||'')+(j.embed==='building'?' · 🔎 đang lập chỉ mục':j.embed==='failed'?' · chỉ tìm theo từ khóa (embedding lỗi)':'');
 //   if(API.ready&&!wasReady&&API.docId&&j.status==='ready'&&API.sawIndexing){ toast('AI đã đọc xong — chat được rồi'); bubble('bot','✅ Mình đọc xong nội dung rồi, bạn hỏi được rồi nhé.'); }
 //   if(j.status==='indexing') API.sawIndexing=true;
 //   updateDocxBtn(j); libSync(j);
 //   clearTimeout(parserPoll);
 //   const pending=j.status==='indexing'||j.embed==='building'||j.parser==='mineru_running'||j.docx==='building';
 //   if(API.docId&&pending) parserPoll=setTimeout(async()=>{ try{ const r=await fetch(API.base+'/api/doc/'+API.docId); const n=await r.json();
-//     if(n.parser==='mineru'&&j.parser!=='mineru') toast('MinerU xong: chat giờ đọc được công thức chuẩn'); showParser(n); }catch(e){ showParser(j); } },j.status==='indexing'?2000:5000);
+//     if(n.parser==='mineru'&&j.parser!=='mineru') toast('MinerU xong: công thức đã chuẩn'); showParser(n); }catch(e){ showParser(j); } },j.status==='indexing'?2000:5000);
 // }
+/* DOCX xong thì tự tải (Word mở file vừa tải). Chỉ tự tải khi thấy building->ready hoặc file vừa upload (index.html đánh dấu); mở lại tài liệu cũ không tải lại. */
+const AUTO=new Set(); try{ JSON.parse(sessionStorage.getItem('matchpdf_autodocx')||'[]').forEach(x=>AUTO.add(x)); }catch(e){}
+function autoDone(id){ AUTO.delete(id); try{ sessionStorage.setItem('matchpdf_autodocx',JSON.stringify([...AUTO])); }catch(e){} }
+let autoQ=Promise.resolve(); // tải lần lượt, tránh trình duyệt chặn nhiều download cùng lúc
 function noteDocx(id,j){
   const prev=DOCX[id];
   DOCX[id]=(j&&j.docx==='ready'&&j.docx_url)?{status:'ready',url:j.docx_url}:{status:(j&&j.docx==='failed')?'failed':'building'};
-  if(TABS.length>1&&prev&&prev.status!=='ready'&&DOCX[id].status==='ready') toast('DOCX xong: '+dispName(id));
   refreshDocxUI();
+  if(DOCX[id].status==='ready'&&((prev&&prev.status!=='ready')||AUTO.has(id))){
+    autoDone(id); autoQ=autoQ.then(async()=>{ toast('DOCX xong: '+dispName(id)+' — đang tải…'); await downloadDocxId(id,true); await new Promise(r=>setTimeout(r,800)); });
+  }
 }
 function refreshDocxUI(){
   const b=$('btnDocx'), lbl=$('docxLbl'); if(!b) return;
@@ -499,7 +389,7 @@ function refreshDocxUI(){
   b.classList.toggle('opacity-40',!on); b.classList.toggle('pointer-events-none',!on&&!multi);
   lbl.textContent=multi?'Tải DOCX ('+ready+'/'+ids.length+')':'Tải DOCX';
   b.title=multi?'Danh sách DOCX để tải':on?'Tải file DOCX (công thức Equation)':(failed?'Tạo DOCX thất bại':'Đang xử lý DOCX…');
-  if(on&&!b.dataset.ready){ b.dataset.ready='1'; b.classList.add('glow-once'); b.addEventListener('animationend',()=>b.classList.remove('glow-once'),{once:true}); if(!multi) toast('DOCX xong — bấm Tải DOCX để tải về'); }
+  if(on&&!b.dataset.ready){ b.dataset.ready='1'; b.classList.add('glow-once'); b.addEventListener('animationend',()=>b.classList.remove('glow-once'),{once:true}); }
   if(!on) delete b.dataset.ready;
   renderDocxPanel();
 }
@@ -575,78 +465,23 @@ async function prepTabs(){ // đăng ký toàn bộ file trong nhóm + theo dõi
 function showParser(j,id){
   id=id||API.docId; INFO[id]=j;
   if(id===API.docId){
-    const wasReady=API.ready; API.ready=j.status==='ready'; if(API.ready&&!wasReady) warmOnce();
+    API.ready=j.status==='ready';
     const meta=document.getElementById('docMeta');
-    if(j.status==='indexing') meta.textContent=j.num_pages+' trang · ⏳ AI đang đọc nội dung ở nền — PDF đọc được ngay, chat sau ít phút';
+    if(j.status==='indexing') meta.textContent=j.num_pages+' trang · ⏳ đang xử lý ở nền — PDF đọc được ngay, DOCX tự tải khi xong';
     else if(j.status==='failed') meta.textContent='❌ '+(j.error||'Không đọc được nội dung PDF');
-    else meta.textContent=j.num_pages+' trang · '+j.num_chunks+' chunks · '+(PARSER[j.parser]||j.parser||'')+(j.embed==='building'?' · 🔎 đang lập chỉ mục ngữ nghĩa (chat vẫn dùng được)':j.embed==='failed'?' · chỉ tìm theo từ khóa (embedding lỗi)':'');
-    if(API.ready&&!wasReady&&j.status==='ready'&&API.sawIndexing){ toast('AI đã đọc xong — chat được rồi'); bubble('bot','✅ Mình đọc xong nội dung rồi, bạn hỏi được rồi nhé.'); }
-    if(j.status==='indexing') API.sawIndexing=true;
+    else meta.textContent=j.num_pages+' trang · '+j.num_chunks+' chunks · '+(PARSER[j.parser]||j.parser||'')+(j.embed==='building'?' · 🔎 đang lập chỉ mục':j.embed==='failed'?' · chỉ tìm theo từ khóa (embedding lỗi)':'');
   }
   noteDocx(id,j); libSync(j,id);
   clearTimeout(pollers[id]);
   const pending=j.status==='indexing'||j.embed==='building'||j.parser==='mineru_running'||j.docx==='building';
   if(pending) pollers[id]=setTimeout(async()=>{ try{ const r=await fetch(API.base+'/api/doc/'+id); const n=await r.json();
-    if(id===API.docId&&n.parser==='mineru'&&j.parser!=='mineru') toast('MinerU xong: chat giờ đọc được công thức chuẩn'); showParser(n,id); }catch(e){ showParser(j,id); } },j.status==='indexing'?2000:5000);
-}
-/* câu trả lời: công thức $..$ / $$..$$ vẽ bằng KaTeX, [n] thành nút nhảy trang */
-function fmtAnswer(raw){
-  const esc=t=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\[(\d{1,3})\]/g,'<button class="cite" onclick="gotoPage($1)" title="Nhảy tới trang $1">[$1]</button>').replace(/\n/g,'<br>');
-  if(!window.katex) return esc(raw);
-  let out='',last=0;
-  for(const m of raw.matchAll(/\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|\$([^$\n]+?)\$/g)){
-    out+=esc(raw.slice(last,m.index)); last=m.index+m[0].length;
-    const disp=m[1]!=null||m[2]!=null;
-    const tex=(m[1]??m[2]??m[3]??m[4]).replace(/\\tag\{([^}]*)\}/g,'\\qquad ($1)'); // \tag canh lề tuyệt đối, đè chữ trong khung hẹp
-    out+=katex.renderToString(tex,{displayMode:disp,throwOnError:false});
-  }
-  return out+esc(raw.slice(last));
-}
-async function sendReal(q){
-  API.busy=true; document.getElementById('sendBtn').disabled=true;
-  try{ await streamAnswer(q); } finally { API.busy=false; document.getElementById('sendBtn').disabled=false; }
-}
-async function streamAnswer(q){
-  bubble('user',q.replace(/</g,'&lt;'));
-  const w=document.createElement('div'); w.className='msg-in flex gap-2.5';
-  w.innerHTML=`<span class="grid h-7 w-7 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-500 to-amber-500 text-white text-sm"><i class="ph-duotone ph-sparkle"></i></span>
-    <div class="max-w-[88%] min-w-[120px] rounded-2xl rounded-bl-md border border-stone-200 bg-stone-50 px-3.5 py-2.5 text-[13.5px] leading-relaxed text-stone-800"><span class="st-text"></span><span class="typing inline-flex items-center gap-1 ml-1" style="vertical-align:2px"><span></span><span></span><span></span></span></div>`;
-  chatScroll.appendChild(w); chatScroll.scrollTop=chatScroll.scrollHeight;
-  const box=w.querySelector('.st-text'), spin=w.querySelector('.typing');
-  let raw='';
-  const paint=()=>{ box.innerHTML=raw.replace(/</g,'&lt;').replace(/\n/g,'<br>'); chatScroll.scrollTop=chatScroll.scrollHeight; };
-  try{
-    // trí nhớ + công thức liên quan từ thư viện; thư viện tắt thì dùng lịch sử trong trang
-    let hist=API.history.slice(-6);
-    const cx=await LIB.get('/doc/'+API.docId+'/context?q='+encodeURIComponent(q.slice(0,300))+(API.sess?'&session_id='+API.sess:''));
-    if(cx.ok){ hist=cx.data.recent.map(m=>({role:m.role,content:m.content}));
-      if(cx.data.formulas.length){ const note='[Công thức liên quan trong tài liệu — chỉ để tham khảo]\n'+cx.data.formulas.map(f=>`- trang ${f.page||'?'}${f.section?' ('+f.section+')':''}: $$${f.latex}$$ — ${(f.ctx_before||'').slice(-120)}`).join('\n');
-        hist=[{role:'user',content:note.slice(0,2900)},...hist.slice(-4)]; } }
-    const r=await fetch(API.base+'/api/chat_stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({doc_id:API.docId,question:q,top_k:5,model:curModel(),history:hist})});
-    if(!r.ok||!r.body) throw new Error(await r.text());
-    const reader=r.body.getReader(), dec=new TextDecoder(); let buf='';
-    for(;;){ const {done,value}=await reader.read(); if(done) break;
-      buf+=dec.decode(value,{stream:true});
-      const parts=buf.split('\n\n'); buf=parts.pop();
-      for(const p of parts){ const line=p.trim(); if(!line.startsWith('data:')) continue;
-        let ev; try{ ev=JSON.parse(line.slice(5)); }catch(e){ continue; }
-        if(ev.t){ raw+=ev.t; paint(); }
-        else if(ev.done){ spin.remove(); API.history.push({role:'user',content:q},{role:'assistant',content:raw});
-          box.innerHTML=fmtAnswer(raw)
-            +`<p class="mt-2 font-mono text-[10px] text-stone-400">${curModel()} · ${ev.elapsed_s}s · trang ${ev.citations.join(', ')}</p>`;
-          chatScroll.scrollTop=chatScroll.scrollHeight; saveTurn(q,raw,ev); return;
-        }
-        else if(ev.error){ throw new Error(ev.error); }
-      }
-    }
-    spin.remove();
-  }catch(err){ w.remove(); bubble('bot','Model local bận/lỗi — thử lại sau nhé.'); toast('API lỗi'); }
+    if(id===API.docId&&n.parser==='mineru'&&j.parser!=='mineru') toast('MinerU xong: công thức đã chuẩn'); showParser(n,id); }catch(e){ showParser(j,id); } },j.status==='indexing'?2000:5000);
 }
 
 /* mở tài liệu tại chỗ (không tải lại trang): bấm PDF khác là đổi ngay, không dồn tin */
 let openToken=0, opening=null, recentsP=Promise.resolve();
 async function fetchInfo(id){ const r=await fetch(API.base+'/api/doc/'+id); if(!r.ok) throw new Error('doc '+r.status); return r.json(); }
-/* Mở tài liệu: PDF + chat hiện NGAY từ thư viện (cùng BE); trạng thái chỉ mục của BE nạp nền (BE có thể chậm sau restart).
+/* Mở tài liệu: PDF hiện NGAY từ thư viện (cùng BE); trạng thái chỉ mục của BE nạp nền (BE có thể chậm sau restart).
    openToken/opening chống bấm nhiều lần tạo lời chào lặp và ghi đè nhau. */
 // async function openDoc(id, pre){
 //   if(!id||(id===API.docId&&API.fileUrl)||opening===id) return;
@@ -676,7 +511,7 @@ async function fetchInfo(id){ const r=await fetch(API.base+'/api/doc/'+id); if(!
 //     if(j) showParser(j);
 //     else{ meta.textContent=pages+' trang · ⏳ đang nạp chỉ mục từ server — PDF đọc được ngay';
 //       fetchInfo(id).then(n=>{ if(API.docId===id) showParser(n); })
-//         .catch(()=>{ if(API.docId===id) meta.textContent='❌ Chưa lấy được trạng thái từ server (BE tắt hoặc đã mất dữ liệu tài liệu) — PDF vẫn đọc được, chat chưa dùng được'; }); }
+//         .catch(()=>{ if(API.docId===id) meta.textContent='❌ Chưa lấy được trạng thái từ server (BE tắt hoặc đã mất dữ liệu tài liệu) — PDF vẫn đọc được'; }); }
 //     chatScroll.innerHTML='';
 //     await loadRecents(); if(stale()) return;
 //     await loadSessions(); if(stale()) return;
@@ -717,52 +552,27 @@ async function openDoc(id, pre){
     if(j) showParser(j,id);
     else{ meta.textContent=pages+' trang · ⏳ đang nạp chỉ mục từ server — PDF đọc được ngay';
       fetchInfo(id).then(n=>{ showParser(n,id); })
-        .catch(()=>{ if(API.docId===id) meta.textContent='❌ Chưa lấy được trạng thái từ server (BE tắt hoặc đã mất dữ liệu tài liệu) — PDF vẫn đọc được, chat chưa dùng được'; }); }
-    chatScroll.innerHTML='';
+        .catch(()=>{ if(API.docId===id) meta.textContent='❌ Chưa lấy được trạng thái từ server (BE tắt hoặc đã mất dữ liệu tài liệu) — PDF vẫn đọc được'; }); }
     await loadRecents(); if(stale()) return;
-    await loadSessions(); if(stale()) return;
-    if(SESS.length){ await loadSession(SESS[0].id); if(stale()) return; }
-    else{ const nm=escH(document.getElementById('docTitle').textContent);
-      bubble('bot',(j&&j.status==='ready')
-        ? `Đã mở <b>“${nm}”</b> (${pages} trang) 📄<br>Bên đọc là <b>PDF gốc</b>. Cứ hỏi, mình trả lời bằng <b>model local</b> kèm số trang để bấm vào kiểm chứng. Tin đầu chờ ~1 phút (model load), tin sau nhanh dần nhé.`
-        : `Đã mở <b>“${nm}”</b> (${pages} trang) 📄<br>Bạn đọc PDF được ngay. Mình đang <b>nạp nội dung ở nền</b> (tài liệu dài hoặc PDF scan thì lâu hơn) — xong mình báo, lúc đó hỏi được.`); }
   }catch(e){ if(!stale()){ document.getElementById('docTitle').textContent='Không mở được tài liệu'; document.getElementById('docMeta').textContent='Tài liệu không còn trên server — về Thư viện tải lại nhé'; toast('Không mở được tài liệu — thử lại nhé'); } }
   finally{ if(opening===id) opening=null; }
 }
 // async function initFromQuery(){
 //   const id=new URLSearchParams(location.search).get('doc_id');
-//   apiHealth(); // không chờ: health của BE có thể chậm khi Ollama bận, còn PDF/chat mở từ thư viện ngay
+//   apiHealth(); // không chờ: health của BE có thể chậm khi Ollama bận, còn PDF mở từ thư viện ngay
 //   if(!id||API.docId) return;
 //   openDoc(id);
 // }
 async function initFromQuery(){
   const ids=[...new Set(new URLSearchParams(location.search).getAll('doc_id'))].filter(x=>/^[A-Za-z0-9_-]{1,64}$/.test(x)).slice(0,10);
-  apiHealth(); // không chờ: health của BE có thể chậm khi Ollama bận, còn PDF/chat mở từ thư viện ngay
+  apiHealth(); // không chờ: health của BE có thể chậm khi Ollama bận, còn PDF mở từ thư viện ngay
   if(!ids.length||API.docId) return;
   TABS=ids; if(ids.length>1){ setMultiMode(); prepTabs(); }
   openDoc(ids[0]);
 }
 recentsP=loadRecents(); // sau khi const API đã khai báo
 initFromQuery(); setInterval(apiHealth,15000);
-function seed(){
-  bubble('bot',`Mình đã đọc xong <b>“${document.getElementById('docTitle').textContent}”</b> 📄<br>Hỏi mình bất cứ gì về tài liệu này, ví dụ: <i>“Tóm tắt trong 5 ý”</i> hoặc <i>“Bảng 2.1 nói gì?”</i> — mình trả lời kèm số trang ${cite(2)} để bạn bấm vào kiểm chứng.`);
-}
-if(!chatScroll.innerHTML.trim()) seed();
 
-/* mobile tabs */
-const pdfPane=document.getElementById('pdfPane'), chatPane=document.getElementById('chatPane');
-function showTab(which){
-  const mobile=window.innerWidth<1024;
-  document.getElementById('tabPdf').className='flex-1 rounded-lg py-2 text-[13px] font-bold '+(which==='pdf'||!mobile?'bg-stone-900 text-white':'text-stone-500');
-  document.getElementById('tabChat').className='flex-1 rounded-lg py-2 text-[13px] font-bold '+(which==='chat'?'bg-stone-900 text-white':'text-stone-500');
-  if(!mobile){pdfPane.classList.remove('hidden');chatPane.classList.remove('hidden');chatPane.classList.add('flex');return;}
-  pdfPane.classList.toggle('hidden',which!=='pdf'); chatPane.classList.toggle('hidden',which!=='chat'); chatPane.classList.toggle('flex',which==='chat');
-}
-window.showTab=showTab;
-document.getElementById('tabPdf').onclick=()=>showTab('pdf');
-document.getElementById('tabChat').onclick=()=>showTab('chat');
-window.addEventListener('resize',()=>showTab(document.getElementById('tabChat').classList.contains('bg-stone-900')?'chat':'pdf'));
-showTab('pdf');
 
 var toastT;
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.remove('opacity-0','translate-y-4'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.add('opacity-0','translate-y-4'),2400); }

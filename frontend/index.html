@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>MatchPDF — Tài liệu của tôi</title>
-<meta name="description" content="MatchPDF: quản lý tài liệu, upload nhanh, chat với PDF kèm trích dẫn số trang." />
+<meta name="description" content="MatchPDF: quản lý tài liệu, upload nhanh, chuyển PDF sang DOCX (công thức Equation)." />
 <script src="config.js"></script>
 <script src="lib.js"></script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23EA580C'/><text x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>P</text></svg>" />
@@ -134,13 +134,13 @@ tailwind.config = {
   <div class="p-6">
     <div class="flex items-center gap-3">
       <span class="grid h-10 w-10 place-items-center rounded-2xl bg-brand-50 text-brand-600 text-xl"><i class="ph-duotone ph-upload-simple"></i></span>
-      <div><h3 class="font-extrabold text-lg tracking-tight">Tải tài liệu lên</h3><p class="text-xs text-stone-500">File được gửi tới server local của bạn; mở đọc ngay, AI đọc nội dung ở nền.</p></div>
+      <div><h3 class="font-extrabold text-lg tracking-tight">Tải tài liệu lên</h3><p class="text-xs text-stone-500">File được gửi tới server local của bạn; mở đọc ngay, DOCX tự tải khi xử lý xong.</p></div>
       <button onclick="document.getElementById('uploadDlg').close()" class="ml-auto grid h-9 w-9 place-items-center rounded-full hover:bg-stone-100"><i class="ph-bold ph-x"></i></button>
     </div>
     <label id="dropzone" class="mt-4 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-stone-300 bg-stone-50 px-6 py-10 text-center transition hover:border-brand-500 hover:bg-brand-50/50">
       <i class="ph-duotone ph-cloud-arrow-up text-4xl text-stone-400"></i>
       <p class="mt-2 text-sm font-bold">Kéo thả PDF vào đây hoặc <span class="text-brand-600 underline">chọn file</span></p>
-      <p class="text-xs text-stone-500">PDF · tối đa 50MB · mỗi file mở chat riêng</p>
+      <p class="text-xs text-stone-500">PDF · tối đa 50MB · xử lý xong DOCX tự tải về</p>
       <input id="fileInput" type="file" accept="application/pdf" class="hidden" multiple />
     </label>
     <div id="uploadList" class="mt-3 space-y-2"></div>
@@ -178,7 +178,7 @@ function render(){
           <button onclick="event.stopPropagation();cardMenu('${d.id}',this)" class="shrink-0 rounded-md px-1.5 py-0.5 text-stone-400 hover:bg-stone-100 hover:text-stone-700" title="Tùy chọn"><i class="ph-bold ph-dots-three"></i></button></div>
         <div class="mt-3">
           <a href="reader.html?doc_id=${d.id}" class="flex items-center justify-center gap-1.5 rounded-xl bg-stone-900 px-3 py-2 text-[13px] font-bold text-white transition hover:bg-brand-600 active:translate-y-[1px]">
-            <i class="ph-duotone ph-chats-circle"></i> Chat ngay
+            <i class="ph-duotone ph-file-doc"></i> Mở
           </a>
         </div>
       </div>
@@ -187,7 +187,7 @@ function render(){
       <div class="min-w-0 flex-1">
         <h3 class="truncate font-bold text-sm">${esc(d.title)}</h3>
       </div>
-      <a href="reader.html?doc_id=${d.id}" class="shrink-0 rounded-xl bg-stone-900 px-4 py-2 text-[13px] font-bold text-white hover:bg-brand-600 transition">Chat ngay</a>
+      <a href="reader.html?doc_id=${d.id}" class="shrink-0 rounded-xl bg-stone-900 px-4 py-2 text-[13px] font-bold text-white hover:bg-brand-600 transition">Mở</a>
       <button onclick="event.stopPropagation();cardMenu('${d.id}',this)" class="shrink-0 rounded-md px-1.5 py-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700" title="Tùy chọn"><i class="ph-bold ph-dots-three"></i></button>
     </article>`).join('');
 }
@@ -339,6 +339,7 @@ async function openStaged(){
   uploading=false; renderStaged();
   if(staged.some(s=>s.status!=='done')){ toast('Có file tải lỗi — bỏ file lỗi (✕) hoặc bấm Mở tài liệu để thử lại'); return; }
   const ids=[...new Set(staged.map(s=>s.docId))];
+  try{ sessionStorage.setItem('matchpdf_autodocx',JSON.stringify(ids)); }catch(e){} // reader tự tải DOCX khi xong
   location.replace('reader.html?'+ids.map(id=>'doc_id='+encodeURIComponent(id)).join('&')); // replace: nút lui về thư viện sạch
 }
 /* ---- thư viện lưu trên server (SQLite, cùng cổng 8000) ---- */
@@ -367,7 +368,7 @@ async function renameDoc(){ const id=menuId; document.getElementById('cardMenu')
   const d=DOCS.find(x=>x.id===id); if(!d) return; const n=prompt('Tên mới:',d.title); if(!n||!n.trim()) return;
   const r=await LIB.patch('/doc/'+id,{display_name:n.trim().slice(0,120)}); if(!r.ok){ toast('Không đổi được tên (thư viện chưa kết nối)'); return; } loadDocs(); }
 async function deleteDoc(){ const id=menuId; document.getElementById('cardMenu').classList.add('hidden'); menuId=null;
-  const d=DOCS.find(x=>x.id===id); if(!d||!confirm('Xóa “'+d.title+'” khỏi thư viện, kèm phiên chat, công thức và các bản DOCX?')) return;
+  const d=DOCS.find(x=>x.id===id); if(!d||!confirm('Xóa “'+d.title+'” khỏi thư viện, kèm công thức và các bản DOCX?')) return;
   const r=await LIB.del('/doc/'+id); if(!r.ok){ toast('Không xóa được (thư viện chưa kết nối)'); return; }
   toast(r.data&&r.data.pdf==='deleted'?'Đã xóa tài liệu và PDF':'Đã xóa khỏi thư viện — PDF trên server chưa xóa được (BE chưa hỗ trợ)'); loadDocs(); }
 let toastT; function toast(msg){ let t=document.getElementById('toast'); if(!t){ t=document.createElement('div'); t.id='toast'; t.className='fixed bottom-6 left-1/2 z-[95] -translate-x-1/2 rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white shadow-2xl transition-opacity'; document.body.appendChild(t); }

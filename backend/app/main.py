@@ -174,6 +174,20 @@ async def lifespan(_: FastAPI):
             get_llm()
         except LLMError as e:
             logger.warning("Preload LLM thất bại: %s", e)
+    # Nạp sẵn E5 ở thread nền: chat/index đầu tiên khỏi chờ 10-30s.
+    # Daemon + try/except nên không bao giờ chặn khởi động.
+    def _warm_embed() -> None:
+        try:
+            from llm.src.config import EMBED_MODEL
+            from llm.src.llama_rag import get_embed_model
+            get_embed_model(EMBED_MODEL)
+            logger.info("Preload embed xong: %s", EMBED_MODEL)
+        except Exception as e:                            # noqa: BLE001
+            logger.warning("Preload embed thất bại: %s", e)
+
+    import threading as _threading
+    _threading.Thread(target=_warm_embed, daemon=True,
+                      name="warm-embed").start()
     yield
     pipeline_model.shutdown()
  
