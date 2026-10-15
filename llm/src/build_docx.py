@@ -9,9 +9,11 @@ from pathlib import Path
 
 try:
     from .config import PANDOC_FROM
+    from . import columns as _columns
     from . import layout as _layout
 except ImportError:
     from config import PANDOC_FROM
+    import columns as _columns
     import layout as _layout
 
 
@@ -756,16 +758,32 @@ def swap_garbled_tables_for_images(markdown_text: str, md_path: Path) -> str:
     return markdown_text
 
 
+def _find_input_pdf(md_path: Path) -> Path:
+    """input.pdf nằm ở thư mục tài liệu; tuỳ MinerU xuất phẳng hay lồng (auto/txt/...) mà cách md_path vài cấp."""
+    for d in list(md_path.parents)[:4]:
+        if (d / "input.pdf").exists():
+            return d / "input.pdf"
+    return md_path.parent.parent / "input.pdf"
+
+
 def prepare_work_md(markdown_text: str, md_path: Path, work_md: Path) -> Path:
     try:   # bố cục từ tọa độ MinerU + PDF: cột, khổ giấy, lề, cỡ chữ (chèn marker khi còn là markdown gốc để dò neo chính xác)
         items = _content_items(md_path)
-        pdf = md_path.parent.parent / "input.pdf"
+        pdf = _find_input_pdf(md_path)
         lay = _layout.analyze_layout(items, str(pdf) if pdf.exists() else None) if items else None
         if lay:
             work_md.with_name("layout.json").write_text(json.dumps(lay, ensure_ascii=False), encoding="utf-8")
-            if lay["multi_col"]:
-                markdown_text = _layout.insert_layout_markers(markdown_text, items, lay, column_breaks=False)
-                print(f"[DOCX] bố cục nhiều cột: {[len(p['cols']) for p in lay['pages'].values()]} cột/trang")
+        cols_json = work_md.with_name("columns.json")
+        cols_json.unlink(missing_ok=True)
+        # Ưu tiên: PDF nhiều cột (tờ rơi, cheat-sheet 2-4 cột) -> dò rãnh trắng + OCR từng cột để chèn NGẮT CỘT đúng chỗ PDF ngắt.
+        # Không dò được ngắt cột (PDF 1 cột / sách dài / thiếu tesseract) -> rơi về bố cục theo toạ độ MinerU bên dưới.
+        cl = _columns.layout_of(pdf) if pdf.exists() else None
+        if cl and cl["cells"]:
+            markdown_text = _columns.insert_column_breaks(_columns.drop_ocr_details(markdown_text), cl)
+            cols_json.write_text(json.dumps({"n_cols": cl["n_cols"], "page_pt": cl["page_pt"]}), encoding="utf-8")
+        elif lay and lay["multi_col"]:
+            markdown_text = _layout.insert_layout_markers(markdown_text, items, lay, column_breaks=False)
+            print(f"[DOCX] bố cục nhiều cột: {[len(p['cols']) for p in lay['pages'].values()]} cột/trang")
     except Exception as e:  # noqa: BLE001 - bố cục chỉ là tinh chỉnh, lỗi thì rơi về văn bản chảy như cũ
         print("[CẢNH BÁO] không dựng được bố cục:", e)
     markdown_text = fix_symbol_pua(markdown_text)
@@ -1141,7 +1159,14 @@ def _md_to_docx_inplace(work_md: Path, docx_path: Path, resource_dir: Path,
     print(f"Đã tạo DOCX: {docx_path} ({docx_path.stat().st_size} bytes)")
     if font_name:
         set_font(docx_path, font_name)
-    if lay:
+    cols_path = work_md.with_name("columns.json")
+    if cols_path.exists():     # PDF nhiều cột có ngắt cột dò bằng OCR (xem prepare_work_md)
+        try:
+            c = json.loads(cols_path.read_text(encoding="utf-8"))
+            _columns.apply_section_columns(docx_path, c["n_cols"], tuple(c["page_pt"]), body_pt=8.0)
+        except Exception as e:  # noqa: BLE001
+            print("[CẢNH BÁO] không áp được cột:", e)
+    elif lay:
         try:
             _layout.apply_layout(docx_path, lay)
         except Exception as e:  # noqa: BLE001
