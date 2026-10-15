@@ -61,3 +61,31 @@ def test_docx_path_never_exists_half_built(tmp_path, monkeypatch):
     out = bd.md_to_docx(work, tmp_path / "o.docx", tmp_path, number_pages=False)
     assert seen == [("o.building.docx", False)] and out.exists()
     assert not (tmp_path / "o.building.docx").exists()
+
+
+def test_garbled_tables_detected_but_good_tables_kept():
+    from llm.src.build_docx import looks_like_garbled_table as g
+    truth_bad = "<table><tr><td>P</td><td>Q</td><td>PQ</td></tr><tr><td></td><td>E</td><td>T F</td></tr><tr><td></td><td></td><td></td></tr></table>"
+    ragged = "<table><tr><td>a</td></tr><tr><td>1</td><td>2</td><td>3</td><td>4</td></tr></table>"
+    ok_small = "<table><tr><td>P</td><td>~P</td></tr><tr><td>T</td><td>F</td></tr></table>"
+    merged = "<table><tr><td colspan=2>x</td></tr><tr><td>a</td><td>b</td></tr></table>"
+    wide_key = "<table><tr>" + "<td>1.A</td>" * 6 + "</tr><tr>" + "<td></td>" * 2 + "<td>x</td>" * 4 + "</tr></table>"
+    assert g(truth_bad) and g(ragged)
+    assert not g(ok_small) and not g(merged) and not g(wide_key)
+
+
+def test_html_table_becomes_pipe_table_with_math_safe_bars():
+    from llm.src.build_docx import html_tables_to_pipe as h
+    out = h("a\n<table><tr><td>$x|y$</td><td>A|B</td><td colspan=2>c &gt; d</td></tr><tr><td>1</td></tr></table>\nb")
+    assert "| $x\\vert y$ | A\\|B | c > d |   |" in out and "|---|---|---|---|" in out and "<table" not in out
+
+
+@pytest.mark.skipif(not shutil.which("pandoc"), reason="cần pandoc")
+def test_html_table_ends_up_as_real_word_table(tmp_path):
+    md = tmp_path / "d.md"
+    text = "Bảng:\n\n<table><tr><td>P</td><td>Q</td></tr><tr><td>T</td><td>F</td></tr></table>\n"
+    md.write_text(text, encoding="utf-8")
+    work = tmp_path / "w.md"
+    prepare_work_md(text, md, work)
+    out = md_to_docx(work, tmp_path / "o.docx", tmp_path, number_pages=False)
+    assert zipfile.ZipFile(out).read("word/document.xml").decode("utf8").count("<w:tbl>") == 1

@@ -1,5 +1,6 @@
 # Cách 2
 """Bước 5-7 notebook: chuẩn hoá ảnh + Markdown -> DOCX Equation thật via Pandoc."""
+import html as _html
 import json
 import os
 import re
@@ -624,8 +625,86 @@ def build_math_image_map(markdown_text: str, md_path: Path) -> dict:
     return {"map": out, "force": force}
 
 
+def looks_like_garbled_table(html: str) -> bool:
+    """Bảng MinerU nhận dạng hỏng (hay gặp ở bảng chân trị/biến thiên nhỏ): hàng lệch số cột (tính cả colspan),
+    hoặc bảng hẹp (<=4 cột) mà >=25% ô trống. Đã đo trên 8 tài liệu: bắt đúng 5 bảng chân trị hỏng + 1 bảng lệch hàng,
+    không đụng bảng đáp án 5-10 cột."""
+    rows = re.findall(r"<tr>(.*?)</tr>", html, re.S)
+    cells = [re.findall(r"<td([^>]*)>(.*?)</td>", r, re.S) for r in rows]
+    if not cells or any(not c for c in cells):
+        return False
+
+    def span(attrs: str) -> int:
+        m = re.search(r"colspan\s*=\s*\"?(\d+)", attrs)
+        return int(m.group(1)) if m else 1
+
+    widths = {sum(span(a) for a, _ in c) for c in cells}
+    total = sum(len(c) for c in cells)
+    empty = sum(1 for c in cells for _, t in c if not t.strip())
+    return len(widths) > 1 or (max(len(c) for c in cells) <= 4 and total >= 4 and empty / total >= 0.25)
+
+
+_HTML_TABLE_RE = re.compile(r"<table[^>]*>.*?</table>", re.S | re.I)
+_MATH_OR_TEXT_RE = re.compile(r"(\$\$.*?\$\$|\$[^$\n]+\$)", re.S)
+
+
+def _pipe_cell(raw: str) -> str:
+    text = re.sub(r"<br\s*/?>", " ", raw, flags=re.I)
+    text = _html.unescape(re.sub(r"<[^>]+>", "", text))
+    text = re.sub(r"\s+", " ", text).strip()
+    parts = _MATH_OR_TEXT_RE.split(text)       # lẻ = công thức: `|` -> \vert (tránh `\|` thành ‖ trong TeX)
+    return "".join(p.replace("|", "\\vert ") if i % 2 else p.replace("|", "\\|") for i, p in enumerate(parts))
+
+
+def html_tables_to_pipe(markdown_text: str) -> str:
+    """MinerU xuất bảng dạng HTML `<table>`; pandoc coi đó là HTML thô và BỎ cấu trúc khi ghi DOCX (đã đo: mọi DOCX
+    có w:tbl = 0, ô rơi thành từng đoạn rời). Đổi sang pipe table để ra bảng Word thật; colspan -> thêm ô trống."""
+    def conv(m) -> str:
+        rows = []
+        for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", m.group(0), re.S | re.I):
+            row = []
+            for attrs, body in re.findall(r"<t[dh]([^>]*)>(.*?)</t[dh]>", tr, re.S | re.I):
+                cs = re.search(r"colspan\s*=\s*[\"']?(\d+)", attrs)
+                row.append(_pipe_cell(body))
+                row += [""] * (int(cs.group(1)) - 1 if cs else 0)
+            if row:
+                rows.append(row)
+        if not rows:
+            return m.group(0)
+        w = max(len(r) for r in rows)
+        rows = [r + [""] * (w - len(r)) for r in rows]
+        line = lambda r: "| " + " | ".join(c or " " for c in r) + " |"
+        return "\n".join([line(rows[0]), "|" + "---|" * w] + [line(r) for r in rows[1:]])
+    return _HTML_TABLE_RE.sub(lambda m: "\n\n" + conv(m) + "\n\n", markdown_text)
+
+
+def swap_garbled_tables_for_images(markdown_text: str, md_path: Path) -> str:
+    """Bảng hỏng -> ảnh gốc của bảng (table.img_path của MinerU) thay vì bảng DOCX sai nội dung."""
+    cands = list(md_path.parent.rglob("*_content_list.json"))
+    if not cands:
+        return markdown_text
+    items = json.loads(max(cands, key=lambda q: q.stat().st_size).read_text(encoding="utf-8"))
+    n = 0
+    for it in items:
+        body, rel = it.get("table_body"), it.get("img_path")
+        if it.get("type") != "table" or not body or not rel or body not in markdown_text:
+            continue
+        img = (md_path.parent / rel).resolve()
+        if img.exists() and looks_like_garbled_table(body):
+            markdown_text = markdown_text.replace(body, f"\n![]({img})\n", 1)
+            n += 1
+    if n:
+        print(f"[DOCX] {n} bảng nhận dạng hỏng -> dùng ảnh gốc của bảng")
+    return markdown_text
+
+
 def prepare_work_md(markdown_text: str, md_path: Path, work_md: Path) -> Path:
     markdown_text = fix_symbol_pua(markdown_text)
+    try:
+        markdown_text = swap_garbled_tables_for_images(markdown_text, md_path)
+    except Exception as e:  # noqa: BLE001 - tiện ích, không được làm hỏng DOCX
+        print("[CẢNH BÁO] không xử lý được bảng hỏng:", e)
+    markdown_text = html_tables_to_pipe(markdown_text)
     markdown_text = fix_answer_key_tables(markdown_text)
     markdown_text = fix_legacy_tex_bf(markdown_text)
     try:
@@ -936,9 +1015,10 @@ def _md_to_docx_inplace(work_md: Path, docx_path: Path, resource_dir: Path,
         "--resource-path", str(resource_dir),
         "--standalone",
     ]
-    # Mục lục chỉ có ích với tài liệu dài: đề thi vài trang mà có "Table of Contents" rỗng + hộp thoại
+    # Mục lục chỉ có ích với tài liệu dài: tờ/đề vài trang mà có "Table of Contents" rỗng + hộp thoại
     # "cập nhật trường" của Word là thừa.
-    if len(re.findall(r"^#{1,6}\s", work_md.read_text(encoding="utf-8"), re.M)) >= 8:
+    md_text = work_md.read_text(encoding="utf-8")
+    if len(md_text) >= 40000 and len(re.findall(r"^#{1,6}\s", md_text, re.M)) >= 8:   # ~15+ trang
         cmd.append("--toc")
     print("Running Pandoc...")
     result = subprocess.run(cmd, capture_output=True, text=True,
