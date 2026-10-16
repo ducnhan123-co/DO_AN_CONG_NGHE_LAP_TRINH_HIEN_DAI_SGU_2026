@@ -56,23 +56,25 @@ _VI_FIX = [(re.compile(a), b) for a, b in [
 _MATH = re.compile(r"(\$\$.*?\$\$|\$[^$\n]+\$)", re.S)
 
 
-def fix_vi_ocr(text: str) -> str:
+def fix_vi_ocr(text: str, legacy: bool = False) -> str:
     def fix(part: str) -> str:
+        if legacy:
+            part = tcvn3_to_unicode(part)
         for rx, rep in _VI_FIX:
             part = rx.sub(rep, part)
         return part
     return "".join(p if i % 2 else fix(p) for i, p in enumerate(_MATH.split(text)))
 
 
-def _postprocess(out_dir: Path) -> None:
+def _postprocess(out_dir: Path, legacy: bool = False) -> None:
     """Sửa lỗi dấu OCR trong .md và trường text của *_content_list.json (công thức giữ nguyên)."""
     for md in out_dir.rglob("*.md"):
-        md.write_text(fix_vi_ocr(md.read_text(encoding="utf-8", errors="ignore")), encoding="utf-8")
+        md.write_text(fix_vi_ocr(md.read_text(encoding="utf-8", errors="ignore"), legacy), encoding="utf-8")
     for cl in out_dir.rglob("*_content_list.json"):
         items = json.loads(cl.read_text(encoding="utf-8"))
         for it in items:
             if it.get("type") == "text" and isinstance(it.get("text"), str):
-                it["text"] = fix_vi_ocr(it["text"])
+                it["text"] = fix_vi_ocr(it["text"], legacy)
         cl.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
 
 
@@ -139,6 +141,44 @@ def _run_kit(kit: str, pdf_path: Path, out_dir: Path, tier: str,
         json.dumps(kit_to_content_list(structured), ensure_ascii=False), encoding="utf-8")
 
 
+_LEGACY_VN_RE = re.compile("[\u00a8\u00aa-\u00ae\u00b6\u00b7\u00b8\u00b9\ufffd]")  # ¨ª«¬­® ¶·¸¹ (bỏ © ° ± ² ³ µ: hợp lệ trong tài liệu khoa học)
+
+
+def is_legacy_vn_garbled(text: str) -> bool:
+    """Lớp chữ của PDF dùng font tiếng Việt cũ (TCVN3/ABC...) -> "C¬ häc" thay vì "Cơ học".
+    Dấu hiệu: >2% ký tự đặc trưng TCVN3 (¸ ® ¬ ¹ ...). Đo: PDF TCVN3 5,6%; PDF thường <=0,5%."""
+    return len(_LEGACY_VN_RE.findall(text)) > 0.02 * max(len(text), 1)
+
+
+# (mã TCVN3 đọc theo Latin-1/Unicode, chữ đúng): hoa không dấu thanh trước, rồi từng nhóm nguyên âm thường.
+_TCVN3_GROUPS = [("¡¢£¤¥¦§", "ĂÂÊÔƠƯĐ"), ("µ¸¶·¹", "àáảãạ"), ("¨»¾¼½Æ", "ăằắẳẵặ"), ("©ÇÊÈÉË", "âầấẩẫậ"),
+                 ("®", "đ"), ("ÌÐÎÏÑ", "èéẻẽẹ"), ("ªÒÕÓÔÖ", "êềếểễệ"), ("×ÝØÜÞ", "ìíỉĩị"),
+                 ("ßãáâä", "òóỏõọ"), ("«åèæçé", "ôồốổỗộ"), ("¬êíëìî", "ơờớởỡợ"), ("ïóñòô", "ùúủũụ"),
+                 ("\u00ad\u2212õøö÷ù", "ưưừứửữự"), ("úýûüþ", "ỳýỷỹỵ")]   # U+00AD / U+2212 đều là "ư"
+_TCVN3 = str.maketrans("".join(a for a, _ in _TCVN3_GROUPS), "".join(b for _, b in _TCVN3_GROUPS))
+
+
+# Font TCVN3 hay gặp: glyph "ã" (mã 0xB7) bị lớp chữ ghi thành "C" ("quCng", "hCm", "đC"). Đo trên
+# 1 PDF thật: 0 từ nào chứa "C" hợp lệ giữa 2 chữ thường -> chỉ đổi khi "C" kẹp giữa chữ cái / đứng sau "đ"; "đ. cho" cũng là "đã cho".
+_A_TILDE = re.compile(r"(?<=[A-Za-zà-ỹ])C(?=[a-zà-ỹ])|(?<=\bđ)C\b|(?<=\bđ)\.(?= [a-zà-ỹ])")
+
+
+def tcvn3_to_unicode(text: str) -> str:
+    """Đổi chữ gõ bằng font TCVN3/.Vn* (lớp chữ PDF) về Unicode. Chữ HOA có dấu của font .VnTimeH
+    dùng cùng mã với chữ thường nên sẽ ra chữ thường (hạn chế đã biết)."""
+    return _A_TILDE.sub("ã", text.translate(_TCVN3))
+
+
+def pdf_is_legacy_vn(pdf_path: Path, pages_to_check: int = 3) -> bool:
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(str(pdf_path))
+        text = "".join((p.extract_text() or "") for p in reader.pages[:max(1, pages_to_check)])
+        return is_legacy_vn_garbled(text)
+    except Exception:
+        return False
+
+
 def has_extractable_text(pdf_path: Path, pages_to_check: int = 3,
                            min_chars_per_page: int = 50) -> bool:
     """PDF chữ (text-based) hay PDF scan? True = có chữ trích xuất được -> dùng
@@ -146,7 +186,6 @@ def has_extractable_text(pdf_path: Path, pages_to_check: int = 3,
     try:
         from pypdf import PdfReader
         reader = PdfReader(str(pdf_path))
-        checked = 0
         for page in reader.pages[:max(1, pages_to_check)]:
             try:
                 text = (page.extract_text() or "").strip()
@@ -154,7 +193,6 @@ def has_extractable_text(pdf_path: Path, pages_to_check: int = 3,
                 text = ""
             if len(text) >= min_chars_per_page:
                 return True
-            checked += 1
         return False
     except Exception:
         return False  # không đọc được -> để MinerU tự quyết (auto)
@@ -173,6 +211,11 @@ def run_mineru(pdf_path: Path, out_dir: Path, backend: str = "pipeline",
     formula/table: PDF toán GIỮ True (công thức Equation cần formula=True).
     workers>0: parse qua pool `mineru-api` giữ model nóng (mineru_pool.py), lỗi thì rơi về CLI."""
     out_dir.mkdir(parents=True, exist_ok=True)
+    # PDF font TCVN3: chữ trích được là rác ("C¬ häc"), OCR latin lại rụng dấu thanh -> lấy lớp chữ rồi đổi mã.
+    legacy = method != "ocr" and pdf_is_legacy_vn(pdf_path)
+    if legacy:
+        method = "txt"
+        print("[MinerU] PDF font tiếng Việt cũ (TCVN3): dùng lớp chữ + đổi sang Unicode")
     if not force and find_content_list(out_dir):
         print(f"[MinerU] Đã có output cho PDF này, bỏ qua chạy lại: {out_dir}")
         return
@@ -185,14 +228,14 @@ def run_mineru(pdf_path: Path, out_dir: Path, backend: str = "pipeline",
     if kit:
         _run_kit(kit, pdf_path, out_dir, tier,
                  ocr_mode=method if method in ("txt", "ocr", "auto") else "auto")
-        _postprocess(out_dir)
+        _postprocess(out_dir, legacy)
         return
     if workers > 0:
         try:
             from llm.src.mineru_pool import run_pool
             run_pool(pdf_path, out_dir, workers=workers, device=device, lang=lang,
                      method=method, formula=formula, table=table)
-            _postprocess(out_dir)
+            _postprocess(out_dir, legacy)
             return
         except Exception as e:  # noqa: BLE001 - mọi lỗi pool đều có đường lui CLI
             print(f"[MinerU-pool] lỗi ({e!r}) -> chạy CLI cũ")
@@ -207,7 +250,7 @@ def run_mineru(pdf_path: Path, out_dir: Path, backend: str = "pipeline",
     if result.returncode != 0:
         print(result.stderr[-2000:])
         raise RuntimeError("MinerU thất bại (không có mineru-kit; CLI cũ `mineru` cũng lỗi).")
-    _postprocess(out_dir)
+    _postprocess(out_dir, legacy)
 
 
 def find_mineru_outputs(mineru_dir: Path):

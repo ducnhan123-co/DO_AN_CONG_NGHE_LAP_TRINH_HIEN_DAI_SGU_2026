@@ -5,7 +5,9 @@ bước "pypdf đọc nhanh trước"), field "parser" sẽ không bao giờ tr�
 chỉ nhảy thẳng mineru_running -> mineru.
 """
 import json
+import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -37,6 +39,23 @@ def _num_pages(pdf_path: Path) -> int:
         return 0
 
 
+def _elapsed_s(doc: Document, docx_state: str, docx_path: Path) -> Optional[int]:
+    """Giây xử lý: từ lúc job bắt đầu tới lúc DOCX xong (mtime file) / lỗi; còn chạy thì tới bây giờ."""
+    job = max(doc.jobs, key=lambda j: j.created_at, default=None)
+    start = (job.started_at or job.created_at) if job else doc.created_at
+    if start.tzinfo is None:                       # SQLite trả datetime naive (UTC)
+        start = start.replace(tzinfo=timezone.utc)
+    if docx_state == "ready":
+        end = datetime.fromtimestamp(docx_path.stat().st_mtime, timezone.utc)
+    elif docx_state == "failed":
+        end = (job.finished_at if job and job.finished_at else doc.updated_at)
+        if end.tzinfo is None:
+            end = end.replace(tzinfo=timezone.utc)
+    else:
+        end = datetime.now(timezone.utc)
+    return max(0, int((end - start).total_seconds()))
+
+
 def _compat_info(doc: Document) -> dict:
     """Dựng đúng 4 field trạng thái mà reader.html/index.html đọc trực tiếp."""
     settings = get_settings()
@@ -52,7 +71,12 @@ def _compat_info(doc: Document) -> dict:
 
     embed = "building" if doc.status == DocumentStatus.indexing.value else None
 
-    if docx_flag.exists():                                     
+    # DOCX chạy ở thread nền "docx-<id>": server khởi động lại giữa chừng thì thread chết,
+    # không file/cờ -> coi là lỗi để UI không báo "đang xử lý" mãi.
+    docx_orphan = (doc.status == DocumentStatus.ready.value and not docx_exists
+                   and not any(t.name == f"docx-{doc.id}" for t in threading.enumerate()))
+
+    if docx_flag.exists() or docx_orphan:
         docx_state = "failed"
     elif doc.status == DocumentStatus.failed.value:
         docx_state = "failed"
@@ -61,12 +85,15 @@ def _compat_info(doc: Document) -> dict:
     else:
         docx_state = "building"
 
+    elapsed_s = _elapsed_s(doc, docx_state, settings.docx_path(doc.id))
+
     return {
         "doc_id": doc.id, "name": doc.filename,
         "num_pages": _num_pages(settings.pdf_path(doc.id)),
         "num_chunks": doc.num_chunks,
         "status": status, "parser": parser, "embed": embed,
         "docx": docx_state,
+        "elapsed_s": elapsed_s,
         "docx_url": f"{settings.api_prefix}/docx/{doc.id}" if docx_state == "ready" else None,
         "file_url": f"{settings.api_prefix}/file/{doc.id}",
         "error": doc.error_message if doc.status == DocumentStatus.failed.value else None,
