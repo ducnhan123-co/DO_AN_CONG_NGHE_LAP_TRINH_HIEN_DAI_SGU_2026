@@ -1,253 +1,288 @@
-"""Nghiệp vụ tài liệu và job: upload, đọc trạng thái, thử lại, liệt kê, xuất DOCX."""
+"""Nghiệp vụ tài liệu: upload (kiểm tra, băm sha256, đếm trang, cache), liệt kê, đổi tên, hủy, thử lại, xóa."""
+import hashlib
+import json
 import logging
+import re
 import shutil
 from pathlib import Path
 from typing import List, Optional, Tuple
-from pypdf import PdfReader, PdfWriter
 
 from fastapi import UploadFile
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import get_settings
 from backend.app.core.errors import AppError, document_not_found, job_not_found
-from backend.app.models import pipeline_model
-from backend.app.models.database import (DOC_ID_LEN, Document, DocumentStatus, Job,
-                                         JobStatus, Message)
-from backend.app.views.schemas import DocumentOut, ErrorInfo, JobOut
+from backend.app.models import job_model
+from backend.app.models.database import ACTIVE, DOC_ID_LEN, Document, Job, StageRun, Status, now
+from backend.app.models.pipeline import get_pipeline
+from backend.app.models import storage
+from backend.app.views.schemas import (DocumentDetail, DocumentOut, ErrorInfo, JobOut, ShardOut, StageRunOut,
+                                       UploadItem, UploadRejected)
 
 logger = logging.getLogger(__name__)
 
 CHUNK = 1024 * 1024
 PDF_TYPES = {"application/pdf", "application/x-pdf", "application/octet-stream"}
-DOC_ID_RETRIES = 5   # số lần sinh lại doc_id nếu trùng (ID chỉ 10 ký tự hex = 40 bit)
+DOC_ID_RETRIES = 5
+CLIENT_ID_RE = re.compile(r"[A-Za-z0-9_-]{0,64}")
 
 
-#  document
-def get_document(db: Session, document_id: str) -> Document:
-    doc = db.get(Document, document_id)
+def clean_client_id(value: Optional[str]) -> str:
+    return value if value and CLIENT_ID_RE.fullmatch(value) else ""
+
+
+# ------------------------------------------------------------------ truy vấn
+def get_document(db: Session, doc_id: str) -> Document:
+    doc = db.get(Document, doc_id)
     if doc is None:
-        raise document_not_found(document_id)
+        raise document_not_found(doc_id)
     return doc
 
 
-def _latest_job(db: Session, document_id: str) -> Optional[Job]:
-    return db.scalar(select(Job).where(Job.document_id == document_id)
-                     .order_by(Job.created_at.desc()).limit(1))
+def active_job_count(db: Session) -> int:
+    return db.scalar(select(func.count()).select_from(Job).where(Job.status.in_(ACTIVE))) or 0
 
 
-def create_document(db: Session, upload: UploadFile) -> Tuple[Document, Job]:
-    settings = get_settings()
+def list_documents(db: Session, client_id: str = "", status: str = "", q: str = "",
+                   limit: int = 50, offset: int = 0) -> Tuple[List[Document], int]:
+    stmt = select(Document)
+    if client_id:
+        stmt = stmt.where(Document.client_id == client_id)
+    if status == "active":
+        stmt = stmt.where(Document.status.in_(ACTIVE))
+    elif status == "failed":
+        stmt = stmt.where(Document.status.in_([Status.failed.value, Status.cancelled.value]))
+    elif status:
+        stmt = stmt.where(Document.status == status)
+    if q:
+        like = f"%{q.strip()}%"
+        stmt = stmt.where(or_(Document.filename.ilike(like), Document.display_name.ilike(like)))
+    total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+    rows = db.scalars(stmt.order_by(Document.created_at.desc()).limit(limit).offset(offset)).all()
+    return list(rows), total
 
-    pending = pipeline_model.queue_depth(db)
-    if pending >= settings.max_queued_jobs:
-        raise AppError(429, "TOO_MANY_JOBS_QUEUED",
-                       f"Đang có {pending} job chờ xử lý, vượt giới hạn {settings.max_queued_jobs}. "
-                       "Vui lòng thử lại sau.", {"pending": pending})
 
+# ------------------------------------------------------------------ tạo tài liệu
+def _count_pages(path: Path) -> int:
+    from pypdf import PdfReader
+    try:
+        reader = PdfReader(str(path))
+        if reader.is_encrypted and not reader.decrypt(""):
+            raise AppError(422, "PDF_ENCRYPTED", "PDF có mật khẩu, không thể xử lý.")
+        n = len(reader.pages)
+    except AppError:
+        raise
+    except Exception as exc:                                    # noqa: BLE001
+        raise AppError(422, "INVALID_PDF", f"Không đọc được PDF: {str(exc)[:150]}") from exc
+    if n < 1:
+        raise AppError(422, "INVALID_PDF", "PDF không có trang nào.")
+    return n
+
+
+def _find_cached(db: Session, doc: Document) -> Optional[Document]:
+    s = get_settings()
+    rows = db.scalars(select(Document).where(Document.sha256 == doc.sha256, Document.tier == doc.tier,
+                                             Document.status == Status.done.value, Document.id != doc.id)
+                      .order_by(Document.finished_at.desc())).all()
+    return next((r for r in rows if s.docx_path(r.id).exists()), None)
+
+
+def create_document(db: Session, upload: UploadFile, client_id: str = "", force: bool = False) -> Tuple[Document, Job]:
+    s = get_settings()
+    if active_job_count(db) >= s.max_active_jobs:
+        raise AppError(429, "TOO_MANY_JOBS", f"Đang có {s.max_active_jobs} file chờ xử lý. Vui lòng thử lại sau.")
     filename = Path(upload.filename or "").name[:255]
     if not filename.lower().endswith(".pdf") or (upload.content_type or "") not in PDF_TYPES:
         raise AppError(415, "INVALID_FILE_TYPE", "Chỉ chấp nhận file PDF (.pdf).")
-
     first = upload.file.read(CHUNK)
     if not first:
         raise AppError(400, "EMPTY_FILE", "File rỗng.")
     if not first.startswith(b"%PDF-"):
         raise AppError(415, "INVALID_FILE_TYPE", "Nội dung file không phải PDF hợp lệ.")
 
+    doc = None
     for _ in range(DOC_ID_RETRIES):
-        doc = Document(filename=filename)         # id = new_doc_id(): 10 ký tự hex
+        doc = Document(filename=filename, client_id=client_id, sha256="", tier=s.mineru_tier)
         db.add(doc)
         try:
-            db.flush()                            # để có doc.id (và phát hiện trùng khoá chính)
+            db.flush()
             break
         except IntegrityError:
-            db.rollback()                         # trùng id (cực hiếm) -> sinh id khác
-    else:
-        raise AppError(500, "DOC_ID_GENERATION_FAILED",
-                       f"Không sinh được doc_id {DOC_ID_LEN} ký tự không trùng, vui lòng thử lại.")
-    pdf_path = settings.pdf_path(doc.id)
+            db.rollback()
+            doc = None
+    if doc is None:
+        raise AppError(500, "DOC_ID_GENERATION_FAILED", f"Không sinh được mã tài liệu {DOC_ID_LEN} ký tự, thử lại.")
+    pdf_path = s.pdf_path(doc.id)
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
-
-    limit = settings.max_upload_mb * 1024 * 1024
-    size = 0
+    limit = s.max_upload_mb * 1024 * 1024
+    h, size = hashlib.sha256(), 0
     try:
         with open(pdf_path, "wb") as out:
             chunk = first
             while chunk:
                 size += len(chunk)
                 if size > limit:
-                    raise AppError(413, "FILE_TOO_LARGE",
-                                   f"File vượt quá giới hạn {settings.max_upload_mb} MB.")
+                    raise AppError(413, "FILE_TOO_LARGE", f"File vượt quá giới hạn {s.max_upload_mb} MB.")
+                h.update(chunk)
                 out.write(chunk)
                 chunk = upload.file.read(CHUNK)
-        job = Job(document_id=doc.id)
-        db.add(job)
+        doc.sha256, doc.size_bytes = h.hexdigest(), size
+        doc.num_pages = _count_pages(pdf_path)
+
+        cached = None if force else _find_cached(db, doc)
+        if cached is not None:
+            shutil.copy2(s.docx_path(cached.id), s.docx_path(doc.id))
+            job = job_model.create_job(db, doc, status=Status.done.value, attempt=1)
+            doc.cache_hit, doc.docx_size, doc.docx_sha256 = True, cached.docx_size, cached.docx_sha256
+            job_model.set_status(db, job, doc, Status.done.value)
+            db.add(StageRun(job_id=job.id, stage="cache", status="done", started_at=now(), finished_at=now(),
+                            duration_s=0.0, note=json.dumps({"from_document": cached.id})))
+            storage.sync_document(s, doc, job, list(job.stage_runs), artifacts=True, outputs=True)
+            db.commit()
+            logger.info("Tài liệu %s trùng sha256 với %s -> dùng lại DOCX", doc.id, cached.id)
+            return doc, job
+        job = job_model.create_job(db, doc)
+        storage.sync_document(s, doc, job, list(job.stage_runs))
         db.commit()
     except Exception:
         db.rollback()
-        shutil.rmtree(settings.doc_dir(doc.id), ignore_errors=True)
+        shutil.rmtree(s.doc_dir(doc.id), ignore_errors=True)
+        storage.remove_document_mirrors(s, doc)
         raise
-
-    pipeline_model.submit_pipeline(doc.id, job.id)
-    logger.info("Đã nhận tài liệu %s (%d bytes), job %s", doc.id, size, job.id)
+    get_pipeline().submit(job.id)
+    logger.info("Đã nhận %s (%d trang, %d bytes), job %s", doc.id, doc.num_pages, size, job.id)
     return doc, job
 
 
-def retry_document(db: Session, document_id: str) -> Tuple[Document, Job]:
-    """Thử lại pipeline cho tài liệu đã failed, dùng lại PDF đã lưu, không cần upload lại."""
-    doc = get_document(db, document_id)
+def create_documents(db: Session, uploads: List[UploadFile], client_id: str = "", force: bool = False):
+    items: List[UploadItem] = []
+    rejected: List[UploadRejected] = []
+    first_error: Optional[AppError] = None
+    for up in uploads:
+        try:
+            doc, job = create_document(db, up, client_id, force)
+            items.append(UploadItem(document_id=doc.id, job_id=job.id, filename=doc.filename, status=doc.status,
+                                    cache_hit=doc.cache_hit))
+        except AppError as exc:
+            first_error = first_error or exc
+            rejected.append(UploadRejected(filename=Path(up.filename or "").name or "(không tên)", code=exc.code,
+                                           message=exc.message))
+    if not items and first_error is not None:
+        raise first_error                  # không file nào nhận được: trả đúng mã lỗi HTTP của file đầu tiên
+    return items, rejected
+
+
+# ------------------------------------------------------------------ thao tác
+def rename_document(db: Session, doc_id: str, display_name: str) -> Document:
+    doc = get_document(db, doc_id)
+    doc.display_name = display_name.strip() or None
+    db.commit()
+    job = job_model.latest_job(db, doc.id)
+    storage.sync_document(get_settings(), doc, job, list(job.stage_runs) if job else [], outputs=True)
+    return doc
+
+
+def delete_document(db: Session, doc_id: str) -> None:
+    doc = get_document(db, doc_id)
+    job = job_model.latest_job(db, doc.id)
+    if doc.status in ACTIVE and job is not None:
+        get_pipeline().cancel_job(job.id, wait_s=20)
     settings = get_settings()
-
-    if doc.status != DocumentStatus.failed.value:
-        raise AppError(409, "DOCUMENT_NOT_FAILED",
-                       "Chỉ có thể thử lại tài liệu ở trạng thái failed.",
-                       {"status": doc.status})
-    if not settings.pdf_path(doc.id).exists():
-        raise AppError(409, "PDF_MISSING", "Không còn tìm thấy file PDF gốc, cần upload lại.")
-
-    pending = pipeline_model.queue_depth(db)
-    if pending >= settings.max_queued_jobs:
-        raise AppError(429, "TOO_MANY_JOBS_QUEUED",
-                       f"Đang có {pending} job chờ xử lý, vượt giới hạn {settings.max_queued_jobs}. "
-                       "Vui lòng thử lại sau.", {"pending": pending})
-
-    job = Job(document_id=doc.id)
-    db.add(job)
-    doc.status = DocumentStatus.queued.value
-    doc.error_code = doc.error_message = None
+    storage.remove_document_mirrors(settings, doc)
+    shutil.rmtree(settings.doc_dir(doc.id))
+    db.expire_all()
+    db.delete(db.get(Document, doc_id))
     db.commit()
 
-    pipeline_model.submit_pipeline(doc.id, job.id)
-    logger.info("Thử lại tài liệu %s, job mới %s", doc.id, job.id)
+
+def cancel_document(db: Session, doc_id: str) -> Document:
+    doc = get_document(db, doc_id)
+    job = job_model.latest_job(db, doc.id)
+    if doc.status not in ACTIVE or job is None:
+        raise AppError(409, "DOCUMENT_NOT_ACTIVE", "Tài liệu không còn đang xử lý nên không thể hủy.", {"status": doc.status})
+    job.cancel_requested = True
+    db.commit()
+    get_pipeline().cancel_job(job.id)
+    db.expire_all()
+    return get_document(db, doc_id)
+
+
+def retry_document(db: Session, doc_id: str) -> Tuple[Document, Job]:
+    s = get_settings()
+    doc = get_document(db, doc_id)
+    if doc.status not in (Status.failed.value, Status.cancelled.value):
+        raise AppError(409, "DOCUMENT_NOT_RETRYABLE", "Chỉ thử lại được tài liệu đã lỗi hoặc đã hủy.", {"status": doc.status})
+    if not s.pdf_path(doc.id).exists():
+        raise AppError(409, "PDF_MISSING", "Không còn file PDF gốc, cần upload lại.")
+    if active_job_count(db) >= s.max_active_jobs:
+        raise AppError(429, "TOO_MANY_JOBS", f"Đang có {s.max_active_jobs} file chờ xử lý. Vui lòng thử lại sau.")
+    last = job_model.latest_job(db, doc.id)
+    job = job_model.create_job(db, doc, attempt=(last.attempt + 1) if last else 1)
+    job_model.set_status(db, job, doc, Status.queued.value, progress=0)
+    db.commit()
+    storage.sync_document(s, doc, job, list(job.stage_runs))
+    get_pipeline().submit(job.id)
     return doc, job
 
 
-def split_document(db: Session, document_id: str, ranges: List[dict]) -> List[Tuple[Document, Job]]:
-    """Cắt PDF gốc thành nhiều Document con độc lập theo khoảng trang (1-based, bao gồm cả 2 đầu).
-    ranges: [{"from": 1, "to": 20, "name": "Chương 1"}, ...]"""
-    parent = get_document(db, document_id)
-    settings = get_settings()
-    src_path = settings.pdf_path(parent.id)
-    if not src_path.exists():
-        raise AppError(409, "PDF_MISSING", "Không tìm thấy PDF gốc để cắt.")
-
-    reader = PdfReader(str(src_path))
-    total_pages = len(reader.pages)
-
-    for i, r in enumerate(ranges):
-        f, t = r.get("from"), r.get("to")
-        if not isinstance(f, int) or not isinstance(t, int) or f < 1 or t < f or t > total_pages:
-            raise AppError(422, "INVALID_RANGE",
-                           f"Khoảng trang #{i + 1} không hợp lệ (file có {total_pages} trang).",
-                           {"range": r, "total_pages": total_pages})
-
-    pending = pipeline_model.queue_depth(db)
-    if pending + len(ranges) > settings.max_queued_jobs:
-        raise AppError(429, "TOO_MANY_JOBS_QUEUED",
-                       f"Cắt thành {len(ranges)} phần sẽ vượt giới hạn hàng đợi "
-                       f"({settings.max_queued_jobs}). Giảm số phần hoặc thử lại sau.",
-                       {"pending": pending, "requested": len(ranges)})
-
-    results: List[Tuple[Document, Job]] = []
-    for i, r in enumerate(ranges):
-        name = (r.get("name") or f"{Path(parent.filename).stem} - phần {i + 1}").strip()
-        filename = name if name.lower().endswith(".pdf") else f"{name}.pdf"
-        filename = filename[:255]
-
-        for _ in range(DOC_ID_RETRIES):
-            child = Document(filename=filename, parent_document_id=parent.id)
-            db.add(child)
-            try:
-                db.flush()
-                break
-            except IntegrityError:
-                db.rollback()
-        else:
-            raise AppError(500, "DOC_ID_GENERATION_FAILED", "Không sinh được doc_id cho phần cắt.")
-
-        writer = PdfWriter()
-        for p in range(r["from"] - 1, r["to"]):
-            writer.add_page(reader.pages[p])
-        child_pdf_path = settings.pdf_path(child.id)
-        child_pdf_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(child_pdf_path, "wb") as f:
-            writer.write(f)
-
-        job = Job(document_id=child.id)
-        db.add(job)
-        db.commit()
-
-        pipeline_model.submit_pipeline(child.id, job.id)
-        results.append((child, job))
-        logger.info("Cắt tài liệu %s -> phần %s '%s' (trang %d-%d)",
-                    parent.id, child.id, filename, r["from"], r["to"])
-
-    return results
+# ------------------------------------------------------------------ chuyển sang schema
+def _stage_out(r: StageRun) -> StageRunOut:
+    return StageRunOut(id=r.id, stage=r.stage, shard_index=r.shard_index, page_from=r.page_from, page_to=r.page_to,
+                       slot=r.slot, status=r.status, attempt=r.attempt, started_at=r.started_at, finished_at=r.finished_at,
+                       duration_s=r.duration_s, peak_ram_gb=r.peak_ram_gb, note=job_model.note_json(r))
 
 
-def list_documents(db: Session, limit: int = 20, offset: int = 0) -> Tuple[List[Document], int]:
-    total = db.scalar(select(func.count()).select_from(Document)) or 0
-    rows = db.scalars(select(Document).order_by(Document.created_at.desc())
-                      .limit(limit).offset(offset)).all()
-    return rows, total
-
-
-def document_out(db: Session, document_id: str) -> DocumentOut:
-    doc = get_document(db, document_id)
-    job = _latest_job(db, doc.id)
+def document_out(db: Session, doc: Document, detail: bool = False):
+    s = get_settings()
+    job = job_model.latest_job(db, doc.id)
+    runs = list(job.stage_runs) if job else []
+    t = now()
+    shards = []
+    for run in runs:
+        if run.stage != "parse":
+            continue
+        parts = (job_model.note_json(run) or {}).get("parts", [])
+        if parts:
+            shards.extend(
+                ShardOut(
+                    index=part["index"],
+                    page_from=part["page_from"],
+                    page_to=part["page_to"],
+                    status=part["status"],
+                    progress=part.get("progress", 0.0),
+                    elapsed_s=part.get("elapsed_s"),
+                    peak_ram_gb=part.get("peak_ram_gb"),
+                    error=part.get("error"),
+                )
+                for part in parts
+            )
+        elif run.shard_index:
+            shards.append(ShardOut(index=run.shard_index, page_from=run.page_from or 0, page_to=run.page_to or 0,
+                                   status=run.status, slot=run.slot, duration_s=run.duration_s,
+                                   progress=100.0 if run.status == "done" else 0.0))
+    shards.sort(key=lambda x: x.index)
     err = ErrorInfo(code=doc.error_code, message=doc.error_message or "") if doc.error_code else None
-    return DocumentOut(
-        id=doc.id, filename=doc.filename, status=doc.status, error=err,
-        num_sections=doc.num_sections, num_chunks=doc.num_chunks,
-        message_count=_message_count(db, doc.id),  
-        parent_document_id=doc.parent_document_id,
-        latest_job_id=job.id if job else None,
-        docx_available=get_settings().docx_path(doc.id).exists(),
-        created_at=doc.created_at, updated_at=doc.updated_at)
+    end = doc.finished_at if doc.status not in ACTIVE else t
+    base = dict(id=doc.id, filename=doc.filename, display_name=doc.display_name, name=doc.display_name or doc.filename,
+                status=doc.status, progress=job_model.estimate_progress(job, runs, s, t, doc.tier) if job else 0.0,
+                num_pages=doc.num_pages, size_bytes=doc.size_bytes, tier=doc.tier, error=err, cache_hit=doc.cache_hit,
+                docx_available=doc.status == Status.done.value and s.docx_path(doc.id).exists(), docx_size=doc.docx_size,
+                created_at=doc.created_at, updated_at=doc.updated_at, finished_at=doc.finished_at,
+                elapsed_s=round(max(0.0, (end or t) - doc.created_at), 1), job_id=job.id if job else None, shards=shards)
+    if detail:
+        return DocumentDetail(**base, stages=[_stage_out(r) for r in runs])
+    return DocumentOut(**base)
 
 
-def _message_count(db: Session, document_id: str) -> int:
-    return db.scalar(select(func.count()).select_from(Message)
-                     .where(Message.document_id == document_id)) or 0
-
-
-def list_messages(db: Session, document_id: str) -> List[Message]:
-    get_document(db, document_id)      # 404 nếu document không tồn tại
-    return db.scalars(select(Message).where(Message.document_id == document_id)
-                      .order_by(Message.created_at.asc())).all()
-
-
-def delete_document(db: Session, document_id: str) -> None:
-    doc = get_document(db, document_id)
-    shutil.rmtree(get_settings().doc_dir(doc.id), ignore_errors=True)
-    db.delete(doc)   # cascade xóa luôn Job, Message liên quan (đã khai báo ondelete="CASCADE")
-    db.commit()
-
-
-#  job
 def job_out(db: Session, job_id: str) -> JobOut:
     job = db.get(Job, job_id)
     if job is None:
         raise job_not_found(job_id)
+    runs = list(job.stage_runs)
     err = ErrorInfo(code=job.error_code, message=job.error_message or "") if job.error_code else None
-    return JobOut(id=job.id, document_id=job.document_id, status=job.status, stage=job.stage,
-                  progress=job.progress, error=err, created_at=job.created_at,
-                  started_at=job.started_at, finished_at=job.finished_at)
-
-
-#  export
-def get_docx(db: Session, document_id: str) -> Tuple[Path, str]:
-    """Trả về (đường dẫn file DOCX, tên file tải xuống)."""
-    doc = get_document(db, document_id)
-    path = get_settings().docx_path(doc.id)
-    if not path.exists():
-        if doc.status == DocumentStatus.failed.value:
-            raise AppError(409, "DOCUMENT_FAILED",
-                           "Xử lý tài liệu thất bại nên không có file DOCX.",
-                           {"error": doc.error_code})
-        raise AppError(409, "DOCUMENT_NOT_READY",
-                       "File DOCX chưa được tạo. Hãy theo dõi trạng thái qua GET /jobs/{id}.",
-                       {"status": doc.status})
-    return path, f"{Path(doc.filename).stem}.docx"
+    return JobOut(id=job.id, document_id=job.document_id, status=job.status,
+                  progress=job_model.estimate_progress(job, runs, get_settings(), tier=job.document.tier), attempt=job.attempt, error=err,
+                  created_at=job.created_at, started_at=job.started_at, finished_at=job.finished_at,
+                  stages=[_stage_out(r) for r in runs])

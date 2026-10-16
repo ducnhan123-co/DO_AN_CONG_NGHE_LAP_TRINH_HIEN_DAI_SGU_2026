@@ -1,31 +1,59 @@
-# SGU PDF RAG — bản tích hợp đầu tiên
+# PDF to DOCX
 
-PDF toán được xử lý theo một luồng duy nhất: upload → pypdf/OCR để chat ngay → MinerU nền cho công thức LaTex → hybrid Ollama embedding + TF-IDF RAG → Qwen local stream. Sơ đồ tham chiếu: [kiến trúc tổng thể](https://ducnhan123-co.github.io/DO_AN_CONG_NGHE_LAP_TRINH_HIEN_DAI_SGU_2026/diagrams/01-kien-truc-tong-the.html).
+The `frontend/` upload page sends PDF files to the FastAPI service in `backend/`.
+The backend validates each PDF, stores it under `backend/data/documents/`, and
+processes jobs sequentially:
 
 ```text
-frontend/     MatchPDF: upload, PDF reader và chat streaming
-backend/      FastAPI: xác thực upload, CORS và API /api/*
-llm/          MinerU, OCR, embedding/RAG và Ollama Qwen (`llm/matchpdf.py`)
-main.py       CLI chạy toàn bộ pipeline cho một PDF
-docs/         tài liệu và sơ đồ đã công bố
+upload → PDF validation / SHA-256 / page count
+       → mineru-kit parse → rag_toan/src/build_docx.py → DOCX validation
 ```
 
-Mỗi PDF có run directory theo hash nội dung nên không lấy nhầm output cũ. Dữ liệu upload, model cache, chỉ mục và DOCX sinh ra nằm ngoài Git.
+`backend/data/app.db` is the source of truth for document names, jobs, stages,
+and progress. SQLite may also keep uncheckpointed writes in `app.db-wal` while
+the service is running. Per-document files in `documents/<id>/` are mirrored
+for compatibility with the existing `rag_toan` layout:
 
-## Chạy local
-
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt -r backend/requirements.txt
-ollama serve  # nếu Ollama app chưa chạy
-uvicorn backend.app.main:app --reload --port 8001
-python3 -m http.server 8080 --directory frontend
+```text
+backend/data/
+  input/<id>_<filename>.pdf
+  docx_output/<id>_<display-name>.docx
+  docx_output/<id>_<display-name>_for_docx.md
+  runs/<filename-stem>_<id>/
+    backend_run.json
+    mineru/, structured_data.json, chunks.json, validation.json, logs/...
 ```
 
-Mở `http://127.0.0.1:8080`. Cần có các model `qwen3:8b` và `qwen3-embedding:0.6b`; API `/api/health` phải trả về `"ok": true`. Với PDF scan, `llm/ocr.py` fallback qua Tesseract (`vie+eng`); MinerU chạy nền nên chat được ngay bằng bản đọc nhanh.
+The mirrors are created for existing documents when the API starts and updated
+as jobs progress. Renaming updates the mirrored output name and run manifest;
+deleting a document removes its owned mirrors and its `documents/<id>/` folder.
+Identifiers in mirror filenames prevent same-name uploads from overwriting each
+other. Do not edit mirror files directly; upload, rename, retry, and delete
+through the API so the database and files remain consistent.
 
-## Deploy
+The document API supports upload (`POST /api/documents`), progress and job
+history (`GET /api/documents`, `GET /api/jobs/{id}`), and DOCX download
+(`GET /api/documents/{id}/docx`). Completed documents with the same SHA-256 and
+MinerU tier reuse the existing DOCX unless upload uses `?force=true`.
 
-Push `main` kích hoạt `.github/workflows/deploy-pages.yml` để deploy `frontend/` lên GitHub Pages. Backend và Ollama phải chạy ở một host Python riêng; trước khi deploy frontend, đặt `frontend/config.js` thành URL HTTPS của host đó và thêm domain GitHub Pages vào `CORS_ORIGINS`. GitHub Pages không thể gọi Ollama đang chạy trên máy cá nhân của người xem.
+## Run locally
 
-Chi tiết CLI và mô hình: `HUONG_DAN_CHAY_CHI_TIET.md`.
+From the project root, install the project dependencies, ensure `mineru-kit` and
+Pandoc are available on `PATH`, then start the API:
+
+```powershell
+python -m pip install -r requirements.txt
+uvicorn backend.app.main:app --port 8000
+```
+
+Open `http://127.0.0.1:8000/`. MinerU and DOCX generation run in the background
+with one document active at a time. Configure the backend with
+`backend/.env` (see `backend/.env.example`). The `rag_toan` directory is detected
+automatically when it is alongside `backend/`, or can be set with
+`RAG_TOAN_DIR`.
+
+Run a PDF from the command line with:
+
+```powershell
+python -m backend.app.cli path\to\document.pdf
+```
