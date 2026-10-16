@@ -66,7 +66,7 @@ def fix_vi_ocr(text: str, legacy: bool = False) -> str:
     return "".join(p if i % 2 else fix(p) for i, p in enumerate(_MATH.split(text)))
 
 
-def _postprocess(out_dir: Path, legacy: bool = False) -> None:
+def _postprocess(out_dir: Path, legacy: bool = False, pdf_path: Optional[Path] = None) -> None:
     """Sửa lỗi dấu OCR trong .md và trường text của *_content_list.json (công thức giữ nguyên)."""
     for md in out_dir.rglob("*.md"):
         md.write_text(fix_vi_ocr(md.read_text(encoding="utf-8", errors="ignore"), legacy), encoding="utf-8")
@@ -76,6 +76,24 @@ def _postprocess(out_dir: Path, legacy: bool = False) -> None:
             if it.get("type") == "text" and isinstance(it.get("text"), str):
                 it["text"] = fix_vi_ocr(it["text"], legacy)
         cl.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
+    if legacy and pdf_path:
+        _repair_with_text_layer(out_dir, pdf_path)
+
+
+def _repair_with_text_layer(out_dir: Path, pdf_path: Path) -> None:
+    """Dòng có công thức bị MinerU OCR lại làm rụng dấu -> sửa theo lớp chữ PDF; bỏ chân trang lặp."""
+    try:
+        from llm.src.vi_textlayer import repair_markdown, strip_footers
+        cl, md = find_content_list(out_dir), next(iter(sorted(out_dir.rglob("*.md"))), None)
+        if not cl or not md:
+            return
+        items = json.loads(cl.read_text(encoding="utf-8"))
+        text = repair_markdown(md.read_text(encoding="utf-8", errors="ignore"), items, pdf_path,
+                               lambda w: tcvn3_to_unicode(w))
+        md.write_text(strip_footers(text), encoding="utf-8")
+        cl.write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
+    except Exception as e:  # noqa: BLE001 - chỉ là nâng chất lượng, lỗi thì giữ output gốc
+        print(f"[MinerU] bỏ qua sửa theo lớp chữ PDF: {e!r}")
 
 
 _SKIP = {"header", "footer", "page_number", "aside_text", "page_footnote"}
@@ -212,6 +230,7 @@ def run_mineru(pdf_path: Path, out_dir: Path, backend: str = "pipeline",
     workers>0: parse qua pool `mineru-api` giữ model nóng (mineru_pool.py), lỗi thì rơi về CLI."""
     out_dir.mkdir(parents=True, exist_ok=True)
     # PDF font TCVN3: chữ trích được là rác ("C¬ häc"), OCR latin lại rụng dấu thanh -> lấy lớp chữ rồi đổi mã.
+    orig_pdf = pdf_path
     legacy = method != "ocr" and pdf_is_legacy_vn(pdf_path)
     if legacy:
         method = "txt"
@@ -228,14 +247,14 @@ def run_mineru(pdf_path: Path, out_dir: Path, backend: str = "pipeline",
     if kit:
         _run_kit(kit, pdf_path, out_dir, tier,
                  ocr_mode=method if method in ("txt", "ocr", "auto") else "auto")
-        _postprocess(out_dir, legacy)
+        _postprocess(out_dir, legacy, orig_pdf)
         return
     if workers > 0:
         try:
             from llm.src.mineru_pool import run_pool
             run_pool(pdf_path, out_dir, workers=workers, device=device, lang=lang,
                      method=method, formula=formula, table=table)
-            _postprocess(out_dir, legacy)
+            _postprocess(out_dir, legacy, orig_pdf)
             return
         except Exception as e:  # noqa: BLE001 - mọi lỗi pool đều có đường lui CLI
             print(f"[MinerU-pool] lỗi ({e!r}) -> chạy CLI cũ")
@@ -250,7 +269,7 @@ def run_mineru(pdf_path: Path, out_dir: Path, backend: str = "pipeline",
     if result.returncode != 0:
         print(result.stderr[-2000:])
         raise RuntimeError("MinerU thất bại (không có mineru-kit; CLI cũ `mineru` cũng lỗi).")
-    _postprocess(out_dir, legacy)
+    _postprocess(out_dir, legacy, orig_pdf)
 
 
 def find_mineru_outputs(mineru_dir: Path):
