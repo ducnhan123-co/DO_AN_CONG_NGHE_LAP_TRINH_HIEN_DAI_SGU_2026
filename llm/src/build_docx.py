@@ -1143,6 +1143,17 @@ def md_to_docx(work_md: Path, docx_path: Path, resource_dir: Path, **kwargs) -> 
     return docx_path
 
 
+PANDOC_TIMEOUT_S = 900   # pandoc treo thì thread DOCX kẹt mãi, tài liệu báo "đang xử lý" vô hạn (ý từ nhánh Nghia)
+
+
+def _run_pandoc(cmd: list) -> "subprocess.CompletedProcess":
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                              timeout=PANDOC_TIMEOUT_S)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"Pandoc quá {PANDOC_TIMEOUT_S}s, đã dừng.") from exc
+
+
 def _md_to_docx_inplace(work_md: Path, docx_path: Path, resource_dir: Path,
                         number_pages: bool = True, font_name: str = "Times New Roman",
                         justify: bool = True) -> Path:
@@ -1169,8 +1180,7 @@ def _md_to_docx_inplace(work_md: Path, docx_path: Path, resource_dir: Path,
 
     _sized()
     print("Running Pandoc...")
-    result = subprocess.run(cmd, capture_output=True, text=True,
-                            encoding="utf-8", errors="replace")
+    result = _run_pandoc(cmd)
     print(result.stdout)
     if result.returncode != 0:
         print(result.stderr)
@@ -1178,8 +1188,7 @@ def _md_to_docx_inplace(work_md: Path, docx_path: Path, resource_dir: Path,
     if _swap_failed_math_for_images(work_md, result.stderr):
         print("Chạy lại Pandoc: công thức không dịch được đã đổi sang ảnh gốc.")
         _sized()
-        result = subprocess.run(cmd, capture_output=True, text=True,
-                                encoding="utf-8", errors="replace")
+        result = _run_pandoc(cmd)
         if result.returncode != 0:
             print(result.stderr)
             raise RuntimeError("Pandoc tạo DOCX thất bại.")
