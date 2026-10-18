@@ -1,0 +1,20 @@
+{
+  "degenerate_removed": [],
+  "merged_math_fragments": 17,
+  "label_fixes": [],
+  "diacritic_fixes": [
+    {
+      "old": "bắt",
+      "new": "bất"
+    },
+    {
+      "old": "bắt",
+      "new": "bất"
+    },
+    {
+      "old": "Nhi",
+      "new": "Nhị"
+    }
+  ],
+  "tall_inline_promoted": 5
+}

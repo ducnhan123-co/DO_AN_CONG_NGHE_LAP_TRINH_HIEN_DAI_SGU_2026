@@ -1,0 +1,54 @@
+$ mineru-kit parse D:\rag_toan\runs\43799-economics-ff-dl-for-web_6f363b0e46\mineru_parts\pdf\part_1_p1-2.pdf -o D:\rag_toan\runs\43799-economics-ff-dl-for-web_6f363b0e46\mineru_parts\out\part_1_p1-2 --tier advanced
+
+--- STDOUT ---
+Parsed 1 input(s).
+
+
+--- STDERR ---
+2026-10-18 12:02:42.949 | INFO     | mineru.model.vlm.selector:get_vlm_engine:61 - Using llama-cpp-engine as the inference engine for VLM.
+0.02.169.382 W load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+0.03.049.908 W load_hparams: Qwen-VL models require at minimum 1024 image tokens to function correctly on grounding tasks
+0.03.049.915 W load_hparams: if you encounter problems with accuracy, try adding --image-min-tokens 1024
+0.03.049.916 W load_hparams: more info: https://github.com/ggml-org/llama.cpp/issues/16842
+
+2026-10-18 12:02:49.073 | INFO     | mineru.model.vlm.runtime:_create_model:348 - get llama-cpp-engine predictor cost: 6.12s
+2026-10-18 12:02:49.073 | INFO     | mineru.backend.analysis.pdf.window:_log_processing_window_plan:120 - Hybrid processing-window run. page_count=2, window_size=64, total_windows=1
+2026-10-18 12:02:50.235 | INFO     | mineru.backend.analysis.pdf.window:_log_processing_window:128 - Hybrid processing window 1/1: pages 1-2/2 (2 pages)
+
+Layout Predict:   0%|          | 0/2 [00:00<?, ?it/s]
+Layout Predict: 100%|██████████| 2/2 [00:01<00:00,  1.22it/s]
+Layout Predict: 100%|██████████| 2/2 [00:01<00:00,  1.22it/s]
+
+Two Step Extraction:   0%|          | 0/2 [00:00<?, ?it/s]
+Two Step Extraction:  50%|█████     | 1/2 [00:19<00:19, 19.01s/it]
+Two Step Extraction: 100%|██████████| 2/2 [00:23<00:00, 10.67s/it]
+Two Step Extraction: 100%|██████████| 2/2 [00:23<00:00, 11.92s/it]
+
+MFR Predict:   0%|          | 0/18 [00:00<?, ?it/s]
+MFR Predict:  44%|████▍     | 8/18 [00:02<00:03,  2.90it/s]
+MFR Predict:  89%|████████▉ | 16/18 [00:05<00:00,  2.79it/s]
+MFR Predict: 100%|██████████| 18/18 [00:07<00:00,  2.39it/s]
+MFR Predict: 100%|██████████| 18/18 [00:07<00:00,  2.53it/s]
+
+OCR-det:   0%|          | 0/79 [00:00<?, ?it/s]
+OCR-det:   4%|▍         | 3/79 [00:00<00:03, 20.27it/s]
+OCR-det:  44%|████▍     | 35/79 [00:00<00:00, 152.51it/s]
+OCR-det:  67%|██████▋   | 53/79 [00:00<00:00, 157.10it/s]
+OCR-det:  89%|████████▊ | 70/79 [00:00<00:00, 146.75it/s]
+OCR-det: 100%|██████████| 79/79 [00:00<00:00, 139.82it/s]
+
+OCR-rec Predict:   0%|          | 0/105 [00:00<?, ?it/s]
+OCR-rec Predict:  11%|█▏        | 12/105 [00:00<00:01, 92.04it/s]
+OCR-rec Predict:  23%|██▎       | 24/105 [00:00<00:00, 94.46it/s]
+OCR-rec Predict:  34%|███▍      | 36/105 [00:00<00:00, 99.42it/s]
+OCR-rec Predict:  46%|████▌     | 48/105 [00:00<00:00, 94.10it/s]
+OCR-rec Predict:  57%|█████▋    | 60/105 [00:00<00:00, 73.94it/s]
+OCR-rec Predict:  69%|██████▊   | 72/105 [00:01<00:00, 56.74it/s]
+OCR-rec Predict:  80%|████████  | 84/105 [00:01<00:00, 42.59it/s]
+OCR-rec Predict:  86%|████████▌ | 90/105 [00:01<00:00, 38.31it/s]
+OCR-rec Predict:  91%|█████████▏| 96/105 [00:01<00:00, 32.55it/s]
+OCR-rec Predict:  97%|█████████▋| 102/105 [00:02<00:00, 29.22it/s]
+OCR-rec Predict: 100%|██████████| 105/105 [00:02<00:00, 44.31it/s]
+2026-10-18 12:03:30.549 | WARNING  | mineru.backend.analysis.pdf.normalization:_normalize_pdf_model_list:161 - PDF text block normalization: page_idx=1, bbox_fallback=0, dropped=9
+2026-10-18 12:03:30.615 | INFO     | mineru.backend.analyze:_log_infer_performance:26 - model_list infer finished, file_suffix=pdf, pages=2, cost=41.476705s, speed=0.048 page/s
+

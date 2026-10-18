@@ -50,7 +50,7 @@
     "page": null,
     "section": "PHẦN I: Câu hỏi trắc nghiệm nhiều phương án lựa chọn.",
     "content_type": "text",
-    "text": "A. $x = 68$",
+    "text": "A.x=68",
     "formula_latex": null,
     "image_path": null
   },
@@ -721,7 +721,7 @@
     "page": null,
     "section": "PHẦN I: Câu hỏi trắc nghiệm nhiều phương án lựa chọn.",
     "content_type": "text",
-    "text": "C. $\\vec{u} = (16; 15; -7)$",
+    "text": "C. $\\vec{u} = (16;15;-7)$",
     "formula_latex": null,
     "image_path": null
   },
@@ -941,7 +941,7 @@
     "page": null,
     "section": "PHẦN III: Câu hỏi trắc nghiệm trả lời ngắn.",
     "content_type": "text",
-    "text": "Câu 5: Trong y học, máy tán sỏi ngoài cơ thể (Lithotripter) hoạt động dựa trên tính chất quang học của đường elip. Thiết bị này có một mặt phần xạ có mặt cắt là một nửa đường elip. Khi hoạt động, nguồn phát sóng xung kích được đặt tại tiêu điểm $F_1$ của elip, và viên sỏi thận của bệnh nhân được bác sĩ định vị chính xác tại tiêu điểm $F_2$ còn lại. Theo tính chất của elip, mọi tia sóng phát ra từ $F_1$ sau khi chậm vào mặt phần xạ đều hội tự chính xác tại $F_2$, tạo ra năng lượng đủ lớn để phá vỡ viên sỏi mà không cần phẫu thuật. Một thiết bị tán sỏi thận có mặt cắt là một nửa đường elip với độ dài trực lớn là 20cm và khoảng cách từ tiêu điểm đến tâm của elip là 8cm. Xét một tia sóng phát ra từ nguồn $F_1$, đi theo phương vuông góc với trực lớn tại chính vị trí tiêu điểm $F_1$, chậm vào mặt phần xạ tại điểm M rời truyền đến viên sỏi tại tiêu điểm $F_2$. Tính độ dài quảng đường $MF_2$ (đơn vị: cm) từ điểm phần xạ đến viên sỏi.",
+    "text": "Câu 5: Trong y học, máy tán sỏi ngoài cơ thể (Lithotripter) hoạt động dựa trên tính chất quang học của đường elip. Thiết bị này có một mặt phần xạ có mặt cắt là một nửa đường elip. Khi hoạt động, nguồn phát sóng xung kích được đặt tại tiêu điểm $F_1$ của elip, và viên sỏi thận của bệnh nhân được bác sĩ định vị chính xác tại tiêu điểm $F_2$ còn lại. Theo tính chất của elip, mọi tia sóng phát ra từ $F_1$ sau khi chậm vào mặt phần xạ đều hội tự chính xác tại $F_2$, tạo ra năng lượng đủ lớn để phá vỡ viên sỏi mà không cần phẫu thuật. Một thiết bị tán sỏi thận có mặt cắt là một nửa đường elip với độ dài trực lón là 20cm và khoảng cách từ tiêu điểm đến tâm của elip là 8cm. Xét một tia sóng phát ra từ nguồn $F_1$, đi theo phương vuông góc với trực lón tại chính vị trí tiêu điểm $F_1$, chậm vào mặt phần xạ tại điểm M rời truyền đến viên sỏi tại tiêu điểm $F_2$. Tính độ dài quảng đường $MF_2$ (đơn vị: cm) từ điểm phần xạ đến viên sỏi.",
     "formula_latex": null,
     "image_path": null
   },

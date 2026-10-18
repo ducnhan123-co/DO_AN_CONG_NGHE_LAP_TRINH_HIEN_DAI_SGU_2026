@@ -1,0 +1,14 @@
+{
+  "dropped_pages": [
+    {
+      "page": 2,
+      "dropped": 9
+    }
+  ],
+  "numbering_gaps": [],
+  "docx": {
+    "equations": 99,
+    "raw_latex_paragraphs": 0,
+    "samples": []
+  }
+}

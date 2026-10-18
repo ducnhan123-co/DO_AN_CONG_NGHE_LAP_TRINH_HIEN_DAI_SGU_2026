@@ -1,0 +1,96 @@
+$ mineru-kit parse D:\rag_toan\runs\Sotaytoanhoc_df23c173ea\mineru_parts\pdf\part_1_p1-48.pdf -o D:\rag_toan\runs\Sotaytoanhoc_df23c173ea\mineru_parts\out\part_1_p1-48 --tier advanced
+
+--- STDOUT ---
+Parsed 1 input(s).
+
+
+--- STDERR ---
+2026-10-18 22:35:51.840 | INFO     | mineru.model.vlm.selector:get_vlm_engine:61 - Using llama-cpp-engine as the inference engine for VLM.
+0.02.407.076 W load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+0.03.248.465 W load_hparams: Qwen-VL models require at minimum 1024 image tokens to function correctly on grounding tasks
+0.03.248.473 W load_hparams: if you encounter problems with accuracy, try adding --image-min-tokens 1024
+0.03.248.473 W load_hparams: more info: https://github.com/ggml-org/llama.cpp/issues/16842
+
+2026-10-18 22:35:58.524 | INFO     | mineru.model.vlm.runtime:_create_model:348 - get llama-cpp-engine predictor cost: 6.68s
+2026-10-18 22:35:58.525 | INFO     | mineru.backend.analysis.pdf.window:_log_processing_window_plan:120 - Hybrid processing-window run. page_count=48, window_size=64, total_windows=1
+2026-10-18 22:36:01.657 | INFO     | mineru.backend.analysis.pdf.window:_log_processing_window:128 - Hybrid processing window 1/1: pages 1-48/48 (48 pages)
+
+Layout Predict:   0%|          | 0/48 [00:00<?, ?it/s]
+Layout Predict:   4%|▍         | 2/48 [00:01<00:34,  1.33it/s]
+Layout Predict:   8%|▊         | 4/48 [00:02<00:31,  1.42it/s]
+Layout Predict:  12%|█▎        | 6/48 [00:04<00:30,  1.39it/s]
+Layout Predict:  17%|█▋        | 8/48 [00:05<00:29,  1.36it/s]
+Layout Predict:  21%|██        | 10/48 [00:07<00:28,  1.33it/s]
+Layout Predict:  25%|██▌       | 12/48 [00:08<00:26,  1.34it/s]
+Layout Predict:  29%|██▉       | 14/48 [00:10<00:25,  1.31it/s]
+Layout Predict:  33%|███▎      | 16/48 [00:12<00:24,  1.30it/s]
+Layout Predict:  38%|███▊      | 18/48 [00:13<00:23,  1.25it/s]
+Layout Predict:  42%|████▏     | 20/48 [00:16<00:26,  1.04it/s]
+Layout Predict:  46%|████▌     | 22/48 [00:19<00:28,  1.09s/it]
+Layout Predict:  50%|█████     | 24/48 [00:21<00:27,  1.15s/it]
+Layout Predict:  54%|█████▍    | 26/48 [00:24<00:26,  1.22s/it]
+Layout Predict:  58%|█████▊    | 28/48 [00:27<00:25,  1.28s/it]
+Layout Predict:  62%|██████▎   | 30/48 [00:30<00:23,  1.32s/it]
+Layout Predict:  67%|██████▋   | 32/48 [00:33<00:21,  1.37s/it]
+Layout Predict:  71%|███████   | 34/48 [00:35<00:19,  1.38s/it]
+Layout Predict:  75%|███████▌  | 36/48 [00:38<00:16,  1.38s/it]
+Layout Predict:  79%|███████▉  | 38/48 [00:41<00:14,  1.40s/it]
+Layout Predict:  83%|████████▎ | 40/48 [00:44<00:11,  1.40s/it]
+Layout Predict:  88%|████████▊ | 42/48 [00:47<00:08,  1.40s/it]
+Layout Predict:  92%|█████████▏| 44/48 [00:50<00:05,  1.40s/it]
+Layout Predict:  96%|█████████▌| 46/48 [00:52<00:02,  1.41s/it]
+Layout Predict: 100%|██████████| 48/48 [00:55<00:00,  1.42s/it]
+Layout Predict: 100%|██████████| 48/48 [00:55<00:00,  1.16s/it]
+
+Two Step Extraction:   0%|          | 0/48 [00:00<?, ?it/s]
+Two Step Extraction:   2%|▏         | 1/48 [23:30<18:24:36, 1410.14s/it]
+Two Step Extraction:   4%|▍         | 2/48 [23:30<7:25:13, 580.73s/it]  
+Two Step Extraction:  10%|█         | 5/48 [23:30<1:58:13, 164.96s/it]
+Two Step Extraction:  10%|█         | 5/48 [23:44<1:58:13, 164.96s/it]
+Two Step Extraction:  12%|█▎        | 6/48 [26:57<2:03:02, 175.79s/it]
+Two Step Extraction:  19%|█▉        | 9/48 [26:58<54:41, 84.14s/it]   
+Two Step Extraction:  19%|█▉        | 9/48 [27:14<54:41, 84.14s/it]
+Two Step Extraction:  21%|██        | 10/48 [30:09<1:06:50, 105.54s/it]
+Two Step Extraction:  33%|███▎      | 16/48 [32:27<28:30, 53.45s/it]   
+Two Step Extraction:  44%|████▍     | 21/48 [32:38<14:11, 31.52s/it]
+Two Step Extraction:  56%|█████▋    | 27/48 [32:52<06:41, 19.14s/it]
+Two Step Extraction:  62%|██████▎   | 30/48 [32:52<04:24, 14.70s/it]
+Two Step Extraction:  67%|██████▋   | 32/48 [33:04<03:55, 14.70s/it]
+Two Step Extraction:  69%|██████▉   | 33/48 [33:05<03:01, 12.12s/it]
+Two Step Extraction:  79%|███████▉  | 38/48 [33:22<01:28,  8.88s/it]
+Two Step Extraction:  92%|█████████▏| 44/48 [33:35<00:24,  6.23s/it]
+Two Step Extraction:  98%|█████████▊| 47/48 [33:38<00:05,  5.12s/it]
+Two Step Extraction:  98%|█████████▊| 47/48 [33:54<00:05,  5.12s/it]2026-10-18 23:11:16.114 | WARNING  | mineru_vl_utils.vlm_client.llama_cpp_engine_client:get_output_content:128 - The output was truncated due to length limit.
+
+Two Step Extraction: 100%|██████████| 48/48 [34:18<00:00,  8.39s/it]
+Two Step Extraction: 100%|██████████| 48/48 [34:18<00:00, 42.88s/it]
+
+OCR-det:   0%|          | 0/364 [00:00<?, ?it/s]
+OCR-det:   4%|▍         | 16/364 [00:00<00:06, 52.80it/s]
+OCR-det:   9%|▉         | 32/364 [00:00<00:05, 60.06it/s]
+OCR-det:  13%|█▎        | 48/364 [00:00<00:04, 63.41it/s]
+OCR-det:  18%|█▊        | 64/364 [00:01<00:04, 62.33it/s]
+OCR-det:  22%|██▏       | 80/364 [00:01<00:07, 36.35it/s]
+OCR-det:  26%|██▋       | 96/364 [00:01<00:05, 48.01it/s]
+OCR-det:  29%|██▉       | 106/364 [00:02<00:04, 53.30it/s]
+OCR-det:  32%|███▏      | 116/364 [00:02<00:04, 56.45it/s]
+OCR-det:  36%|███▋      | 132/364 [00:02<00:03, 58.94it/s]
+OCR-det:  40%|████      | 146/364 [00:02<00:03, 66.52it/s]
+OCR-det:  44%|████▍     | 161/364 [00:02<00:02, 80.49it/s]
+OCR-det:  48%|████▊     | 174/364 [00:03<00:03, 63.16it/s]
+OCR-det:  51%|█████     | 185/364 [00:03<00:02, 67.53it/s]
+OCR-det:  58%|█████▊    | 212/364 [00:03<00:01, 94.18it/s]
+OCR-det:  63%|██████▎   | 230/364 [00:03<00:01, 104.75it/s]
+OCR-det:  68%|██████▊   | 247/364 [00:03<00:01, 112.79it/s]
+OCR-det:  78%|███████▊  | 283/364 [00:03<00:00, 124.89it/s]
+OCR-det:  82%|████████▏ | 297/364 [00:03<00:00, 125.51it/s]
+OCR-det:  87%|████████▋ | 317/364 [00:04<00:00, 135.77it/s]
+OCR-det:  91%|█████████ | 332/364 [00:04<00:00, 128.94it/s]
+OCR-det:  95%|█████████▌| 346/364 [00:04<00:00, 123.33it/s]
+OCR-det:  99%|█████████▉| 360/364 [00:04<00:00, 114.17it/s]
+OCR-det: 100%|██████████| 364/364 [00:04<00:00, 80.80it/s] 
+2026-10-18 23:11:21.441 | WARNING  | mineru.backend.analysis.pdf.normalization:_normalize_pdf_model_list:161 - PDF text block normalization: page_idx=9, bbox_fallback=1, dropped=0
+2026-10-18 23:11:21.441 | WARNING  | mineru.backend.analysis.pdf.normalization:_normalize_pdf_model_list:161 - PDF text block normalization: page_idx=13, bbox_fallback=1, dropped=0
+2026-10-18 23:11:21.442 | WARNING  | mineru.backend.analysis.pdf.normalization:_normalize_pdf_model_list:161 - PDF text block normalization: page_idx=28, bbox_fallback=1, dropped=0
+2026-10-18 23:11:21.836 | INFO     | mineru.backend.analyze:_log_infer_performance:26 - model_list infer finished, file_suffix=pdf, pages=48, cost=2123.214083s, speed=0.023 page/s
+

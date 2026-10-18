@@ -6,7 +6,7 @@ Số báo danh:................
 
 Câu 1: Nghiệm của phương trình $\log_4(x-1)=3$ là
 
-A. $x = 68$
+A.x=68
 
 B. x = 65
 
@@ -142,7 +142,7 @@ A. $\vec{u} = (10;6;-4)$
 
 B. $\vec{u} = (16;3;5)$
 
-C. $\vec{u} = (16; 15; -7)$
+C. $\vec{u} = (16;15;-7)$
 
 $\mathbf{D}.\vec{u} = (10; - 3; - 6)$
 
@@ -204,7 +204,7 @@ Exterior view of a building with a metal roof and circular window (no signage or
 
 mép của mái nhà và vuông góc với hai thanh dầm này được biểu diễn bồi đường thẳng có vectơ chỉ phương có toạ độ là (a; b; 6). Tính giá trị của biểu thức $T = 7a + 5b$.
 
-Câu 5: Trong y học, máy tán sỏi ngoài cơ thể (Lithotripter) hoạt động dựa trên tính chất quang học của đường elip. Thiết bị này có một mặt phần xạ có mặt cắt là một nửa đường elip. Khi hoạt động, nguồn phát sóng xung kích được đặt tại tiêu điểm $F_1$ của elip, và viên sỏi thận của bệnh nhân được bác sĩ định vị chính xác tại tiêu điểm $F_2$ còn lại. Theo tính chất của elip, mọi tia sóng phát ra từ $F_1$ sau khi chậm vào mặt phần xạ đều hội tự chính xác tại $F_2$, tạo ra năng lượng đủ lớn để phá vỡ viên sỏi mà không cần phẫu thuật. Một thiết bị tán sỏi thận có mặt cắt là một nửa đường elip với độ dài trực lớn là 20cm và khoảng cách từ tiêu điểm đến tâm của elip là 8cm. Xét một tia sóng phát ra từ nguồn $F_1$, đi theo phương vuông góc với trực lớn tại chính vị trí tiêu điểm $F_1$, chậm vào mặt phần xạ tại điểm M rời truyền đến viên sỏi tại tiêu điểm $F_2$. Tính độ dài quảng đường $MF_2$ (đơn vị: cm) từ điểm phần xạ đến viên sỏi.
+Câu 5: Trong y học, máy tán sỏi ngoài cơ thể (Lithotripter) hoạt động dựa trên tính chất quang học của đường elip. Thiết bị này có một mặt phần xạ có mặt cắt là một nửa đường elip. Khi hoạt động, nguồn phát sóng xung kích được đặt tại tiêu điểm $F_1$ của elip, và viên sỏi thận của bệnh nhân được bác sĩ định vị chính xác tại tiêu điểm $F_2$ còn lại. Theo tính chất của elip, mọi tia sóng phát ra từ $F_1$ sau khi chậm vào mặt phần xạ đều hội tự chính xác tại $F_2$, tạo ra năng lượng đủ lớn để phá vỡ viên sỏi mà không cần phẫu thuật. Một thiết bị tán sỏi thận có mặt cắt là một nửa đường elip với độ dài trực lón là 20cm và khoảng cách từ tiêu điểm đến tâm của elip là 8cm. Xét một tia sóng phát ra từ nguồn $F_1$, đi theo phương vuông góc với trực lón tại chính vị trí tiêu điểm $F_1$, chậm vào mặt phần xạ tại điểm M rời truyền đến viên sỏi tại tiêu điểm $F_2$. Tính độ dài quảng đường $MF_2$ (đơn vị: cm) từ điểm phần xạ đến viên sỏi.
 
 Câu 6: Một công ty sản xuất kẹo thạch muốn thiết kế một loại vỏ nhựa có dạng hình tròn xoay. Hình này được tạo thành khi quay hình phẳng (H) giới hạn bởi đường parabol (P): $y = x^{2}$ và đường thẳng $y = h$ (với $h > 0$) quanh trực tung $Oy$. Đơn vị đo trên các trực tọa độ là $mm$. Bên trong vỏ nhựa có đặt một viên kẹo thạch hình cầu bán kính $R$. Biết viên kẹo tiếp xúc với mặt xung quanh của vỏ nhựa đồng thời tiếp xúc với mặt đáy của vỏ (xem hình vẽ). Gọi $M$ là điểm tiếp xúc giữa viên kẹo và mặt bên của vỏ nhựa, $M$ thuộc mặt phẳng (Oxy). Khoảng cách từ điểm $M$ đến trực hoành bằng 20mm. Phần không gian còn lại trong vỏ nhựa được đồ đầy nước trái cây. Tính thể tích $V$ của phần nước trái cây này (kết quả làm tròn đến hàng đơn vị của $mm^{3}$, không làm tròn các bước trung gian, chỉ làm tròn ở bước cuối cùng, bổ qua độ dày của vỏ).
 

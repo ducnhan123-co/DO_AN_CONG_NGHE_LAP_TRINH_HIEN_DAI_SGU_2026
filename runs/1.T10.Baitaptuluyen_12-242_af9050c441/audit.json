@@ -1,0 +1,63 @@
+{
+  "dropped_pages": [],
+  "numbering_gaps": [
+    {
+      "line": 7966,
+      "type": "nhảy số",
+      "detail": "Bài 16 -> Bài 18"
+    },
+    {
+      "line": 265,
+      "type": "thiếu ý",
+      "detail": "có d) rồi f) nhưng thiếu e)"
+    },
+    {
+      "line": 4690,
+      "type": "thiếu ý",
+      "detail": "có c) rồi e) nhưng thiếu d)"
+    },
+    {
+      "line": 4769,
+      "type": "thiếu ý",
+      "detail": "có b) rồi d) nhưng thiếu c)"
+    },
+    {
+      "line": 4781,
+      "type": "thiếu ý",
+      "detail": "có a) rồi c) nhưng thiếu b)"
+    },
+    {
+      "line": 4859,
+      "type": "thiếu ý",
+      "detail": "có a) rồi c) nhưng thiếu b)"
+    },
+    {
+      "line": 4861,
+      "type": "thiếu ý",
+      "detail": "có c) rồi g) nhưng thiếu d)e)f)"
+    },
+    {
+      "line": 4865,
+      "type": "thiếu ý",
+      "detail": "có b) rồi d) nhưng thiếu c)"
+    },
+    {
+      "line": 4867,
+      "type": "thiếu ý",
+      "detail": "có d) rồi f) nhưng thiếu e)"
+    },
+    {
+      "line": 7174,
+      "type": "thiếu ý",
+      "detail": "có e) rồi h) nhưng thiếu f)g)"
+    }
+  ],
+  "docx": {
+    "equations": 2691,
+    "raw_latex_paragraphs": 2,
+    "samples": [
+      "$$\n    \\text{C.}\\ \\ \\left\\{\\begin{aligned}a&amp;&lt;b\\\\ c&amp;&lt;d\\end{aligned}\\right.\\Rightarrow ac&amp;&lt;bd.\n    $$",
+      "$$\n    \\mathrm{d}: \\left\\{ \\begin{array}{l} \\mathrm{x} = - 1 - 4 \\mathrm{t} \\\\ \\mathrm{y} = 2 + 2 \\mathrm{t} \\end{array} \\text{và d^{\\prime}"
+    ]
+  }
+}

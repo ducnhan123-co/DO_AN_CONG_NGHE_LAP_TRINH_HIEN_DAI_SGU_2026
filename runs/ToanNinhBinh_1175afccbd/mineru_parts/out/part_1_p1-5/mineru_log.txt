@@ -1,0 +1,39 @@
+$ mineru-kit parse D:\rag_toan\runs\ToanNinhBinh_1175afccbd\mineru_parts\pdf\part_1_p1-5.pdf -o D:\rag_toan\runs\ToanNinhBinh_1175afccbd\mineru_parts\out\part_1_p1-5 --tier advanced
+
+--- STDOUT ---
+Parsed 1 input(s).
+
+
+--- STDERR ---
+2026-10-17 21:53:00.849 | INFO     | mineru.model.vlm.selector:get_vlm_engine:61 - Using llama-cpp-engine as the inference engine for VLM.
+0.02.825.697 W load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+0.03.430.402 W load_hparams: Qwen-VL models require at minimum 1024 image tokens to function correctly on grounding tasks
+0.03.430.411 W load_hparams: if you encounter problems with accuracy, try adding --image-min-tokens 1024
+0.03.430.412 W load_hparams: more info: https://github.com/ggml-org/llama.cpp/issues/16842
+
+2026-10-17 21:53:06.753 | INFO     | mineru.model.vlm.runtime:_create_model:348 - get llama-cpp-engine predictor cost: 5.9s
+2026-10-17 21:53:06.753 | INFO     | mineru.backend.analysis.pdf.window:_log_processing_window_plan:120 - Hybrid processing-window run. page_count=5, window_size=64, total_windows=1
+2026-10-17 21:53:07.885 | INFO     | mineru.backend.analysis.pdf.window:_log_processing_window:128 - Hybrid processing window 1/1: pages 1-5/5 (5 pages)
+
+Layout Predict:   0%|          | 0/5 [00:00<?, ?it/s]
+Layout Predict:  40%|████      | 2/5 [00:01<00:02,  1.47it/s]
+Layout Predict:  80%|████████  | 4/5 [00:02<00:00,  1.49it/s]
+Layout Predict: 100%|██████████| 5/5 [00:03<00:00,  1.53it/s]
+Layout Predict: 100%|██████████| 5/5 [00:03<00:00,  1.51it/s]
+
+Two Step Extraction:   0%|          | 0/5 [00:00<?, ?it/s]
+Two Step Extraction:  20%|██        | 1/5 [00:12<00:50, 12.62s/it]
+Two Step Extraction:  40%|████      | 2/5 [00:30<00:46, 15.47s/it]
+Two Step Extraction:  80%|████████  | 4/5 [00:40<00:09,  9.01s/it]
+Two Step Extraction: 100%|██████████| 5/5 [00:43<00:00,  7.14s/it]
+Two Step Extraction: 100%|██████████| 5/5 [00:43<00:00,  8.68s/it]
+
+OCR-det:   0%|          | 0/97 [00:00<?, ?it/s]
+OCR-det:   2%|▏         | 2/97 [00:00<00:11,  7.99it/s]
+OCR-det:  32%|███▏      | 31/97 [00:00<00:00, 72.58it/s]
+OCR-det:  53%|█████▎    | 51/97 [00:00<00:00, 102.87it/s]
+OCR-det:  69%|██████▉   | 67/97 [00:00<00:00, 116.02it/s]
+OCR-det:  91%|█████████ | 88/97 [00:00<00:00, 138.09it/s]
+OCR-det: 100%|██████████| 97/97 [00:01<00:00, 94.15it/s] 
+2026-10-17 21:53:55.953 | INFO     | mineru.backend.analyze:_log_infer_performance:26 - model_list infer finished, file_suffix=pdf, pages=5, cost=49.112594s, speed=0.102 page/s
+

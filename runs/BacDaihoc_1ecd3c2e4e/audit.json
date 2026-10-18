@@ -1,0 +1,82 @@
+{
+  "dropped_pages": [
+    {
+      "page": 9,
+      "dropped": 2
+    },
+    {
+      "page": 13,
+      "dropped": 3
+    },
+    {
+      "page": 25,
+      "dropped": 8
+    },
+    {
+      "page": 26,
+      "dropped": 16
+    },
+    {
+      "page": 27,
+      "dropped": 1
+    },
+    {
+      "page": 29,
+      "dropped": 3
+    },
+    {
+      "page": 44,
+      "dropped": 2
+    },
+    {
+      "page": 71,
+      "dropped": 5
+    },
+    {
+      "page": 75,
+      "dropped": 1
+    },
+    {
+      "page": 78,
+      "dropped": 2
+    },
+    {
+      "page": 83,
+      "dropped": 1
+    }
+  ],
+  "numbering_gaps": [
+    {
+      "line": 1012,
+      "type": "thiếu ý",
+      "detail": "có f) rồi h) nhưng thiếu g)"
+    },
+    {
+      "line": 200,
+      "type": "thiếu ý",
+      "detail": "có a) rồi c) nhưng thiếu b)"
+    },
+    {
+      "line": 945,
+      "type": "thiếu ý",
+      "detail": "có b) rồi d) nhưng thiếu c)"
+    },
+    {
+      "line": 4059,
+      "type": "thiếu ý",
+      "detail": "có e) rồi g) nhưng thiếu f)"
+    },
+    {
+      "line": 1012,
+      "type": "thiếu ý",
+      "detail": "có e) rồi h) nhưng thiếu f)g)"
+    }
+  ],
+  "docx": {
+    "equations": 1367,
+    "raw_latex_paragraphs": 1,
+    "samples": [
+      "$$\n    \\mathbf {J} = \\frac {\\mathrm{D} (\\mathbf {x} , \\mathbf {y})}{\\mathrm{D} (\\mathbf {r} , \\varphi)} = \\left| \\begin{array}{cc} \\frac {\\p"
+    ]
+  }
+}

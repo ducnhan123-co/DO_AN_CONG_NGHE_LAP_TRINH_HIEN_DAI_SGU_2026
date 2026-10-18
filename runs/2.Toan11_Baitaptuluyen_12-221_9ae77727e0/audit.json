@@ -1,0 +1,75 @@
+{
+  "dropped_pages": [],
+  "numbering_gaps": [
+    {
+      "line": 689,
+      "type": "nhảy số",
+      "detail": "Câu 8 -> Câu 10"
+    },
+    {
+      "line": 1535,
+      "type": "nhảy số",
+      "detail": "Bài 100 -> Bài 102"
+    },
+    {
+      "line": 1981,
+      "type": "nhảy số",
+      "detail": "Câu 25 -> Câu 10"
+    },
+    {
+      "line": 5368,
+      "type": "nhảy số",
+      "detail": "Bài 17 -> Bài 41"
+    },
+    {
+      "line": 2403,
+      "type": "thiếu ý",
+      "detail": "có a) rồi c) nhưng thiếu b)"
+    },
+    {
+      "line": 2406,
+      "type": "thiếu ý",
+      "detail": "có b) rồi d) nhưng thiếu c)"
+    },
+    {
+      "line": 2412,
+      "type": "thiếu ý",
+      "detail": "có a) rồi c) nhưng thiếu b)"
+    },
+    {
+      "line": 2414,
+      "type": "thiếu ý",
+      "detail": "có c) rồi e) nhưng thiếu d)"
+    },
+    {
+      "line": 2416,
+      "type": "thiếu ý",
+      "detail": "có e) rồi g) nhưng thiếu f)"
+    },
+    {
+      "line": 2420,
+      "type": "thiếu ý",
+      "detail": "có b) rồi d) nhưng thiếu c)"
+    },
+    {
+      "line": 2422,
+      "type": "thiếu ý",
+      "detail": "có d) rồi f) nhưng thiếu e)"
+    },
+    {
+      "line": 5854,
+      "type": "thiếu ý",
+      "detail": "có a) rồi c) nhưng thiếu b)"
+    },
+    {
+      "line": 5873,
+      "type": "thiếu ý",
+      "detail": "có a) rồi d) nhưng thiếu b)c)"
+    }
+  ],
+  "docx": {
+    "equations": 1729,
+    "raw_latex_paragraphs": 0,
+    "samples": []
+  }
+}
