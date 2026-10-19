@@ -1,0 +1,4 @@
+# Chỉ cần khi RAG_INDEX=1 (dựng index LlamaIndex + embedding E5)
+llama-index-core
+llama-index-embeddings-huggingface
+torch

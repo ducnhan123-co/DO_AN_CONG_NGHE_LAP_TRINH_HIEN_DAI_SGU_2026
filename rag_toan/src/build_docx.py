@@ -7,7 +7,7 @@ from pathlib import Path
 try:
     from .config import PANDOC_FROM
 except ImportError:
-    from config import PANDOC_FROM
+    from projects.rag_toan.src.config import PANDOC_FROM
 
 
 def fix_legacy_tex_bf(markdown_text: str) -> str:

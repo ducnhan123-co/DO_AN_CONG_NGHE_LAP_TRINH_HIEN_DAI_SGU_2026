@@ -1,81 +1,58 @@
-"""FastAPI + hàng đợi tài liệu tuần tự; MinerU có thể parse song song theo từng PDF.
+"""Khởi tạo ứng dụng FastAPI (điểm ghép MVC):
 
-Chạy từ thư mục dự án:
-
-    uvicorn backend.app.main:app --port 8000          (CHỈ 1 worker: hàng đợi nằm trong tiến trình này)
+    Model       app/models        SQLite (app.db) + thực thể + repository
+    View        app/views         JSON đúng định dạng frontend
+    Controller  app/controllers   các route /api/...
+    Service     app/services      pipeline rag_toan, MinerU, hàng đợi, upload, lưu trữ data/
 """
-import os
-from pathlib import Path
-
-os.environ.setdefault("PYTHONUTF8", "1")      # tiến trình con (MinerU, Pandoc) đọc/ghi UTF-8, tránh lỗi 'charmap' trên Windows
+from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from typing import Optional
 
-from fastapi import APIRouter, FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import select
 
-from backend.app.controllers import (document_controller, export_controller, job_controller, system_controller)
-from backend.app.core.config import get_settings
-from backend.app.core.errors import register_exception_handlers
-from backend.app.models.database import Document, Job, SessionLocal, engine, init_db
-from backend.app.models.storage import sync_all_documents
-from backend.app.models.pipeline import Pipeline, set_pipeline
+from .controllers import documents_controller, system_controller
+from .core import log_router
+from .core.config import Settings, load_settings
+from .core.container import build_container
+from .core.errors import install_handlers
 
-logger = logging.getLogger(__name__)
-
-DESCRIPTION = """
-Chuyển PDF toán sang DOCX có công thức Equation thật: **MinerU → Markdown → Pandoc → DOCX**.
-
-`POST /documents` (1 hoặc nhiều file) → MinerU song song → Markdown/structured/chunks → Pandoc/DOCX → kiểm tra.
-Theo dõi qua `GET /documents` hoặc `GET /jobs/{id}/events` (SSE); tải qua `GET /documents/{id}/docx`.
-Mỗi lúc chỉ xử lý một tài liệu; các phần trang trong tài liệu đó có thể chạy đồng thời.
-"""
+log = logging.getLogger("app")
 
 
-def setup_logging(level: str) -> None:
-    logging.basicConfig(level=level.upper(), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+def create_app(settings: Optional[Settings] = None) -> FastAPI:
+    settings = settings or load_settings()
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    log_router.install()                       # print() của rag_toan -> log từng tài liệu
+    container = build_container(settings)
 
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        container.scheduler.start()
+        e = container.engine
+        log.info("Data: %s | rag_toan: %s (%s) | pandoc: %s | %s: %s",
+                 settings.data_dir, settings.engine_dir, "OK" if e.found else "KHÔNG THẤY",
+                 "OK" if e.pandoc_found else "THIẾU", e.mineru_argv0, "OK" if e.mineru_found else "THIẾU")
+        yield
+        container.scheduler.stop()
 
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    s = get_settings()
-    setup_logging(s.log_level)
-    (s.data_dir / "documents").mkdir(parents=True, exist_ok=True)
-    logger.info("Thư mục dữ liệu backend: %s", s.data_dir.resolve())
-    if engine.dialect.name == "sqlite" and engine.url.database and engine.url.database != ":memory:":
-        logger.info("File database SQLite: %s", Path(engine.url.database).expanduser().resolve())
-    init_db()
-    (s.data_dir / "input").mkdir(parents=True, exist_ok=True)
-    (s.data_dir / "docx_output").mkdir(parents=True, exist_ok=True)
-    (s.data_dir / "runs").mkdir(parents=True, exist_ok=True)
-    with SessionLocal() as db:
-        documents = db.scalars(select(Document)).all()
-        sync_all_documents(s, [(doc, max(doc.jobs, key=lambda job: job.created_at) if doc.jobs else None)
-                               for doc in documents])
-    pipeline = Pipeline(s)
-    set_pipeline(pipeline)
-    pipeline.start()
-    yield
-    pipeline.stop()
-    set_pipeline(None)
+    app = FastAPI(title="PDF → Word backend", version="1.0.0", lifespan=lifespan,
+                  docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
+    app.state.container = container
 
+    app.add_middleware(
+        CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=False,
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"], allow_headers=["*"],
+        expose_headers=["Content-Disposition"])
+    install_handlers(app)
+    app.include_router(system_controller.router)
+    app.include_router(documents_controller.router)
 
-def create_app() -> FastAPI:
-    s = get_settings()
-    app = FastAPI(title=s.app_name, description=DESCRIPTION, version="2.0.0", lifespan=lifespan)
-    app.add_middleware(CORSMiddleware, allow_origins=s.cors_origins, allow_methods=["*"], allow_headers=["*"],
-                       expose_headers=["Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition"])
-    register_exception_handlers(app)
-    api = APIRouter()
-    for mod in (document_controller, export_controller, job_controller, system_controller):
-        api.include_router(mod.router)
-    app.include_router(api, prefix=s.api_prefix)
-    if s.frontend_dir.exists():          # phục vụ luôn giao diện: mở http://127.0.0.1:8000/
-        app.mount("/", StaticFiles(directory=str(s.frontend_dir), html=True), name="frontend")
+    # Phục vụ luôn giao diện: mở http://127.0.0.1:8000/ là dùng được, khớp frontend/config.js (cùng nguồn gốc)
+    if settings.serve_frontend and settings.frontend_dir.is_dir():
+        app.mount("/", StaticFiles(directory=str(settings.frontend_dir), html=True), name="frontend")
     return app
-
-
-app = create_app()

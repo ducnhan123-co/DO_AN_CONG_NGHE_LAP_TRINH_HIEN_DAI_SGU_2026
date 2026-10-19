@@ -1,106 +1,149 @@
-"""Cấu hình đọc từ backend/.env (xem .env.example) + các đường dẫn dữ liệu dùng chung.
+"""Cấu hình toàn backend. Mọi thứ đổi được bằng biến môi trường hoặc file .env (cạnh run.py).
 
-Mọi dữ liệu (app.db, PDF, kết quả MinerU, DOCX, log) nằm dưới backend/data — không còn ghi ra rag_toan.
+Giá trị mặc định của pipeline GIỐNG main.py của rag_toan (workers=2, stagger=20s, profile=auto...).
 """
-from functools import lru_cache
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass, field
 from pathlib import Path
-import re
-from typing import List
 
-from pydantic import model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
-BACKEND_DIR = Path(__file__).resolve().parents[2]      # .../backend
-ROOT_DIR = BACKEND_DIR.parent                          # thư mục chứa backend/ và frontend/
-
-DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+BACKEND_DIR = Path(__file__).resolve().parents[2]          # .../backend
+PROJECT_ROOT = BACKEND_DIR.parent                          # .../rag_toan
 
 
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", env_file_encoding="utf-8", extra="ignore")
+def _load_dotenv(path: Path) -> None:
+    """Đọc .env đơn giản (KEY=VALUE), không ghi đè biến môi trường đã có."""
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
-    app_name: str = "PDF to DOCX API"
-    api_prefix: str = "/api"
-    log_level: str = "INFO"
-    cors_origins: List[str] = ["*"]
+
+def _env(name: str, default: str) -> str:
+    return os.environ.get(name, default)
+
+
+def _bool(name: str, default: bool) -> bool:
+    return _env(name, "1" if default else "0").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _int(name: str, default: int) -> int:
+    try:
+        return int(_env(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _float(name: str, default: float) -> float:
+    try:
+        return float(_env(name, str(default)))
+    except ValueError:
+        return default
+
+
+@dataclass
+class Settings:
+    # ---- đường dẫn -------------------------------------------------------
+    engine_dir: Path = PROJECT_ROOT / "rag_toan"
+    frontend_dir: Path = PROJECT_ROOT / "frontend"
     data_dir: Path = BACKEND_DIR / "data"
-    database_url: str = ""                  # rỗng -> sqlite:///<data_dir>/app.db
-    frontend_dir: Path = ROOT_DIR / "frontend"
 
-    # --- upload ---
+    # ---- server ----------------------------------------------------------
+    host: str = "0.0.0.0"
+    port: int = 8000
+    cors_origins: list = field(default_factory=lambda: ["*"])
+    serve_frontend: bool = True
+
+    # ---- upload ----------------------------------------------------------
     max_upload_mb: int = 100
     max_files_per_request: int = 20
-    max_active_jobs: int = 50               # vượt quá thì từ chối upload (429)
+    max_pages: int = 1000
 
-    # --- MinerU (mineru-kit) ---
-    rag_toan_dir: str = ""                  # rỗng = tự tìm dự án rag_toan đầy đủ cạnh backend/
-    mineru_cmd: str = "mineru-kit"          # có thể là "python /đường/dẫn/fake.py" khi test
-    mineru_format: str = "markdown"         # markdown: `parse -o` ra 1 file .md, ảnh nhúng base64 (cách rag_toan đang dùng)
-                                            # zip: `parse -f zip` ra markdown.md + images/ (kiểu cũ)
-    mineru_tier: str = "advanced"           # rag_toan/src/config.py dùng "advanced"; số đo thời gian trước đây là "standard"
-    mineru_ocr_mode: str = "auto"           # auto | txt | ocr (đo thực tế: txt và auto không khác biệt đáng kể)
-    mineru_workers: int = 2                  # số tiến trình MinerU chạy đồng thời trong một tài liệu
-    mineru_min_pages_per_worker: int = 5     # file ngắn tự giảm số tiến trình như rag_toan/main.py
-    mineru_stagger_s: float = 20.0           # giãn thời điểm khởi chạy để tránh nạp model cùng lúc
-    mineru_timeout_min_s: int = 900
-    mineru_timeout_per_page_s: int = 90
-    # --- Pandoc / DOCX ---
-    pandoc_timeout_s: int = 900
-    est_seconds_per_page: float = 0.0       # chỉ để ước lượng thanh tiến độ khi chưa có số đo; 0 = tự chọn theo tier
+    # ---- lập lịch --------------------------------------------------------
+    main_slots: int = 1                 # số TÀI LIỆU chạy cùng lúc
+    mineru_workers: int = 2             # số tiến trình MinerU cho 1 tài liệu (như --workers)
+    mineru_stagger: float = 20.0        # giây chờ giữa các tiến trình MinerU (như --stagger)
+    min_pages_per_worker: int = 5
+    max_mineru_procs: int = 0           # trần tổng tiến trình MinerU toàn máy; 0 = main_slots*workers
+    sec_per_page: float = 6.0           # ước lượng ban đầu để vẽ thanh tiến độ (tự học sau mỗi lần chạy)
 
-    @model_validator(mode="after")
-    def _defaults(self):
-        if not self.database_url:
-            self.database_url = f"sqlite:///{self.data_dir / 'app.db'}"
-        return self
+    # ---- MinerU ----------------------------------------------------------
+    mineru_cmd: str = "mineru-kit"
+    mineru_tier: str = "advanced"
+    mineru_extra_args: str = ""         # vd: "--remote --api-key XXXX" để dùng mineru.net thay vì model cục bộ
 
-    # --- đường dẫn theo tài liệu ---
-    def doc_dir(self, doc_id: str) -> Path:
-        return self.data_dir / "documents" / doc_id
+    # ---- pipeline (như các cờ của main.py) ----------------------------------
+    profile: str = "auto"
+    no_columns: bool = False
+    no_frame: bool = False
+    no_split: bool = False
+    ocr_lang: str = "eng"
+    col_font_pt: float = 8.0
 
-    def pdf_path(self, doc_id: str) -> Path:
-        return self.doc_dir(doc_id) / "input.pdf"
+    # ---- RAG -------------------------------------------------------------------
+    rag_artifacts: bool = True          # sinh structured_data / chunks / validation (nhẹ)
+    rag_index: bool = False             # dựng LlamaIndex E5 (nặng: torch + model ~1GB)
 
-    def docx_path(self, doc_id: str) -> Path:
-        return self.doc_dir(doc_id) / "output.docx"
+    # ---- đường dẫn dẫn xuất ---------------------------------------------------
+    @property
+    def documents_dir(self) -> Path:
+        return self.data_dir / "documents"
 
-    def mineru_dir(self, doc_id: str) -> Path:
-        return self.doc_dir(doc_id) / "mineru"
-
-    def work_md(self, doc_id: str) -> Path:
-        return self.doc_dir(doc_id) / "work.md"
-
-    def logs_dir(self, doc_id: str) -> Path:
-        return self.doc_dir(doc_id) / "logs"
-
+    @property
     def input_dir(self) -> Path:
         return self.data_dir / "input"
 
-    def docx_output_dir(self) -> Path:
+    @property
+    def docx_dir(self) -> Path:
         return self.data_dir / "docx_output"
 
-    def runs_dir(self) -> Path:
-        return self.data_dir / "runs"
+    @property
+    def db_path(self) -> Path:
+        return self.data_dir / "app.db"
 
-    @staticmethod
-    def _safe_stem(name: str) -> str:
-        stem = Path(name).stem
-        stem = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", stem).strip(" .")
-        return (stem or "document")[:180]
+    @property
+    def procs_cap(self) -> int:
+        return self.max_mineru_procs or max(1, self.main_slots * self.mineru_workers)
 
-    def input_mirror_path(self, doc_id: str, filename: str) -> Path:
-        return self.input_dir() / f"{doc_id}_{self._safe_stem(filename)}.pdf"
-
-    def docx_mirror_path(self, doc_id: str, display_name: str) -> Path:
-        return self.docx_output_dir() / f"{doc_id}_{self._safe_stem(display_name)}.docx"
-
-    def work_md_mirror_path(self, doc_id: str, display_name: str) -> Path:
-        return self.docx_output_dir() / f"{doc_id}_{self._safe_stem(display_name)}_for_docx.md"
-
-    def run_dir(self, doc_id: str, filename: str) -> Path:
-        return self.runs_dir() / f"{self._safe_stem(filename)}_{doc_id}"
+    def ensure_dirs(self) -> None:
+        for p in (self.data_dir, self.documents_dir, self.input_dir, self.docx_dir):
+            p.mkdir(parents=True, exist_ok=True)
 
 
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
+def load_settings() -> Settings:
+    _load_dotenv(BACKEND_DIR / ".env")
+    s = Settings()
+    s.engine_dir = Path(_env("RAG_ENGINE_DIR", str(s.engine_dir))).resolve()
+    s.frontend_dir = Path(_env("FRONTEND_DIR", str(s.frontend_dir))).resolve()
+    s.data_dir = Path(_env("DATA_DIR", str(s.data_dir))).resolve()
+    s.host = _env("HOST", s.host)
+    s.port = _int("PORT", s.port)
+    origins = _env("CORS_ORIGINS", "*")
+    s.cors_origins = ["*"] if origins.strip() == "*" else [o.strip() for o in origins.split(",") if o.strip()]
+    s.serve_frontend = _bool("SERVE_FRONTEND", True)
+    s.max_upload_mb = _int("MAX_UPLOAD_MB", s.max_upload_mb)
+    s.max_files_per_request = _int("MAX_FILES_PER_REQUEST", s.max_files_per_request)
+    s.max_pages = _int("MAX_PAGES", s.max_pages)
+    s.main_slots = max(1, _int("MAIN_SLOTS", s.main_slots))
+    s.mineru_workers = max(1, _int("MINERU_WORKERS", s.mineru_workers))
+    s.mineru_stagger = _float("MINERU_STAGGER", s.mineru_stagger)
+    s.min_pages_per_worker = max(1, _int("MIN_PAGES_PER_WORKER", s.min_pages_per_worker))
+    s.max_mineru_procs = _int("MAX_MINERU_PROCS", s.max_mineru_procs)
+    s.sec_per_page = _float("SEC_PER_PAGE", s.sec_per_page)
+    s.mineru_cmd = _env("MINERU_CMD", s.mineru_cmd)
+    s.mineru_tier = _env("MINERU_TIER", s.mineru_tier)
+    s.mineru_extra_args = _env("MINERU_EXTRA_ARGS", s.mineru_extra_args)
+    s.profile = _env("PROFILE", s.profile)
+    s.no_columns = _bool("NO_COLUMNS", s.no_columns)
+    s.no_frame = _bool("NO_FRAME", s.no_frame)
+    s.no_split = _bool("NO_SPLIT", s.no_split)
+    s.ocr_lang = _env("OCR_LANG", s.ocr_lang)
+    s.col_font_pt = _float("COL_FONT_PT", s.col_font_pt)
+    s.rag_artifacts = _bool("RAG_ARTIFACTS", s.rag_artifacts)
+    s.rag_index = _bool("RAG_INDEX", s.rag_index)
+    return s
