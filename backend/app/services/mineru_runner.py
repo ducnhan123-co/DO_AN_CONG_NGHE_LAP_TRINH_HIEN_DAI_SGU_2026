@@ -212,6 +212,7 @@ class MineruRunner:
                         break
                     cancel.wait(0.5)
             elapsed = time.time() - t0
+            self._write_part_log(part_out, cmd, log_path)
             if rc != 0:
                 tail = self._tail(log_path)
                 shard.update(status="failed", error=f"exit {rc}: {tail}"[:300])
@@ -236,6 +237,20 @@ class MineruRunner:
             if proc is not None:
                 self._unregister(doc_id, proc)
             self._sem.release()
+
+    @staticmethod
+    def _write_part_log(part_out: Path, cmd: list, log_path: Path) -> None:
+        """Ghi <part_out>/mineru_log.txt đúng định dạng của parallel_mineru._run_one_part.
+        File này được src dùng: audit.dropped_pages() đọc dòng `page_idx=N ... dropped=M`,
+        parallel_mineru._part_finished() đọc dòng `Parsed N input(s)` để biết phần đã xong."""
+        try:
+            body = log_path.read_text(encoding="utf-8", errors="replace")
+            body = body.split("\n\n", 1)[1] if body.startswith("$ ") and "\n\n" in body else body
+            (part_out / "mineru_log.txt").write_text(
+                f"$ {' '.join(cmd)}\n\n--- STDOUT ---\n{body}\n\n--- STDERR ---\n(đã gộp vào STDOUT)\n",
+                encoding="utf-8")
+        except OSError:
+            pass
 
     @staticmethod
     def _tail(log_path: Path, lines: int = 4) -> str:

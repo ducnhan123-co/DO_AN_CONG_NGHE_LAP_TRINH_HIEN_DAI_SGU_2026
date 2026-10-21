@@ -2,8 +2,8 @@
 
 ```
 projects/
-├── rag_toan/     lõi (KHÔNG sửa) — backend import trực tiếp src/*
-├── frontend/     giao diện (KHÔNG sửa) — gọi /api/...
+├── rag_toan/     lõi - backend import trực tiếp src/*
+├── frontend/     giao diện - gọi /api/...
 └── backend/      thư mục này
 ```
 
@@ -12,7 +12,7 @@ projects/
 ```bash
 cd backend
 pip install -r requirements.txt -r requirements-mineru.txt   # + pandoc, tesseract ở mức hệ điều hành
-python run.py            # mở http://127.0.0.1:8000  (backend phục vụ luôn frontend, khớp frontend/config.js)
+python backend/run.py            # mở http://127.0.0.1:8000  (backend phục vụ luôn frontend, khớp frontend/config.js)
 ```
 
 Dev không có model MinerU: `MINERU_CMD="python tests/fake_mineru_kit.py" python run.py`
@@ -63,19 +63,32 @@ data/
 Giao diện sửa → dữ liệu đổi ngay: tải lên (tạo `input/` + `documents/<id>`), hủy (kill MinerU), thử lại (tiếp tục từ chỗ dở; `?force=true` chạy lại cả MinerU), đổi tên, **xóa (xóa thật file trong data/** khi không còn ai dùng tài liệu đó).
 Mỗi trình duyệt (`X-Client-Id`) có thư viện riêng; PDF giống hệt đã xử lý thì dùng lại kết quả (`cache_hit`).
 
+## Bố cục cột (PDF 2–3 cột trên một trang)
+
+Trên giao diện, ngay trên khung thả file có nút chọn **Giữ cột như PDF** / **Chuyển thành 1 cột** (nhớ lại lần chọn, áp dụng cho các file tải lên sau đó).
+API: `POST /api/documents` nhận thêm trường form `column_mode` = `keep` (mặc định) | `single`.
+
+| Chế độ | Cách làm | Kết quả Word |
+|---|---|---|
+| `keep` | hành vi gốc của `rag_toan` (`layout_of` + `apply_section_columns`, hoặc `plan_strips` cho tờ có khung kẻ) | giữ 2/3 cột, khổ giấy và ngắt cột như PDF |
+| `single` | mỗi cột của mỗi trang được cắt thành 1 "dải" (1 trang PDF riêng), MinerU đọc lần lượt cột 1 → 2 → 3 rồi mới sang trang kế; **không** áp section cột/khung/band | trang Word thường, 1 cột, đúng thứ tự đọc |
+
+Tờ có khung kẻ dùng `plan_strips` sẵn có; tờ không kẻ dùng bộ dò rãnh trắng mới trong `app/services/column_flatten.py` (bỏ qua dải nền/đường kẻ/tiêu đề trải ngang; cần ≥ 2 cột dày chữ để khỏi cắt nhầm trang thưa).
+Cùng một PDF ở hai chế độ là **hai kết quả độc lập**: chế độ `single` có `id` dạng `<sha1>_1c` (thư mục `documents/<sha1>_1c/`), mỗi cái có cache riêng. `app.db` cũ được tự nâng cấp (thêm cột `column_mode`, mặc định `keep`).
+
 ## API (khớp frontend)
 
 `GET /api/health` · `GET /api/system/stats` · `GET|POST /api/documents` · `GET|PATCH|DELETE /api/documents/{id}` ·
 `POST …/cancel` · `POST …/retry` · `GET …/docx` · `GET …/pdf` ·
 thêm: `GET …/artifacts[/{name}]`, `GET …/log`, `POST …/search` (RAG). Tài liệu Swagger: `/api/docs`.
 
-## Vercel — kết luận
+## Đóng gói và  triển khai nhanh
 
-- **Frontend: chuyển được** (toàn file tĩnh). Chép `deploy/vercel/vercel.json` + `build-config.mjs` vào `frontend/`, đặt biến `API_BASE_URL` = địa chỉ backend, và đặt `CORS_ORIGINS=https://<app>.vercel.app` ở backend.
-- **Backend: không chạy được trên Vercel Functions.** Pipeline cần MinerU chạy phút–giờ và nặng RAM, subprocess Pandoc/Tesseract, ổ đĩa bền (`data/`, SQLite), tiến trình nền sau khi trả response, upload tới 100 MB. Vercel: request/response tối đa 4,5 MB, thời lượng 300 s (Hobby) / 800 s (Pro), gói function 250 MB (500 MB Python), không có đĩa bền. → Chạy backend bằng Docker trên VPS/máy có đĩa (Fly.io, Railway, Render, VPS, máy trường…).
+### Đóng gói
+docker build -f backend/Dockerfile -t pdf2docx .
+docker run -d -p 8000:8000 -v "$(pwd)/backend/data:/app/backend/data" --name pdf2docx pdf2docx
 
-## Đóng gói triển khai nhanh
-
+### dùng compose để triển khai
 ```bash
 cp .env.example .env
 docker compose up -d --build      # từ thư mục backend/

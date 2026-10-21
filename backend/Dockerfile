@@ -1,24 +1,28 @@
-# Build từ thư mục projects/ (chứa backend/, rag_toan/, frontend/):
-#   docker build -f backend/Dockerfile -t pdf2docx .
 FROM python:3.11-slim AS base
 
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PYTHONUTF8=1
 
-# pandoc: md -> docx | tesseract: dò cột | libgl/glib: opencv, pymupdf | fonts: render PDF khi dò cột
+# tesseract: dò cột | libgl/glib: opencv, pymupdf | fonts: render PDF khi dò cột
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        pandoc tesseract-ocr tesseract-ocr-vie libglib2.0-0 libgl1 poppler-utils fonts-liberation curl \
+        tesseract-ocr tesseract-ocr-vie libglib2.0-0 libgl1 poppler-utils fonts-liberation curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Pandoc
+ARG TARGETARCH
+ARG PANDOC_VERSION=3.1.3
+RUN curl -fsSL -o /tmp/pandoc.deb \
+      "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-1-${TARGETARCH}.deb" \
+    && apt-get update && apt-get install -y /tmp/pandoc.deb && rm -f /tmp/pandoc.deb \
+    && rm -rf /var/lib/apt/lists/* && pandoc --version | head -1
 
 WORKDIR /app
 COPY backend/requirements.txt backend/requirements-mineru.txt backend/requirements-rag.txt /tmp/req/
 RUN pip install -r /tmp/req/requirements.txt
 
-# Lớp MinerU tách riêng để cache (rất nặng). Bỏ dòng này nếu dùng MinerU từ xa (--remote).
+# Lớp MinerU tách riêng để cache 
 RUN pip install -r /tmp/req/requirements-mineru.txt
 
 # Tải model ngay lúc build để người dùng đầu tiên không phải đợi (và máy chạy không cần internet).
-# CHƯA kiểm thử trong môi trường dựng bản này: tier "advanced" có thể cần model VLM; chạy
-# `mineru-kit models show` trong container để xem chính xác cần tải gì cho MINERU_TIER của bạn.
 ARG PRELOAD_MODELS=1
 ARG PRELOAD_TIER=standard
 RUN if [ "$PRELOAD_MODELS" = "1" ]; then mineru-kit models download --tier "$PRELOAD_TIER"; fi
@@ -32,7 +36,7 @@ COPY frontend /app/frontend
 COPY backend  /app/backend
 
 WORKDIR /app/backend
-ENV DATA_DIR=/app/backend/data HOST=0.0.0.0 PORT=8000
+ENV DATA_DIR=/app/backend/data HOST=0.0.0.0 PORT=8000 MINERU_TIER=advanced
 VOLUME ["/app/backend/data"]
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD curl -fs http://localhost:8000/api/health || exit 1

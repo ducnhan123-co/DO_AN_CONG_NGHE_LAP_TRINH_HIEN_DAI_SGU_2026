@@ -4,14 +4,19 @@ main.py (CLI)                                   Pipeline.run (backend)          
 -------------------------------------------     ------------------------------------   --------  -------
 0.  prepare_run_dir  (runs/<ten>_<id>)          documents/<id>/ (+ input/<id>.pdf)     parsing    2
 0b. plan_strips + build_strips_pdf              như cũ (PDF nhiều cột -> dải cột)      parsing
+0b'. column_mode=single: dải cột theo rãnh trắng  mỗi cột = 1 dải, đọc cột 1->2->3 (column_flatten)
+0c. scan_clean (PDF scan, không phải dải cột)   che dải trang bên cạnh trước MinerU     parsing
 1.  run_mineru_parallel                         MineruRunner (Popen, hủy được)         parsing   2-70
     (ghép các phần)                             merge_parts                            merging   70-75
 2.  fix_legacy_tex_bf -> prepare_work_md        như cũ -> documents/<id>/work.md       preparing 75-82
 2b. md_to_docx + cột/khung                      như cũ -> docx_output/<id>.docx        building  82-92
-    (kiểm tra Word)                             validate_docx                          validating 92-97
-3.  structured + chunks + validation            như cũ, KHÔNG làm hỏng kết quả Word    validating 97-99
-4.  LlamaIndex (tùy chọn)                       rag_service.build_index (RAG_INDEX=1)  validating
+    (kiểm tra Word)                             validate_docx + audit.run_audit         validating 92-97
+3.  structured + chunks + validation            CHỈ khi src có các module RAG (src mới đã bỏ)  validating 97-99
+4.  LlamaIndex (tùy chọn)                       CHỈ khi src có llama_rag và RAG_INDEX=1
 5.  Qwen (tùy chọn)                             không đưa vào luồng tải tài liệu
+
+Mọi module "cải thiện" của src (scan_clean, math_repair, image_size, audit) là TÙY CHỌN: thiếu file trong src
+hoặc lỗi giữa chừng thì chỉ ghi cảnh báo vào log và bỏ qua bước đó — không làm hỏng việc tạo file Word.
 
 Chạy lại (retry/khởi động lại server) là "resume": phần MinerU đã .done và kết quả đã ghép được bỏ qua.
 """
@@ -29,8 +34,9 @@ from ..core.config import Settings
 from ..core.errors import Cancelled, PipelineError
 from ..core.log_router import capture_to, log_line
 from ..models.document_repository import DocumentRepository
-from ..models.entities import (BUILDING, CANCELLED, DONE, FAILED, MERGING, PARSING, PREPARING, VALIDATING,
+from ..models.entities import (BUILDING, CANCELLED, COLUMN_SINGLE, DONE, FAILED, MERGING, PARSING, PREPARING, VALIDATING,
                                Document)
+from . import column_flatten
 from .docx_validator import validate_docx
 from .engine import Engine
 from .mineru_runner import MineruRunner
@@ -91,11 +97,16 @@ class Pipeline:
             shutil.rmtree(run_dir / "mineru_parts", ignore_errors=True)
             repo.update(doc_id, shards=[])
 
-        # 0b. PDF "tờ khung nhiều cột" -> tách dải cột (không phải PDF đó thì plan=None, mọi thứ chạy như cũ)
-        plan = None
-        if not (s.no_split or s.no_columns):
-            plan = self._safe("plan_strips", lambda: E.column_split.plan_strips(pdf_path))
+        # column_mode: keep = giữ cấu trúc cột như PDF (hành vi gốc của main.py) | single = dồn thành 1 cột đúng thứ tự
+        single = doc.column_mode == COLUMN_SINGLE
         need_parse = not merged_mark.exists()
+
+        # 0b. PDF nhiều cột -> tách dải cột (không phải PDF đó thì plan=None, mọi thứ chạy như cũ)
+        plan = None
+        if single:
+            plan = self._plan_single(E, doc, pdf_path, need_parse)
+        elif not (s.no_split or s.no_columns):
+            plan = self._safe("plan_strips", lambda: E.column_split.plan_strips(pdf_path))
 
         # ------------------------------------------------------------ 1. MinerU
         run.begin("parse", PARSING, 2)
@@ -104,10 +115,14 @@ class Pipeline:
         total_pages = doc.num_pages
         if need_parse:
             mineru_pdf = pdf_path
+            scan_info = None
             if plan:
                 mineru_pdf = E.column_split.build_strips_pdf(pdf_path, run_dir / f"{doc_id}__strips.pdf", plan)
                 E.column_split.save_plan(plan, run_dir / "strips_plan.json")
                 log_line(f"[split] {len(plan['strips'])} dải cột từ {plan['pages']} trang -> MinerU đọc {mineru_pdf.name}")
+            elif s.scan_clean and E.scan_clean is not None:       # PDF scan: che dải trang bên cạnh trước khi OCR
+                run.check()
+                mineru_pdf, scan_info = self._maybe_clean_scan(E, pdf_path, run_dir, doc_id)
             from pypdf import PdfReader
             total_pages = len(PdfReader(str(mineru_pdf)).pages)
             ranges = self.runner.plan_ranges(total_pages)
@@ -125,7 +140,12 @@ class Pipeline:
                      + ", ".join(f"{a + 1}-{b}" for a, b in ranges))
             part_outs = self.runner.run(doc_id, mineru_pdf, run_dir, ranges, shards, on_update, run.cancel,
                                         self._get_spp(), self._record_spp)
-            run.end("parse", {"pages": total_pages, "parts": len(ranges)})
+            parse_note = {"pages": total_pages, "parts": len(ranges)}
+            if plan:
+                parse_note["column_strips"] = len(plan["strips"])
+            if scan_info and scan_info.get("pages_masked"):
+                parse_note["scan_masked_pages"] = scan_info["pages_masked"]
+            run.end("parse", parse_note)
         else:
             log_line("[MinerU] Đã có kết quả đã ghép cho PDF này, bỏ qua chạy lại (retry?force=true để chạy lại)")
             run.end("parse", {"skipped": True})
@@ -147,7 +167,7 @@ class Pipeline:
         content_list_path = E.run_mineru.find_content_list(mineru_dir)
         run.end("merge", {"parts": len(ranges) or None})
         run.check()
-        if plan and not content_list_path:
+        if plan and not content_list_path and not single:
             log_line("[split] MinerU không trả content_list.json -> bỏ chế độ tách dải, dùng Markdown như cũ.")
             plan = None
 
@@ -157,7 +177,17 @@ class Pipeline:
         if not markdown_text.strip():
             raise PipelineError("EMPTY_MARKDOWN", "MinerU không trích được chữ nào từ PDF này (PDF scan chất lượng thấp?).")
         layout = None
-        if plan:                       # đã có thứ tự cột chính xác -> không cần OCR dò cột
+        if single:                     # 1 cột: các dải đã đúng thứ tự cột 1->2->3; KHÔNG chèn ngắt cột/section cột
+            docx_md = markdown_text
+            if plan and plan.get("mode") != "whitespace":                # tờ khung: content_list có cả chữ banner
+                if content_list_path:
+                    strips_raw = json.loads(Path(content_list_path).read_text(encoding="utf-8"))
+                    docx_md = column_flatten.strip_layout_markers(
+                        E, E.column_split.content_list_to_docx_md(strips_raw, plan))
+                else:
+                    log_line("[1 cột] MinerU không trả content_list.json: dùng Markdown theo thứ tự dải "
+                             "(chữ banner của tờ khung, nếu có, sẽ không có trong Word).")
+        elif plan:                     # đã có thứ tự cột chính xác -> không cần OCR dò cột
             strips_raw = json.loads(Path(content_list_path).read_text(encoding="utf-8"))
             docx_md = E.column_split.content_list_to_docx_md(strips_raw, plan)
         else:
@@ -166,9 +196,29 @@ class Pipeline:
             docx_md = markdown_text
             if layout:
                 docx_md = E.columns.insert_column_breaks(E.columns.drop_ocr_details(markdown_text), layout)
+        prep_note = {"columns": 1 if single else ((plan or {}).get("ncols") or (layout or {}).get("n_cols") or 1)}
+        if single:
+            prep_note["column_mode"] = "single"
+            if plan:
+                prep_note["source_columns"] = plan["ncols"]
+        if s.math_repair and E.math_repair is not None:             # sửa lỗi OCR/công thức trên văn bản SẼ đưa vào Pandoc
+            res = self._safe("math_repair", lambda: E.math_repair.repair_markdown(docx_md))
+            if res:
+                docx_md, report = res
+                (run_dir / "math_repair.json").write_text(
+                    json.dumps(report, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+                prep_note["math_repair"] = self._count_report(report)
+                log_line(f"[math_repair] {prep_note['math_repair']}")
+        if s.image_sizes and E.image_size is not None:             # ảnh trong Word = đúng cỡ trong PDF gốc
+            res = self._safe("image_size", lambda: E.image_size.apply_pdf_image_sizes(
+                docx_md, md_path.parent, scale=s.image_scale))
+            if res:
+                docx_md, n_img = res
+                prep_note["images_sized"] = n_img
+                log_line(f"[image_size] đặt kích thước cho {n_img} ảnh")
         work_md = run_dir / "work.md"
         E.build_docx.prepare_work_md(docx_md, md_path, work_md)
-        run.end("prepare", {"columns": (plan or {}).get("ncols") or (layout or {}).get("n_cols") or 1})
+        run.end("prepare", prep_note)
         run.check()
 
         # ------------------------------------------------------------ 2b. dựng Word (file tạm, đổi tên nguyên tử khi hợp lệ)
@@ -177,19 +227,20 @@ class Pipeline:
         final_docx = st.docx_path(doc_id)
         try:
             E.build_docx.md_to_docx(work_md, tmp_docx, md_path.parent)
-            body_pt = s.col_font_pt or None
-            if layout:
-                E.columns.apply_section_columns(tmp_docx, layout["n_cols"], layout["page_pt"], body_pt=body_pt)
-            frame = None if (s.no_frame or s.no_columns) else self._safe(
-                "detect_frame_layout", lambda: E.frame_layout.detect_frame_layout(pdf_path))
-            if plan:
-                E.columns.apply_section_columns(tmp_docx, plan["ncols"], tuple(plan["page_pt"]), body_pt=body_pt)
-                E.column_split.apply_band_layout(tmp_docx, plan, heads=(frame or {}).get("headings", []))
-            elif frame:
-                if not layout:
-                    E.columns.apply_section_columns(tmp_docx, frame["cols"], (frame["page_w_pt"], frame["page_h_pt"]),
-                                                    body_pt=body_pt)
-                E.frame_layout.apply_frame_layout(tmp_docx, frame)
+            if not single:                 # chế độ 1 cột: giữ nguyên trang Word thường của Pandoc
+                body_pt = s.col_font_pt or None
+                if layout:
+                    E.columns.apply_section_columns(tmp_docx, layout["n_cols"], layout["page_pt"], body_pt=body_pt)
+                frame = None if (s.no_frame or s.no_columns) else self._safe(
+                    "detect_frame_layout", lambda: E.frame_layout.detect_frame_layout(pdf_path))
+                if plan:
+                    E.columns.apply_section_columns(tmp_docx, plan["ncols"], tuple(plan["page_pt"]), body_pt=body_pt)
+                    E.column_split.apply_band_layout(tmp_docx, plan, heads=(frame or {}).get("headings", []))
+                elif frame:
+                    if not layout:
+                        E.columns.apply_section_columns(tmp_docx, frame["cols"], (frame["page_w_pt"], frame["page_h_pt"]),
+                                                        body_pt=body_pt)
+                    E.frame_layout.apply_frame_layout(tmp_docx, frame)
         except PipelineError:
             raise
         except RuntimeError as ex:                                      # md_to_docx: "Pandoc tạo DOCX thất bại."
@@ -204,15 +255,31 @@ class Pipeline:
         note = validate_docx(tmp_docx, work_md)                         # DOCX_INVALID nếu hỏng
         os.replace(tmp_docx, final_docx)
         repo.update(doc_id, docx_size=final_docx.stat().st_size)
+        if s.audit and E.audit is not None:                             # audit.json: chỗ cần người đối chiếu với PDF
+            rep = self._safe("audit", lambda: E.audit.run_audit(run_dir, docx_md, final_docx))
+            if rep:
+                E.audit.print_audit(rep)
+                raw_latex = (rep.get("docx") or {}).get("raw_latex_paragraphs", 0)
+                note["audit"] = {"dropped_pages": len(rep["dropped_pages"]),
+                                 "numbering_gaps": len(rep["numbering_gaps"]), "raw_latex_paragraphs": raw_latex}
+                extra = []
+                if raw_latex:
+                    extra.append(f"{raw_latex} đoạn còn LaTeX thô")
+                if rep["dropped_pages"]:
+                    extra.append(f"MinerU bỏ khối ở {len(rep['dropped_pages'])} trang")
+                if extra:
+                    note["warning"] = (note.get("warning", "") + " " if note.get("warning") else "") \
+                        + "; ".join(extra) + " (xem audit.json)."
         run.end("validate", note)
         run.check()
 
         # ------------------------------------------------------------ 3-4. dữ liệu RAG (không được làm hỏng kết quả Word)
         rag_ok, rag_note = None, None
-        if s.rag_artifacts:
+        if s.rag_artifacts and E.rag_ok:                                # src mới đã bỏ các module RAG -> bỏ qua
             repo.update(doc_id, progress=97)
             try:
-                self._rag_artifacts(E, doc, run_dir, pdf_path, md_path, content_list_path, markdown_text, plan)
+                self._rag_artifacts(E, doc, run_dir, pdf_path, md_path, content_list_path, markdown_text,
+                                    plan if content_list_path else None)
                 rag_ok = True
             except Cancelled:
                 raise
@@ -239,7 +306,7 @@ class Pipeline:
         report = E.validate.validate_chunks(chunks, doc.filename, doc.id)
         (run_dir / "validation.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         log_line(f"[RAG] blocks={len(blocks)} chunks={len(chunks)} validation_ok={report['ok']}")
-        if self.s.rag_index:
+        if self.s.rag_index and E.llama_rag is not None:
             from .rag_service import RagService
             RagService(self.s, self.storage, self.engine).build_index(doc.id, chunks)
 
@@ -252,6 +319,55 @@ class Pipeline:
         except Exception as ex:                                         # noqa: BLE001
             log_line(f"[CẢNH BÁO] {name} lỗi ({type(ex).__name__}: {ex}) -> bỏ qua bước này")
             return None
+
+    def _plan_single(self, E, doc: Document, pdf_path: Path, need_parse: bool):
+        """Plan dải cột cho chế độ 1 cột: tờ có khung kẻ -> plan_strips (sẵn có); còn lại -> dò rãnh trắng."""
+        plan = self._safe("plan_strips", lambda: E.column_split.plan_strips(pdf_path))
+        if plan and plan["pages"] < doc.num_pages:       # plan_strips chỉ xét 200 trang đầu: không dùng nếu sẽ bị cắt cụt
+            log_line(f"[1 cột] plan_strips chỉ phủ {plan['pages']}/{doc.num_pages} trang -> dùng dò rãnh trắng")
+            plan = None
+        if plan:
+            plan["mode"] = "frame"
+            log_line(f"[1 cột] tờ có khung kẻ, tối đa {plan['ncols']} cột/dải")
+            return plan
+        if not need_parse:                               # đã có kết quả MinerU: Markdown đã đúng thứ tự, khỏi dò lại
+            return None
+        plan = self._safe("whitespace_strips", lambda: column_flatten.plan_whitespace_strips(pdf_path))
+        if plan:
+            log_line(f"[1 cột] dò được {plan['ncols']} cột/trang -> cắt mỗi cột thành 1 dải ({len(plan['strips'])} dải)")
+        else:
+            log_line("[1 cột] không thấy bố cục nhiều cột -> MinerU đọc như thường (kết quả vẫn là 1 cột)")
+        return plan
+
+    def _maybe_clean_scan(self, E, pdf_path: Path, run_dir: Path, doc_id: str):
+        """PDF scan có dải trang bên cạnh -> PDF đã che để đưa MinerU; không cần che thì dùng PDF gốc (không tái nén JPEG)."""
+        report_path, clean_pdf = run_dir / "scan_clean.json", run_dir / f"{doc_id}__clean.pdf"
+        try:
+            if report_path.is_file():                                   # chạy lại/resume: dùng kết quả cũ
+                stats = json.loads(report_path.read_text(encoding="utf-8"))
+                if not stats.get("pages_masked"):
+                    return pdf_path, stats
+                if clean_pdf.is_file():
+                    log_line(f"[scan_clean] dùng lại PDF đã che ({stats['pages_masked']} trang)")
+                    return clean_pdf, stats
+            elif not E.scan_clean.is_image_pdf(pdf_path):
+                return pdf_path, None
+            log_line("[scan_clean] PDF dạng ảnh -> dò rãnh gáy sách")
+            out, stats = E.scan_clean.clean_scan_pdf(pdf_path, clean_pdf, report_path=report_path)
+            log_line(f"[scan_clean] che {stats['pages_masked']}/{stats['pages']} trang")
+            if not stats["pages_masked"]:
+                clean_pdf.unlink(missing_ok=True)
+                return pdf_path, stats
+            return out, stats
+        except Exception as ex:                                         # noqa: BLE001
+            log_line(f"[CẢNH BÁO] scan_clean lỗi ({type(ex).__name__}: {ex}) -> dùng PDF gốc")
+            clean_pdf.unlink(missing_ok=True)
+            return pdf_path, None
+
+    @staticmethod
+    def _count_report(report: dict) -> dict:
+        """Báo cáo của math_repair có chỗ là danh sách, chỗ là số -> quy hết về số lượng cho gọn."""
+        return {k: (len(v) if isinstance(v, (list, tuple, dict)) else v) for k, v in report.items()}
 
     def _get_spp(self) -> float:
         try:

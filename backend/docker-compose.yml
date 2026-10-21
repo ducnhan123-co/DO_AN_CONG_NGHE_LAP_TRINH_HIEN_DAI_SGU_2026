@@ -7,10 +7,10 @@ services:
       args:
         PRELOAD_MODELS: "1"
         WITH_RAG: "0"
-    ports: ["8000:8000"]
-    env_file: [.env]          # cp .env.example .env
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
     volumes:
-      - ./data:/app/backend/data     # app.db, input/, docx_output/, documents/ nằm ngoài container
-    # Giới hạn tài nguyên để MinerU không làm sập máy chủ (chỉnh theo máy):
-    # deploy: { resources: { limits: { memory: 8g } } }
+      - ./data:/app/backend/data
     restart: unless-stopped

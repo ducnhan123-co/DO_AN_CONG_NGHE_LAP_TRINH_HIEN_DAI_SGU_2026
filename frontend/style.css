@@ -54,6 +54,11 @@ h1 em { font-style: italic; color: var(--pen-ink); }
 .drop .small { color: var(--ink-2); margin-top: 6px; font-size: 14px; }
 .drop .bar { position: absolute; left: 0; bottom: 0; height: 4px; background: var(--pen); border-radius: 0 0 14px 14px; width: 0; transition: width .2s; }
 
+/* ---------- chọn bố cục cột (PDF nhiều cột) ---------- */
+.colmode { margin-top: 22px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.colmode .lbl { font-weight: 600; font-size: 14px; }
+.colmode .hint { flex-basis: 100%; margin: 0; color: var(--ink-2); font-size: 13.5px; }
+
 /* ---------- thanh lọc ---------- */
 .tools { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 36px 0 12px; }
 .tabs { display: inline-flex; gap: 4px; padding: 3px; background: rgba(255,255,255,.8); border: 1px solid var(--line); border-radius: 10px; }

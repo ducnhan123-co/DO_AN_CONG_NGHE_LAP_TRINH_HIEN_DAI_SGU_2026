@@ -10,6 +10,10 @@ QUEUED, PARSING, MERGING, PREPARING, BUILDING, VALIDATING = (
     "queued", "parsing", "merging", "preparing", "building", "validating")
 DONE, FAILED, CANCELLED = "done", "failed", "cancelled"
 
+# Chế độ xử lý cột: keep = giữ cấu trúc 2/3 cột như PDF (mặc định) | single = dồn thành 1 cột đúng thứ tự đọc
+COLUMN_KEEP, COLUMN_SINGLE = "keep", "single"
+COLUMN_MODES = (COLUMN_KEEP, COLUMN_SINGLE)
+
 ACTIVE_STATUSES = (QUEUED, PARSING, MERGING, PREPARING, BUILDING, VALIDATING)
 RUNNING_STATUSES = (PARSING, MERGING, PREPARING, BUILDING, VALIDATING)   # đã có worker nhận
 TERMINAL_STATUSES = (DONE, FAILED, CANCELLED)
@@ -37,6 +41,7 @@ class Document:
     updated_at: float = 0.0
     rag_ok: Optional[bool] = None
     rag_note: Optional[str] = None
+    column_mode: str = COLUMN_KEEP
 
     @property
     def is_active(self) -> bool:

@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]          # .../backend
-PROJECT_ROOT = BACKEND_DIR.parent                          # .../rag_toan
+PROJECT_ROOT = BACKEND_DIR.parent                          # .../projects
 
 
 def _load_dotenv(path: Path) -> None:
@@ -85,9 +85,16 @@ class Settings:
     ocr_lang: str = "eng"
     col_font_pt: float = 8.0
 
-    # ---- RAG -------------------------------------------------------------------
+    # ---- module mới của rag_toan/src (mỗi cái tự bỏ qua nếu file không có trong src) --------
+    scan_clean: bool = True             # scan_clean.py: che dải trang bên cạnh ở PDF scan, TRƯỚC MinerU
+    math_repair: bool = True            # math_repair.py: sửa công thức/nhãn "Bài N"/dấu, TRƯỚC Pandoc
+    image_sizes: bool = True            # image_size.py: ảnh trong Word đúng cỡ như trong PDF
+    image_scale: float = 1.0
+    audit: bool = True                  # audit.py: ghi audit.json (trang MinerU bỏ khối, nhảy số, LaTeX thô)
+
+    # ---- RAG (CHỈ chạy khi src có structured/chunking/validate/postprocess; bản src mới đã bỏ) ----
     rag_artifacts: bool = True          # sinh structured_data / chunks / validation (nhẹ)
-    rag_index: bool = False             # dựng LlamaIndex E5 (nặng: torch + model ~1GB)
+    rag_index: bool = False             # dựng LlamaIndex E5 (cần llama_rag.py trong src; nặng)
 
     # ---- đường dẫn dẫn xuất ---------------------------------------------------
     @property
@@ -144,6 +151,11 @@ def load_settings() -> Settings:
     s.no_split = _bool("NO_SPLIT", s.no_split)
     s.ocr_lang = _env("OCR_LANG", s.ocr_lang)
     s.col_font_pt = _float("COL_FONT_PT", s.col_font_pt)
+    s.scan_clean = _bool("SCAN_CLEAN", s.scan_clean)
+    s.math_repair = _bool("MATH_REPAIR", s.math_repair)
+    s.image_sizes = _bool("IMAGE_SIZES", s.image_sizes)
+    s.image_scale = _float("IMAGE_SCALE", s.image_scale)
+    s.audit = _bool("AUDIT", s.audit)
     s.rag_artifacts = _bool("RAG_ARTIFACTS", s.rag_artifacts)
     s.rag_index = _bool("RAG_INDEX", s.rag_index)
     return s

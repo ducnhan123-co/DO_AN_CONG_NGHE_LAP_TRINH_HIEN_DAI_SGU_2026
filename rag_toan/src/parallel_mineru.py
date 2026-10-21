@@ -34,7 +34,7 @@ from typing import Dict, List, Optional, Tuple
 
 from pypdf import PdfReader, PdfWriter
 
-from .run_mineru import find_content_list
+from src.run_mineru import find_content_list
 
 IMG_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp")
 DONE_MARK = ".done"

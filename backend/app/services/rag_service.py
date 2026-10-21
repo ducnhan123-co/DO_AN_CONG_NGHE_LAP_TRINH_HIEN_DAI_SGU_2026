@@ -1,4 +1,6 @@
-"""RAG tùy chọn (bước 4 của main.py): dựng/tải LlamaIndex (E5) và truy vấn retrieval cho 1 tài liệu.
+"""RAG tùy chọn (bước 4 của main.py cũ): dựng/tải LlamaIndex (E5) và truy vấn retrieval cho 1 tài liệu.
+
+CHỈ hoạt động khi rag_toan/src có llama_rag.py (bản src mới đã bỏ -> /search trả 501 RAG_UNAVAILABLE).
 
 Mặc định TẮT (RAG_INDEX=0) vì cần torch + model embedding (~1 GB). Bật bằng RAG_INDEX=1 và cài requirements-rag.txt.
 Chưa có bước LLM (Qwen) ở đây: trả về các đoạn truy xuất kèm score/page/section — frontend hiện tại chưa có màn hỏi đáp.
@@ -29,10 +31,11 @@ class RagService:
 
     def build_index(self, doc_id: str, chunks: List[Dict]) -> None:
         E = self.engine.load()
-        from src.llama_rag import build_index, chunks_to_nodes
+        if E.llama_rag is None:
+            raise RuntimeError("rag_toan/src không có llama_rag.py")
         with _build_lock:
-            nodes = chunks_to_nodes(chunks)
-            build_index(nodes, E.cfg.EMBED_MODEL, self._index_dir(doc_id))
+            nodes = E.llama_rag.chunks_to_nodes(chunks)
+            E.llama_rag.build_index(nodes, E.cfg.EMBED_MODEL, self._index_dir(doc_id))
         with _cache_lock:
             _cache.pop(doc_id, None)
 
@@ -40,18 +43,19 @@ class RagService:
         if not self.s.rag_index:
             raise AppError(501, "RAG_DISABLED", "Tính năng tìm kiếm RAG đang tắt (đặt RAG_INDEX=1 và cài requirements-rag.txt).")
         E = self.engine.load()
+        if E.llama_rag is None:
+            raise AppError(501, "RAG_UNAVAILABLE", "Bản rag_toan/src hiện tại không còn module RAG (llama_rag.py).")
         idx_dir = self._index_dir(doc_id)
         if not idx_dir.is_dir():
             raise AppError(409, "INDEX_NOT_READY", "Tài liệu này chưa có index RAG.")
-        from src.llama_rag import load_index, retrieve
         with _cache_lock:
             index = _cache.get(doc_id)
             if index is not None:
                 _cache.move_to_end(doc_id)
         if index is None:
-            index = load_index(idx_dir, E.cfg.EMBED_MODEL)
+            index = E.llama_rag.load_index(idx_dir, E.cfg.EMBED_MODEL)
             with _cache_lock:
                 _cache[doc_id] = index
                 while len(_cache) > _CACHE_MAX:
                     _cache.popitem(last=False)
-        return retrieve(index, query, top_k or E.cfg.TOP_K)
+        return E.llama_rag.retrieve(index, query, top_k or E.cfg.TOP_K)

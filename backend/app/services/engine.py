@@ -5,6 +5,8 @@ sys.path. Import trễ (lần dùng đầu tiên) để server vẫn khởi đ�
 """
 from __future__ import annotations
 
+import importlib
+import logging
 import shlex
 import shutil
 import sys
@@ -15,6 +17,8 @@ from typing import Optional
 
 from ..core.config import Settings
 from ..core.errors import PipelineError
+
+log = logging.getLogger("engine")
 
 
 class Engine:
@@ -55,6 +59,14 @@ class Engine:
         return cmd
 
     # ------------------------------------------------------------------ import trễ
+    # Bắt buộc: thiếu là không dựng được Word.
+    _REQUIRED = ("build_docx", "column_split", "columns", "config", "frame_layout", "parallel_mineru", "run_mineru")
+    # Tùy chọn: module bổ sung của src (thiếu file -> tính năng đó tự tắt, pipeline vẫn chạy).
+    _OPTIONAL = ("scan_clean", "math_repair", "image_size", "audit",            # cải thiện Word
+                 "structured", "chunking", "validate", "postprocess",           # dữ liệu RAG (bản src cũ)
+                 "llama_rag")                                                   # index RAG (bản src cũ)
+    _RAG_SET = ("structured", "chunking", "validate", "postprocess")
+
     def load(self) -> SimpleNamespace:
         if self._ns is not None:
             return self._ns
@@ -69,15 +81,34 @@ class Engine:
             p = str(self.s.engine_dir)
             if p not in sys.path:
                 sys.path.insert(0, p)
-            try:
-                from src import (build_docx, chunking, column_split, columns, config as rag_cfg,  # noqa: E501
-                                 frame_layout, parallel_mineru, postprocess, run_mineru, structured, validate)
-            except ImportError as ex:
-                raise PipelineError(
-                    "ENGINE_IMPORT_FAILED",
-                    f"Không nạp được code rag_toan: {ex}. Cài đủ thư viện trong requirements.txt.") from ex
-            self._ns = SimpleNamespace(
-                build_docx=build_docx, chunking=chunking, column_split=column_split, columns=columns,
-                cfg=rag_cfg, frame_layout=frame_layout, parallel=parallel_mineru, postprocess=postprocess,
-                run_mineru=run_mineru, structured=structured, validate=validate)
-            return self._ns
+            ns = SimpleNamespace()
+            for name in self._REQUIRED:
+                try:
+                    setattr(ns, name, importlib.import_module(f"src.{name}"))
+                except ImportError as ex:
+                    raise PipelineError(
+                        "ENGINE_IMPORT_FAILED",
+                        f"Không nạp được src.{name} của rag_toan: {ex}. Cài đủ thư viện trong requirements.txt.") from ex
+            for name in self._OPTIONAL:
+                setattr(ns, name, self._import_optional(name))
+            ns.cfg = ns.config                                   # tên cũ backend vẫn dùng
+            ns.parallel = ns.parallel_mineru
+            ns.rag_ok = all(getattr(ns, n) is not None for n in self._RAG_SET)
+            log.info("rag_toan/src: module tùy chọn có mặt = %s | dữ liệu RAG: %s",
+                     [n for n in self._OPTIONAL if getattr(ns, n) is not None], "có" if ns.rag_ok else "không (src mới đã bỏ)")
+            self._ns = ns
+            return ns
+
+    @staticmethod
+    def _import_optional(name: str):
+        """None nếu file không có trong src; nếu file có mà lỗi import (thiếu thư viện...) thì cảnh báo rõ rồi tắt."""
+        try:
+            return importlib.import_module(f"src.{name}")
+        except ModuleNotFoundError as ex:
+            if ex.name == f"src.{name}":                         # chính module đó không tồn tại
+                return None
+            log.warning("src.%s có mặt nhưng thiếu thư viện '%s' -> tắt tính năng này", name, ex.name)
+            return None
+        except Exception as ex:                                  # noqa: BLE001
+            log.warning("src.%s lỗi khi nạp (%s: %s) -> tắt tính năng này", name, type(ex).__name__, ex)
+            return None

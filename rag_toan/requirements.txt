@@ -1,0 +1,10 @@
+mineru[core]>=4.0,<5
+pypandoc
+sentence-transformers
+llama-index-core
+llama-index-embeddings-huggingface
+torch
+transformers
+accelerate
+pymupdf
+

@@ -10,13 +10,16 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
-DOCUMENT_COLUMNS = {
+# Cột có từ phiên bản đầu: dùng để nhận ra app.db của backend KHÁC (không tương thích)
+CORE_COLUMNS = {
     "id", "sha256", "filename", "size_bytes", "num_pages", "status", "progress", "error_code",
     "error_message", "tier", "shards", "stages", "docx_size", "queued_at", "created_at",
     "started_at", "finished_at", "updated_at", "rag_ok", "rag_note",
 }
+# Cột thêm về sau: tự ALTER TABLE nếu app.db cũ chưa có
+DOCUMENT_COLUMNS = CORE_COLUMNS | {"column_mode"}
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS documents (
@@ -39,7 +42,8 @@ CREATE TABLE IF NOT EXISTS documents (
     finished_at   REAL,
     updated_at    REAL NOT NULL,
     rag_ok        INTEGER,
-    rag_note      TEXT
+    rag_note      TEXT,
+    column_mode   TEXT NOT NULL DEFAULT 'keep'
 );
 CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(status, queued_at);
 
@@ -85,10 +89,12 @@ class Database:
         with self.connect() as c:
             c.execute("PRAGMA journal_mode = WAL")
             existing = {r["name"] for r in c.execute("PRAGMA table_info(documents)")}
-            if existing and not DOCUMENT_COLUMNS.issubset(existing):
+            if existing and not CORE_COLUMNS.issubset(existing):
                 raise RuntimeError(
                     f"{self.path} là app.db của một phiên bản backend CŨ (bảng 'documents' khác cấu trúc). "
                     f"Hãy sao lưu rồi đổi tên/xóa file này, hoặc đặt DATA_DIR sang thư mục mới."
                 )
             c.executescript(SCHEMA)
+            if existing and "column_mode" not in existing:       # migration: app.db tạo bởi bản trước khi có tùy chọn cột
+                c.execute("ALTER TABLE documents ADD COLUMN column_mode TEXT NOT NULL DEFAULT 'keep'")
             c.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")

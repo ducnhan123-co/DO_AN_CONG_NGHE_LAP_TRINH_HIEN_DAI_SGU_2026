@@ -37,6 +37,7 @@ def render_document(doc: Document, entry: LibraryEntry, docx_available: bool, no
         "elapsed_s": _elapsed(doc, now),
         "cache_hit": entry.cache_hit,
         "tier": doc.tier,
+        "column_mode": doc.column_mode,
         "created_at": entry.created_at,
         "shards": [{k: sh.get(k) for k in _SHARD_KEYS} for sh in doc.shards],
         "stages": doc.stages,

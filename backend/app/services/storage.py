@@ -9,10 +9,11 @@ data/
     ├── mineru/                     kết quả MinerU đã ghép (.md, images/)
     ├── mineru_parts/               pdf/ + out/ của từng phần chạy song song
     ├── work.md                     Markdown đã chuẩn hóa đưa vào Pandoc
-    ├── structured_data.json        block có page/section/loại nội dung
-    ├── chunks.json                 chunk cho RAG
-    ├── validation.json             báo cáo kiểm tra chunk
-    └── index/                      (tùy chọn) LlamaIndex
+    ├── audit.json                  (audit.py) trang MinerU bỏ khối, nhảy số, LaTeX thô trong Word
+    ├── math_repair.json            (math_repair.py) báo cáo các chỗ đã sửa
+    ├── scan_clean.json             (scan_clean.py) các trang scan đã che dải trang bên cạnh
+    ├── <id>__clean.pdf             PDF scan đã che (chỉ có khi có trang bị che)
+    └── structured_data.json, chunks.json, validation.json, index/   (chỉ khi src có module RAG)
 """
 from __future__ import annotations
 
@@ -28,7 +29,8 @@ from ..core.config import Settings
 ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 # Chỉ các file này được phép tải qua API artifacts
-ARTIFACT_NAMES = ("work.md", "structured_data.json", "chunks.json", "validation.json")
+ARTIFACT_NAMES = ("work.md", "audit.json", "math_repair.json", "scan_clean.json",
+                  "structured_data.json", "chunks.json", "validation.json")
 
 
 class Storage:

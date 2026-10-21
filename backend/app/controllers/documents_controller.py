@@ -4,13 +4,13 @@ from __future__ import annotations
 import re
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel
 
 from ..core.container import Container, get_client_id, get_container
 from ..core.errors import AppError, error_body
-from ..models.entities import ACTIVE_STATUSES, CANCELLED, FAILED, DONE
+from ..models.entities import ACTIVE_STATUSES, CANCELLED, COLUMN_MODES, FAILED, DONE
 from ..services.storage import ARTIFACT_NAMES, Storage
 from ..services.upload_service import UploadRejected
 from ..views.document_view import render_document, render_list
@@ -51,8 +51,11 @@ def list_documents(limit: int = Query(200, ge=1, le=500), client_id: str = Depen
 
 
 @router.post("", status_code=202)
-async def upload_documents(files: List[UploadFile] = File(...), client_id: str = Depends(get_client_id),
-                           c: Container = Depends(get_container)):
+async def upload_documents(files: List[UploadFile] = File(...), column_mode: str = Form("keep"),
+                           client_id: str = Depends(get_client_id), c: Container = Depends(get_container)):
+    """column_mode: "keep" = giữ cấu trúc 2/3 cột như PDF (mặc định) | "single" = dồn các cột thành 1 cột đúng thứ tự đọc."""
+    if column_mode not in COLUMN_MODES:
+        raise AppError(400, "INVALID_COLUMN_MODE", 'column_mode phải là "keep" hoặc "single".')
     items, rejected = [], []
     for i, f in enumerate(files):
         name = c.uploads.clean_filename(f.filename) or "(không tên)"
@@ -61,7 +64,7 @@ async def upload_documents(files: List[UploadFile] = File(...), client_id: str =
             continue
         try:
             staged = await c.uploads.stage(f)
-            doc, entry = c.uploads.register(client_id, staged)
+            doc, entry = c.uploads.register(client_id, staged, column_mode)
             items.append(_render(c, doc, entry))
         except UploadRejected as ex:
             rejected.append({"filename": name, "message": str(ex)})
