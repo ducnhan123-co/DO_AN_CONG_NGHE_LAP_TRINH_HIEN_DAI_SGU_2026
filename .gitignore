@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 input/*.pdf
+kiet_ref/input/
 mineru_output/
 docx_output/
 rag_output/
