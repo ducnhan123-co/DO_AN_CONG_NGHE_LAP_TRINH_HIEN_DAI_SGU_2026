@@ -81,6 +81,8 @@ def delete_document(document_id: str, db: DbSession):
 ARTIFACTS = {
     "chunks.json": "chunks.json",
     "validation.json": "validation.json",
+    "audit.json": "audit.json",
+    "repair_report.json": "repair_report.json",
     "structured_data.json": "structured_data.json",
     "work.md": "work_for_docx.md",
 }

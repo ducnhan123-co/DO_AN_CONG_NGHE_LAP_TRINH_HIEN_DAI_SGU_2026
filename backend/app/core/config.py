@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     chat_history_turns: int = 3     # số lượt hỏi-đáp gần nhất đưa vào ngữ cảnh chat
 
     ai_pipeline_enabled: bool = False  # Render Free safe by default; Mac starts this
+    kiet_cli_enabled: bool = True        # existing upload/job API drives Kiệt's CLI
+    kiet_tier: str = "advanced"          # exact Kiệt default; use standard for smoke tests
+    kiet_timeout_s: int = 3600
     mineru_prewarm: bool = False
     serve_frontend: bool = False  # Mac tunnel: serve static UI from API origin
     demo_auth_user: str = ""           # enable Basic Auth for temporary tunnel demos

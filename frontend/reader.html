@@ -91,6 +91,7 @@ if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudf
     <p id="docMeta" class="truncate font-mono text-[11px] text-stone-500">Về Thư viện tải PDF lên để chuyển sang DOCX</p>
   </div>
   <div class="ml-auto flex items-center gap-1">
+    <button onclick="window.matchpdfConnectMac()" class="rounded-lg border border-stone-300 px-2 py-1 text-xs font-bold hover:bg-stone-100">Mac CLI</button>
     <span id="apiBadge" class="hidden md:flex items-center gap-1.5 rounded-full bg-stone-100 border border-stone-200 px-2.5 py-1 text-[11px] font-bold text-stone-500"><span class="h-1.5 w-1.5 rounded-full bg-stone-400"></span> Chế độ demo</span>
   </div>
 </header>
@@ -657,7 +658,7 @@ async function openDoc(id, pre){
     API.fileUrl=viaLib?LIB.fileUrl(id):API.base+j.file_url;
     try{ history.replaceState(null,'','reader.html?'+TABS.map(x=>'doc_id='+encodeURIComponent(x)).join('&')); }catch(e){}
     hideDemo();
-    showPdf(API.fileUrl,viaLib?{'X-Client-Id':LIB.cid()}:null);
+    showPdf(API.fileUrl,Object.assign({},viaLib?{'X-Client-Id':LIB.cid()}:{},window.MATCHPDF_API_AUTH||{}));
     document.getElementById('pageTotal').textContent=pages;
     document.getElementById('docTitle').textContent=(put.ok&&put.data.display_name)||(j&&j.name)||known.name;
     const meta=document.getElementById('docMeta');

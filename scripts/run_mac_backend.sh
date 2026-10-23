@@ -16,6 +16,8 @@ if ! command -v pandoc >/dev/null 2>&1; then
   exit 1
 fi
 export AI_PIPELINE_ENABLED=true
+export KIET_CLI_ENABLED=true
+export KIET_TIER="${KIET_TIER:-standard}"
 export SERVE_FRONTEND=true
 export MINERU_PREWARM=false
 export MINERU_WORKERS=0

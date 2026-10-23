@@ -39,7 +39,8 @@ def test_mac_static_uses_runtime_origin(monkeypatch):
         assert c.get("/lib.js").status_code == 200
         config = c.get("/config.js")
         assert config.status_code == 200
-        assert "window.location.origin" in config.text
+        assert "MATCHPDF_FORCE_ORIGIN = true" in config.text
+        assert "location.origin" in config.text
         assert "no-store" in config.headers["cache-control"]
         assert c.get("/api/health").json()["search_backend"] == "keyword_bm25"
 

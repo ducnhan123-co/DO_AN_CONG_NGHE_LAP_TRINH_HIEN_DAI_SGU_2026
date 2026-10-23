@@ -1,7 +1,7 @@
 __pycache__/
 *.pyc
 input/*.pdf
-kiet_ref/input/
+kiet_ref/
 mineru_output/
 docx_output/
 rag_output/
@@ -30,3 +30,7 @@ docs/diagrams/06-kien-truc-bao-cao.png
 docs/diagrams/07-*
 docs/diagrams/README.md
 docs/diagrams/bao-cao-figure.md
+
+# Local Python environment may be a symlink shared with the Kiệt checkout.
+.venv
+.venv/

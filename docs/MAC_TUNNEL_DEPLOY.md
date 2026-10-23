@@ -43,3 +43,28 @@ Quick Tunnel is for temporary testing, not production. URLs change when the tunn
 Search is BM25 keyword matching (not semantic vector RAG); chat returns cited excerpts, not generated explanations. Math Repair and DOCX conversion remain MinerU-based. For stable URLs, use Cloudflare Named Tunnel with a Cloudflare-managed domain or Tailscale Funnel.
 
 If the public URL is unavailable, inspect the second terminal logs. If tunnel connection repeatedly fails, inspect outgoing TCP/7844 access, DNS and VPN restrictions. Prefer a named Cloudflare Tunnel for an enduring hostname.
+
+
+## Pipeline Kiet + Render FE
+
+Code from branch kiet commit 524bff8 is in src/ and the standalone
+entrypoint kiet_cli.py. Duplicate kiet_ref/ sources are removed.
+Render Static Site FE -> Cloudflare HTTPS -> existing POST /api/upload ->
+FastAPI Mac job subprocess kiet_cli.py -> Kiết DOCX/audit/repair ->
+existing GET /api/docx/{id} -> browser. No separate Kiet API is introduced.
+
+On the Render Static Site press Ket noi Mac / Mac CLI. Enter the current
+Cloudflare Quick Tunnel URL and the demo credentials shown by the Mac.
+Credentials are stored in the browser tab sessionStorage only.
+The CORS preflight is handled without requiring Basic credentials,
+while requests and PDF.js carry Authorization explicitly.
+
+For stable demos Mac launcher sets KIET_TIER=standard (tested on test3.pdf).
+Original Kiet CLI defaults to advanced; opt in by setting
+KIET_TIER=advanced before launching. Advanced was not confirmed on this
+machine within the test window.
+
+The Kiết DOCX file is copied byte-for-byte; the adapter does NOT run a
+different DOCX converter. BM25 chunks are auxiliary: without reliable
+page metadata the fallback sets page=null and does not invent citations.
+MinerU OCR/VLM model weights are required; do not erase their cache.

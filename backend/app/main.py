@@ -85,6 +85,10 @@ def create_app() -> FastAPI:
 
         @app.middleware("http")
         async def demo_basic_auth(request: Request, call_next):
+            # Browser cross-origin Authorization triggers unauthenticated OPTIONS.
+            # Let CORSMiddleware process preflight, not Basic Auth.
+            if request.method == "OPTIONS" and request.headers.get("access-control-request-method"):
+                return await call_next(request)
             raw = request.headers.get("authorization", "")
             granted = False
             if raw.startswith("Basic "):
@@ -97,10 +101,16 @@ def create_app() -> FastAPI:
                 except (binascii.Error, UnicodeDecodeError, ValueError):
                     granted = False
             if not granted:
-                return Response(status_code=401, headers={
+                response = Response(status_code=401, headers={
                     "WWW-Authenticate": 'Basic realm="SGU MathPDF Demo"',
                     "Cache-Control": "no-store",
                 })
+                origin = request.headers.get("origin")
+                if origin and ("*" in s.cors_origins or origin in s.cors_origins):
+                    response.headers["Access-Control-Allow-Origin"] = (
+                        "*" if "*" in s.cors_origins else origin)
+                    response.headers["Vary"] = "Origin"
+                return response
             return await call_next(request)
 
     app.include_router(router, prefix=s.api_prefix)
@@ -108,8 +118,9 @@ def create_app() -> FastAPI:
         # Serving FE from the same backend origin avoids cross-site auth/CORS issues.
         # The public tunnel URL is discovered by the browser at request time.
         async def runtime_config():
-            body = ("window.MATCHPDF_API_BASE = window.location.origin;\n"
-                    "window.MATCHPDF_LIB_BASE = window.location.origin;\n")
+            from backend.app.core.config import ROOT_DIR
+            script = (ROOT_DIR / "frontend" / "config.js").read_text(encoding="utf-8")
+            body = "window.MATCHPDF_FORCE_ORIGIN = true;\n" + script
             return PlainTextResponse(
                 body, media_type="application/javascript",
                 headers={"Cache-Control": "no-store"})

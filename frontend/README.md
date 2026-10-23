@@ -1,3 +1,13 @@
+## FE Render connecting to Kiet CLI on Mac
+
+Static HTML cannot run a CLI by itself. Click Ket noi Mac and enter the
+HTTPS Cloudflare Tunnel URL and demo username/password. The password stays in
+sessionStorage and must NOT be committed. The existing Mac FastAPI upload/job
+API launches kiet_cli.py in a subprocess; the same API delivers DOCX/audit.
+There is NO additional Kiet API. See docs/MAC_TUNNEL_DEPLOY.md.
+
+---
+
 # MatchPDF — Frontend
 
 Gửi BE: file này mô tả **FE cần BE cung cấp gì (tối thiểu)** để chạy đủ luồng *Upload PDF → Đọc PDF → Chat có trích dẫn trang → Tải DOCX*.

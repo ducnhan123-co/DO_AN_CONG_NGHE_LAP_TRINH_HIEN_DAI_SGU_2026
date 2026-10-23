@@ -123,6 +123,9 @@ class PipelineError(Exception):
 
 def run_pipeline(document_id: str, job_id: str) -> None:
     settings = get_settings()
+    if settings.kiet_cli_enabled:
+        from backend.app.models.kiet_cli_adapter import run_kiet_job
+        return run_kiet_job(document_id, job_id)
     with SessionLocal() as db:
         doc = db.get(Document, document_id)
         job = db.get(Job, job_id)
