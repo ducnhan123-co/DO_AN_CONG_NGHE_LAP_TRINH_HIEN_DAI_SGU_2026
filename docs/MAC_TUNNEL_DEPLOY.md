@@ -27,7 +27,7 @@ Terminal 2:
 
     ./scripts/expose_mac_demo.sh
 
-Cloudflare prints a temporary HTTPS address ending with trycloudflare.com. Open this NEW address (not the old Render frontend URL); enter the username/password printed in terminal 1. The FastAPI server returns frontend/config.js pointing at window.location.origin, so all FE and API requests go to the Mac behind the same tunnel domain. No Git commit is needed when the temporary tunnel hostname changes.
+Cloudflare prints a temporary HTTPS address ending with trycloudflare.com. The script forces HTTP/2 over TCP because QUIC repeatedly failed on the tested Mac network; Cloudflare Quick Tunnel over HTTP/2 connected successfully. Open this NEW address (not the old Render frontend URL); enter the username/password printed in terminal 1. The FastAPI server returns frontend/config.js pointing at window.location.origin, so all FE and API requests go to the Mac behind the same tunnel domain. No Git commit is needed when the temporary tunnel hostname changes.
 
 Use curl with the demo password:
 
@@ -41,3 +41,5 @@ Upload a small PDF, poll /api/doc/{id}, inspect /api/documents/{id}/artifacts, a
 Quick Tunnel is for temporary testing, not production. URLs change when the tunnel restarts; Mac must stay awake and online. Stopping either process makes the service unavailable. HTTP Basic is temporary demo protection; for production, use a named tunnel, proper identity/access controls, rate limits and quotas. No router port forwarding is needed. PDF, DOCX and SQLite are saved on Mac under backend/data; back them up if needed.
 
 Search is BM25 keyword matching (not semantic vector RAG); chat returns cited excerpts, not generated explanations. Math Repair and DOCX conversion remain MinerU-based. For stable URLs, use Cloudflare Named Tunnel with a Cloudflare-managed domain or Tailscale Funnel.
+
+If the public URL is unavailable, inspect the second terminal logs. If tunnel connection repeatedly fails, inspect outgoing TCP/7844 access, DNS and VPN restrictions. Prefer a named Cloudflare Tunnel for an enduring hostname.
