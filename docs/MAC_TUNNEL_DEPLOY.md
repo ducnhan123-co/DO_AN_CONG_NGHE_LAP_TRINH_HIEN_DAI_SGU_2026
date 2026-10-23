@@ -68,3 +68,15 @@ The Kiết DOCX file is copied byte-for-byte; the adapter does NOT run a
 different DOCX converter. BM25 chunks are auxiliary: without reliable
 page metadata the fallback sets page=null and does not invent citations.
 MinerU OCR/VLM model weights are required; do not erase their cache.
+
+
+## Port collisions
+
+If another process already owns port 8000, do NOT direct Cloudflare Tunnel
+to an unauthenticated backend. Choose a separate local port instead.
+
+Terminal 1: MATCHPDF_PORT=8001 ./scripts/run_mac_backend.sh
+Terminal 2: MATCHPDF_PORT=8001 ./scripts/expose_mac_demo.sh
+
+The ports must match. Check unauthenticated /api/health receives 401 before
+making the Tunnel URL public. Do not stop unrelated local processes.

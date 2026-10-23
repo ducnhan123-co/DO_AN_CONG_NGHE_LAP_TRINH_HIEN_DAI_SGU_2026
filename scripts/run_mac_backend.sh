@@ -27,8 +27,9 @@ export DEMO_AUTH_USER="${DEMO_AUTH_USER:-demo}"
 if [[ -z "${DEMO_AUTH_PASSWORD:-}" ]]; then
   export DEMO_AUTH_PASSWORD="$(openssl rand -hex 12)"
 fi
-echo "Mac FastAPI: http://127.0.0.1:8000"
+PORT="${MATCHPDF_PORT:-8000}"
+echo "Mac FastAPI: http://127.0.0.1:$PORT"
 echo "Demo username: $DEMO_AUTH_USER"
 echo "Temporary password: $DEMO_AUTH_PASSWORD"
 echo "Keep this terminal open; start the tunnel in another terminal."
-exec "$PYTHON" -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --workers 1
+exec "$PYTHON" -m uvicorn backend.app.main:app --host 127.0.0.1 --port "$PORT" --workers 1

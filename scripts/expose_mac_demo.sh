@@ -7,4 +7,5 @@ fi
 echo "Start scripts/run_mac_backend.sh in another terminal first."
 echo "Quick Tunnel URL is temporary and will change on restart."
 echo "Backend should require HTTP Basic auth set by run_mac_backend.sh."
-exec cloudflared tunnel --protocol http2 --url http://127.0.0.1:8000
+PORT="${MATCHPDF_PORT:-8000}"
+exec cloudflared tunnel --protocol http2 --url "http://127.0.0.1:$PORT"
