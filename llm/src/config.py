@@ -1,8 +1,6 @@
 """Cấu hình chuẩn — giữ nguyên model tốt nhất từ notebook gốc.
 
 - MinerU backend `pipeline`: ổn định nhất trên Colab CPU, giữ công thức/table tốt.
-- Embedding `intfloat/multilingual-e5-base`: đa ngữ, hợp tiếng Việt + LaTeX.
-- LLM `Qwen/Qwen2.5-3B-Instruct`: local, không API trả phí, vừa VRAM Colab GPU.
 - Pandoc flags giữ Equation OMML thật trong Word.
 Không finetune thêm — đây là cấu hình cho điểm cao nhất đã verify.
 
@@ -19,8 +17,6 @@ DOCX_DIR = BASE / "docx_output"
 RUNS_DIR = BASE / "runs"
 
 # Model tốt nhất (đừng đổi nếu muốn giữ điểm)
-EMBED_MODEL = "intfloat/multilingual-e5-base"
-LLM_NAME = "Qwen/Qwen2.5-3B-Instruct"
 
 # Chunk chuẩn từ notebook (nay chunk theo BLOCK, không cắt cứng theo ký tự)
 MAX_CHARS = 1800

@@ -324,7 +324,7 @@ async function downloadVersion(vid,ver){ toast('Đang tải DOCX v'+ver+'…'); 
   const a=document.createElement('a'); a.href=URL.createObjectURL(r.blob); a.download=docxFile(API.docId).replace(/\.docx$/i,'')+'_v'+ver+'.docx'; document.body.appendChild(a); a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},4000); }
 /* ================================================================
-   API THẬT: FastAPI (backend, cổng 8000) + Ollama local qwen3.
+   API THẬT: FastAPI (backend, cổng 8000) + BM25 tra cứu tài liệu.
    Upload -> nhận doc_id -> pane PDF hiện FILE GỐC qua /api/file,
    DOCX xong thì tự tải.
    ================================================================ */

@@ -18,7 +18,6 @@ from sqlalchemy.orm import Session
 
 from backend.app.core.config import get_settings
 from backend.app.core.errors import AppError
-from backend.app.core.llm import LLMError, get_llm
 from backend.app.models import chat_model, document_model, library_model
 from backend.app.models.database import Document, DocumentStatus, get_db
 from backend.app.models.library_db import LibDb
@@ -69,8 +68,7 @@ def _compat_info(doc: Document) -> dict:
     else:
         status, parser = "indexing", "mineru_running"
 
-    embed = ("ready" if doc.status == DocumentStatus.ready.value else
-             "failed" if doc.status == DocumentStatus.failed.value else "building")
+    embed = "disabled"  # no E5; search directly from chunks.json
 
     # DOCX chạy ở thread nền "docx-<id>": server khởi động lại giữa chừng thì thread chết,
     # không file/cờ -> coi là lỗi để UI không báo "đang xử lý" mãi.
@@ -188,21 +186,9 @@ def docx_file(doc_id: str, db: DbSession):
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
 
-@router.post("/warm", summary="[Tương thích] Nạp trước mô hình ngôn ngữ")
+@router.post("/warm", summary="[Tương thích] Không cần preload model")
 def warm(payload: WarmRequest) -> dict:
-    try:
-        model = get_llm()
-    except LLMError as exc:
-        raise HTTPException(502, f"Không nạp được mô hình: {exc}") from exc
-    if model is None:
-        return {"ok": True, "model": None}
-    warm_fn = getattr(model, "warm", None)
-    if callable(warm_fn):
-        try:
-            warm_fn()
-        except Exception as exc:                     # noqa: BLE001
-            raise HTTPException(502, f"Lỗi khi warm mô hình: {str(exc)[:300]}") from exc
-    return {"ok": True, "model": model.name}
+    return {"ok": True, "model": None, "search_backend": "keyword_bm25"}
 
 
 @router.post("/chat_stream", summary="[Tương thích] Chat SSE ({t}/{done}/{error}, 425 khi đang xử lý)")

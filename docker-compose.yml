@@ -4,24 +4,13 @@ services:
     ports:
       - "8000:8000"
     environment:
-      LLM_BACKEND: ${LLM_BACKEND:-none}
+      AI_PIPELINE_ENABLED: ${AI_PIPELINE_ENABLED:-false}
+      MINERU_PREWARM: "false"
+      MINERU_WORKERS: "0"
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-50}
-      TOP_K: ${TOP_K:-5}
-      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
     volumes:
-      - ./backend/data:/app/backend/data   # PDF, DOCX, index, SQLite
-      - model_cache:/root/.cache           # cache mô hình embedding tải về
+      - ./backend/data:/app/backend/data
+      - model_cache:/root/.cache  # MinerU OCR/VLM cache, NOT E5/Qwen
     restart: unless-stopped
-
-  # Tùy chọn
-  ollama:
-    image: ollama/ollama
-    profiles: ["ollama"]
-    volumes:
-      - ollama_data:/root/.ollama
-    restart: unless-stopped
-
 volumes:
   model_cache:
-  ollama_data:

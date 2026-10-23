@@ -21,17 +21,11 @@ def health(db: Annotated[Session, Depends(get_db)]):
     db.execute(text("SELECT 1"))
     s = get_settings()
  
-    llm_name = None
-    if s.llm_backend == "qwen_local":
-        from llm.src.config import LLM_NAME
-        llm_name = s.llm_name or LLM_NAME
-    elif s.llm_backend == "ollama":
-        llm_name = s.ollama_model
-
     from llm.src.config import (MINERU_BACKEND, MINERU_DEVICE,
                                 MINERU_METHOD, MINERU_TIER)
-    return {"status": "ok", "database": "ok", "llm_backend": s.llm_backend,
-            "ok": True, "ai_pipeline_enabled": s.ai_pipeline_enabled, "llm": llm_name,
+    return {"status": "ok", "database": "ok",
+            "ok": True, "ai_pipeline_enabled": s.ai_pipeline_enabled,
+            "search_backend": "keyword_bm25", "llm": None,
             "mineru": {"backend": MINERU_BACKEND, "device": MINERU_DEVICE,
                        "method": MINERU_METHOD, "tier": MINERU_TIER}}
  

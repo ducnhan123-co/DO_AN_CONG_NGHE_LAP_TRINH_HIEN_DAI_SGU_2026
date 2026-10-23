@@ -1,7 +1,4 @@
-"""Chạy nền 1 job/lần, gọi pipeline llm/src/* (MinerU -> structured -> chunk block -> LlamaIndex).
-
-Đây là file DUY NHẤT import trực tiếp llm/.
-"""
+"""MinerU PDF processing, Math DOCX and BM25 keyword-retrievable chunks."""
 import json
 import logging
 import threading
@@ -21,37 +18,20 @@ logger = logging.getLogger(__name__)
 DOCX_FAILED_FLAG = "docx_failed.flag"
 
 _lock = threading.Lock()
-_index_cache: Dict[str, Any] = {}
 _executor: Optional[ThreadPoolExecutor] = None
 
 #  nạp / tìm chỉ mục
+# Retrieve from persisted chunks (BM25 keyword matching, no vector model).
 def clear_cache() -> None:
-    with _lock:
-        _index_cache.clear()
-
-
-def load_index(doc_id: str) -> Any:
-    with _lock:
-        if doc_id in _index_cache:
-            return _index_cache[doc_id]
-    rag_dir = get_settings().rag_dir(doc_id)
-    if not rag_dir.exists() or not any(rag_dir.iterdir()):
-        raise AppError(500, "INDEX_NOT_FOUND", "Không tìm thấy chỉ mục của tài liệu.")
-    from llm.src.config import EMBED_MODEL
-    from llm.src.llama_rag import load_index as _load_index
-    idx = _load_index(rag_dir, EMBED_MODEL)
-    with _lock:
-        _index_cache[doc_id] = idx
-    return idx
+    """No in-memory embedding index cache to clear."""
+    return None
 
 
 def search(doc_id: str, question: str, top_k: int) -> List[dict]:
-    from llm.src.llama_rag import retrieve
-    idx = load_index(doc_id)
-    return retrieve(idx, question, top_k)
+    from backend.app.models.lexical_search import search_chunks
+    return search_chunks(get_settings().doc_dir(doc_id) / "chunks.json", question, top_k)
 
 
-#  trạng thái job
 def _running(db: Session, doc: Document, job: Job, stage: DocumentStatus, progress: int) -> None:
     job.status = JobStatus.running.value
     job.stage = stage.value
@@ -152,10 +132,9 @@ def run_pipeline(document_id: str, job_id: str) -> None:
         try:
             from llm.src.build_docx import fix_legacy_tex_bf, prepare_work_md
             from llm.src.chunking import build_chunks
-            from llm.src.config import (EMBED_MODEL, MAX_CHARS, MINERU_DEVICE,
-                                        MINERU_LANG, MINERU_METHOD, MINERU_TIER,
-                                        MINERU_WORKERS, OVERLAP)
-            from llm.src.llama_rag import build_index, chunks_to_nodes
+            from llm.src.config import (MAX_CHARS, MINERU_DEVICE, MINERU_LANG,
+                                        MINERU_METHOD, MINERU_TIER, MINERU_WORKERS,
+                                        OVERLAP)
             from llm.src.run_mineru import (find_content_list,
                                             find_mineru_outputs,
                                             has_extractable_text, run_mineru)
@@ -212,7 +191,7 @@ def run_pipeline(document_id: str, job_id: str) -> None:
             if not chunks:
                 raise PipelineError("NO_CHUNKS", "Tài liệu không có nội dung để lập chỉ mục.")
 
-            # V3 artifacts: make chunks visible even if building the E5 index fails.
+            # Persist chunks before completing the job; artifacts remain inspectable.
             (doc_dir / "chunks.json").write_text(
                 json.dumps(chunks, ensure_ascii=False, indent=2), encoding="utf-8")
             doc.num_chunks = len(chunks)
@@ -225,13 +204,8 @@ def run_pipeline(document_id: str, job_id: str) -> None:
                 logger.warning("Tài liệu %s: %d vấn đề validate_chunks (%s)",
                                doc.id, len(report["problems"]), report["problems"][:5])
 
-            # 4. LlamaIndex -- xong bước này là CHAT DÙNG ĐƯỢC, bất kể docx_thread
             # (bước 2) đã xong hay chưa.
-            nodes = chunks_to_nodes(chunks)
-            build_index(nodes, EMBED_MODEL, rag_dir)
-            with _lock:
-                _index_cache.pop(doc.id, None)
-
+            # Keyword retrieval reads persisted chunks.json directly.
             n_sections = len({c["section"] for c in chunks})
             _succeeded(db, doc, job, n_sections, len(chunks))
             logger.info("Hoàn tất tài liệu %s: %d sections, %d chunks (DOCX %s)",

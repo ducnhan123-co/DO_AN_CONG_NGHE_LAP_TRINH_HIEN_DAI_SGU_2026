@@ -160,7 +160,7 @@ function refreshChips(){ DOCS.forEach(d=>document.querySelectorAll('[data-chip="
 function chipInner(d){
   const i=d.info; if(!i) return '';
   const t=i.elapsed_s==null?'':fmtDur(i.elapsed_s+(d.tick||0));
-  if(i.status==='failed'&&i.docx==='ready') return '<span class="text-[11px] font-bold text-amber-700">DOCX sẵn sàng · RAG lỗi</span>';
+  if(i.status==='failed'&&i.docx==='ready') return '<span class="text-[11px] font-bold text-amber-700">DOCX sẵn sàng · Tra cứu lỗi</span>';
   if(i.status==='failed') return '<span class="text-[11px] font-bold text-red-600">Xử lý lỗi · '+esc(i.error||'Xem nhật ký')+'</span>';
   if(i.docx==='ready') return `<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700"><i class="ph-bold ph-check-circle"></i>Đã xong${t?' · '+t:''}</span>`;
   if(i.docx==='failed') return `<span class="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-600" title="${esc(i.error||'')}"><i class="ph-bold ph-warning-circle"></i>Lỗi${t?' · '+t:''}</span>`;

@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from backend.app.core.config import get_settings
 from backend.app.core.errors import AppError
-from backend.app.core.llm import LLMError, get_llm
 from backend.app.models import document_model, pipeline_model
 from backend.app.models.database import Document, DocumentStatus, Message, SessionLocal
 from backend.app.views.schemas import ChatResponse
@@ -24,7 +23,7 @@ SYSTEM_PROMPT = (
     "(trừ thuật ngữ chuyên môn và công thức LaTeX giữ nguyên)."
 )
 NO_RESULT = "Không tìm thấy thông tin liên quan trong tài liệu."
-_ERROR_STATUS = {"LLM_UNAVAILABLE": 503}
+_ERROR_STATUS = {}
 
 Event = Tuple[str, dict]
 
@@ -220,18 +219,9 @@ def stream_events(document_id: str, question: str, top_k: Optional[int] = None,
             pages = sorted({h["page"] for h in hits if h.get("page") is not None})
             yield think("retrieved", f"Tìm thấy {len(hits)} đoạn liên quan"
                         + (f", trang {', '.join(map(str, pages))}" if pages else "."))
-            model = get_llm()
-            if model is None:
-                yield think("generate", "Chưa bật mô hình ngôn ngữ, trích trực tiếp đoạn liên quan nhất.")
-                answer_text = _extractive_answer(hits)
-                yield "token", {"text": answer_text}
-            else:
-                yield think("generate", f"Đang soạn câu trả lời bằng {model.name}...")
-                parts: List[str] = []
-                for piece in model.stream(SYSTEM_PROMPT, _build_prompt(question, hits, history)):
-                    parts.append(piece)
-                    yield "token", {"text": piece}
-                answer_text = "".join(parts).strip() or NO_RESULT
+            yield think("extract", "Tra cứu theo từ khóa; trích nguyên văn, không sinh câu trả lời AI.")
+            answer_text = _extractive_answer(hits)
+            yield "token", {"text": answer_text}
 
         yield "citations", {"items": citations}
         if persist:
@@ -242,9 +232,6 @@ def stream_events(document_id: str, question: str, top_k: Optional[int] = None,
         yield "done", ChatResponse(message_id=message_id, document_id=document_id,
                                    answer=answer_text, citations=citations,
                                    thinking=thinking).model_dump()
-    except LLMError as e:
-        logger.warning("LLM lỗi: %s", e)
-        yield "error", {"code": "LLM_UNAVAILABLE", "message": str(e)}
     except AppError as e:
         yield "error", {"code": e.code, "message": e.message}
     except Exception:                              # noqa: BLE001

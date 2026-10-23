@@ -32,14 +32,12 @@ class Settings(BaseSettings):
     max_queued_jobs: int = 6        # số job (queued+running) tối đa, vượt thì từ chối upload (429)
     chat_history_turns: int = 3     # số lượt hỏi-đáp gần nhất đưa vào ngữ cảnh chat
 
-    llm_backend: str = "none"          # none | qwen_local | ollama
-    llm_name: str = ""                 # rỗng -> src.config.LLM_NAME
-    ai_pipeline_enabled: bool = True  # set false on low-memory API-only hosts
-    preload_llm: bool = False
-    embed_prewarm: bool = False       # opt-in: E5 can exceed low-memory instances
-    mineru_prewarm: bool = False      # opt-in: do not start MinerU model pool by default
-    ollama_url: str = "http://localhost:11434"
-    ollama_model: str = "qwen2.5:7b"
+    ai_pipeline_enabled: bool = False  # Render Free safe by default; Mac starts this
+    mineru_prewarm: bool = False
+    serve_frontend: bool = False  # Mac tunnel: serve static UI from API origin
+    demo_auth_user: str = ""           # enable Basic Auth for temporary tunnel demos
+    demo_auth_password: str = ""       # never commit the password
+
 
     @model_validator(mode="after")
     def _defaults(self):

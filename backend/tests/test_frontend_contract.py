@@ -74,7 +74,7 @@ def test_rag_failed_but_word_remains_downloadable(client, make_doc):
     assert resp.status_code == 200
     info = resp.json()
     assert info["status"] == "failed"
-    assert info["embed"] == "failed"
+    assert info["embed"] == "disabled"
     assert info["parser"] == "mineru"
     assert info["chunks_available"] is True
     assert info["docx"] == "ready"

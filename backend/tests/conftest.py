@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT))
 _tmp = tempfile.mkdtemp(prefix="mathchat_test_")
 os.environ["DATA_DIR"] = _tmp
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmp}/test.db"
-os.environ["LLM_BACKEND"] = "none"
+os.environ["AI_PIPELINE_ENABLED"] = "true"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
