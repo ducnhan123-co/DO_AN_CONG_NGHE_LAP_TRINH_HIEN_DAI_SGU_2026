@@ -105,14 +105,32 @@ def queue_depth(db: Session) -> int:
 def _build_docx_background(doc_id: str, work_md, docx_path, images_dir, flag_path) -> None:
     """Chạy trong thread riêng. Lỗi KHÔNG làm fail cả tài liệu — chỉ ghi cờ
     docx_failed.flag để compat_controller báo docx='failed', chat vẫn dùng được."""
+    import zipfile
+    from pathlib import Path
+
+    docx_path = Path(docx_path)
+    building_path = docx_path.with_name(f".{docx_path.stem}.building.docx")
     try:
         flag_path.unlink(missing_ok=True)
+        building_path.unlink(missing_ok=True)
         from llm.src.build_docx import md_to_docx
-        md_to_docx(work_md, docx_path, images_dir)
-        logger.info("DOCX xong (nền): %s", docx_path)
-    except Exception as e:                            # noqa: BLE001
-        logger.exception("Xuất DOCX lỗi (doc=%s)", doc_id)
-        flag_path.write_text(str(e)[:500], encoding="utf-8")
+        md_to_docx(work_md, building_path, images_dir)
+        if not building_path.is_file() or building_path.stat().st_size == 0:
+            raise ValueError("DOCX empty or missing")
+        with zipfile.ZipFile(building_path) as archive:
+            bad_member = archive.testzip()
+            if bad_member:
+                raise ValueError(f"DOCX damaged member: {bad_member}")
+            if "word/document.xml" not in archive.namelist():
+                raise ValueError("DOCX missing word/document.xml")
+        # V3: only publish a complete valid DOCX, never a partial file.
+        building_path.replace(docx_path)
+        logger.info("Validated DOCX ready: %s", docx_path)
+    except Exception as exc:
+        logger.exception("DOCX generation failed for doc=%s", doc_id)
+        flag_path.write_text(str(exc)[:500], encoding="utf-8")
+    finally:
+        building_path.unlink(missing_ok=True)
 
 
 #  chạy pipeline
@@ -193,6 +211,12 @@ def run_pipeline(document_id: str, job_id: str) -> None:
             chunks = build_chunks(blocks, MAX_CHARS, OVERLAP)
             if not chunks:
                 raise PipelineError("NO_CHUNKS", "Tài liệu không có nội dung để lập chỉ mục.")
+
+            # V3 artifacts: make chunks visible even if building the E5 index fails.
+            (doc_dir / "chunks.json").write_text(
+                json.dumps(chunks, ensure_ascii=False, indent=2), encoding="utf-8")
+            doc.num_chunks = len(chunks)
+            db.commit()
 
             report = validate_chunks(chunks, doc.filename, doc.id)
             (doc_dir / "validation.json").write_text(

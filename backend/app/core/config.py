@@ -34,6 +34,7 @@ class Settings(BaseSettings):
 
     llm_backend: str = "none"          # none | qwen_local | ollama
     llm_name: str = ""                 # rỗng -> src.config.LLM_NAME
+    ai_pipeline_enabled: bool = True  # set false on low-memory API-only hosts
     preload_llm: bool = False
     embed_prewarm: bool = False       # opt-in: E5 can exceed low-memory instances
     mineru_prewarm: bool = False      # opt-in: do not start MinerU model pool by default

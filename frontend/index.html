@@ -160,6 +160,8 @@ function refreshChips(){ DOCS.forEach(d=>document.querySelectorAll('[data-chip="
 function chipInner(d){
   const i=d.info; if(!i) return '';
   const t=i.elapsed_s==null?'':fmtDur(i.elapsed_s+(d.tick||0));
+  if(i.status==='failed'&&i.docx==='ready') return '<span class="text-[11px] font-bold text-amber-700">DOCX sẵn sàng · RAG lỗi</span>';
+  if(i.status==='failed') return '<span class="text-[11px] font-bold text-red-600">Xử lý lỗi · '+esc(i.error||'Xem nhật ký')+'</span>';
   if(i.docx==='ready') return `<span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700"><i class="ph-bold ph-check-circle"></i>Đã xong${t?' · '+t:''}</span>`;
   if(i.docx==='failed') return `<span class="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-600" title="${esc(i.error||'')}"><i class="ph-bold ph-warning-circle"></i>Lỗi${t?' · '+t:''}</span>`;
   return `<span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700"><i class="ph-bold ph-spinner-gap animate-spin"></i>Đang xử lý${t?' · '+t:''}</span>`;
@@ -337,8 +339,10 @@ async function openStaged(){
   if(uploading||!staged.length) return;
   if(!(await serverOnline())){ toast('Server chưa chạy — bật server rồi bấm Mở tài liệu lại'); return; }
   uploading=true; renderStaged();
-  await Promise.all(staged.map(async s=>{
-    if(s.status==='done') return;
+  // Submit sequentially so failures are attributed to the correct file.
+  // The server still enforces its queue limit; excessive batches may return 429.
+  for (const s of staged) {
+    if(s.status==='done') continue;
     s.status='up'; s.msg=''; renderStaged();
     try{
       const fd=new FormData(); fd.append('f',s.file);
@@ -347,10 +351,11 @@ async function openStaged(){
       const j=await r.json();
       s.docId=j.doc_id; s.pages=j.num_pages; s.status='done';
       uploadedByKey[s.key]={docId:j.doc_id,pages:j.num_pages};
-      LIB.put('/doc/'+j.doc_id,{name:j.name||s.file.name,num_pages:j.num_pages,parser:j.parser});
+      const saved=await LIB.put('/doc/'+j.doc_id,{name:j.name||s.file.name,num_pages:j.num_pages,parser:j.parser});
+      if(!saved.ok) toast('Tải PDF thành công nhưng thư viện chưa lưu được, sẽ thử lại khi mở tài liệu');
     }catch(e){ s.status='err'; s.msg=String(e&&e.message||e); }
     renderStaged();
-  }));
+  }
   uploading=false; renderStaged();
   if(staged.some(s=>s.status!=='done')){ toast('Có file tải lỗi — bỏ file lỗi (✕) hoặc bấm Mở tài liệu để thử lại'); return; }
   const ids=[...new Set(staged.map(s=>s.docId))];

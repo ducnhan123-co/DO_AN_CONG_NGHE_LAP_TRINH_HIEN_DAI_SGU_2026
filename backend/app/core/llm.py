@@ -23,7 +23,7 @@ class LLMBackend(ABC):
 
 class QwenLocal(LLMBackend):
     def __init__(self, model_name: str, max_new_tokens: int = 768):
-        from DO_AN_CONG_NGHE_LAP_TRINH_HIEN_DAI_SGU_2026.llm.src.ask_rag import load_llm     # tái dùng loader của pipeline gốc
+        from llm.src.ask_rag import load_llm     # tái dùng loader của pipeline gốc
         self.name = f"Qwen local ({model_name})"
         self.tok, self.model = load_llm(model_name)
         self.max_new_tokens = max_new_tokens

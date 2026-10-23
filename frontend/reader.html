@@ -291,10 +291,22 @@ async function deleteItem(){ const t=menu; closeMenu(); if(!t) return;
 function syncDlTop(){}
 // document.getElementById('btnDocx').onclick=downloadDocx;
 /* đồng bộ sang thư viện: bản chụp DOCX (trùng hash thì bỏ qua) + nạp công thức khi MinerU xong */
-const synced=new Set();
+const synced=new Set(), syncing=new Set(), syncRetryAt=new Map();
+async function syncOnce(key, action){
+  if(synced.has(key)||syncing.has(key)||Date.now()<(syncRetryAt.get(key)||0)) return;
+  syncing.add(key);
+  try{
+    const response=await action();
+    if(response.ok){ synced.add(key); syncRetryAt.delete(key); }
+    else syncRetryAt.set(key,Date.now()+20000);
+  }catch(e){ syncRetryAt.set(key,Date.now()+20000); }
+  finally{ syncing.delete(key); }
+}
 function libSync(j, docId){ const id=docId||API.docId; if(!id) return;
-  if(j.docx==='ready'){ const k='d'+id+j.parser; if(!synced.has(k)){ synced.add(k); LIB.post('/doc/'+id+'/docx/snapshot',{source:j.parser==='mineru'?'mineru':'fast'}); } }
-  if(j.parser==='mineru'){ const k='i'+id; if(!synced.has(k)){ synced.add(k); LIB.post('/doc/'+id+'/ingest'); } } }
+  if(j.docx==='ready') syncOnce('d'+id+j.parser,
+    ()=>LIB.post('/doc/'+id+'/docx/snapshot',{source:j.parser==='mineru'?'mineru':'fast'}));
+  if(j.parser==='mineru') syncOnce('i'+id,()=>LIB.post('/doc/'+id+'/ingest'));
+}
 /* lịch sử DOCX + nhật ký hoạt động */
 const KIND={register:'Thêm tài liệu',docx:'Tạo bản DOCX',ingest:'Nạp công thức'};
 async function openHistory(){ const id=API.docId; if(!id){ toast('Mở một tài liệu trước'); return; }
@@ -566,8 +578,8 @@ function showParser(j,id){
   if(id===API.docId){
     API.ready=j.status==='ready';
     const meta=document.getElementById('docMeta');
-    if(j.status==='indexing') meta.textContent=j.num_pages+' trang · ⏳ đang xử lý ở nền — PDF đọc được ngay, DOCX tự tải khi xong';
-    else if(j.status==='failed') meta.textContent='❌ '+(j.error||'Không đọc được nội dung PDF');
+    if(j.status==='indexing') meta.textContent=(j.num_pages||0)+' trang · ⏳ '+(j.stage||'đang xử lý')+' ('+(j.progress||0)+'%) · '+(j.num_chunks||0)+' chunks';
+    else if(j.status==='failed') meta.textContent='❌ '+(j.error||'Xử lý tài liệu lỗi')+(j.num_chunks?' · '+j.num_chunks+' chunks đã tạo':'')+(j.docx==='ready'?' · DOCX vẫn tải được':'');
     else meta.textContent=j.num_pages+' trang · '+j.num_chunks+' chunks · '+(PARSER[j.parser]||j.parser||'')+(j.embed==='building'?' · 🔎 đang lập chỉ mục':j.embed==='failed'?' · chỉ tìm theo từ khóa (embedding lỗi)':'');
   }
   noteDocx(id,j); libSync(j,id);

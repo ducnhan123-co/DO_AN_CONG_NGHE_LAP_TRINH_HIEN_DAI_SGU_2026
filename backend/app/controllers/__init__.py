@@ -23,7 +23,7 @@ def health(db: Annotated[Session, Depends(get_db)]):
  
     llm_name = None
     if s.llm_backend == "qwen_local":
-        from DO_AN_CONG_NGHE_LAP_TRINH_HIEN_DAI_SGU_2026.llm.src.config import LLM_NAME
+        from llm.src.config import LLM_NAME
         llm_name = s.llm_name or LLM_NAME
     elif s.llm_backend == "ollama":
         llm_name = s.ollama_model
@@ -31,7 +31,7 @@ def health(db: Annotated[Session, Depends(get_db)]):
     from llm.src.config import (MINERU_BACKEND, MINERU_DEVICE,
                                 MINERU_METHOD, MINERU_TIER)
     return {"status": "ok", "database": "ok", "llm_backend": s.llm_backend,
-            "ok": True, "llm": llm_name,
+            "ok": True, "ai_pipeline_enabled": s.ai_pipeline_enabled, "llm": llm_name,
             "mineru": {"backend": MINERU_BACKEND, "device": MINERU_DEVICE,
                        "method": MINERU_METHOD, "tier": MINERU_TIER}}
  

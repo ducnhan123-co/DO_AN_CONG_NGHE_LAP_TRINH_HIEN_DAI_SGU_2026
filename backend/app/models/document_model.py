@@ -39,6 +39,10 @@ def _latest_job(db: Session, document_id: str) -> Optional[Job]:
 
 def create_document(db: Session, upload: UploadFile) -> Tuple[Document, Job]:
     settings = get_settings()
+    if not settings.ai_pipeline_enabled:
+        raise AppError(503, "AI_WORKER_UNAVAILABLE",
+                       "Máy chủ này chỉ chạy API; MinerU/RAG cần worker AI đủ RAM. "
+                       "Hãy cấu hình AI_PIPELINE_ENABLED=true trên server đủ tài nguyên.")
 
     pending = pipeline_model.queue_depth(db)
     if pending >= settings.max_queued_jobs:
@@ -99,6 +103,9 @@ def retry_document(db: Session, document_id: str) -> Tuple[Document, Job]:
     """Thử lại pipeline cho tài liệu đã failed, dùng lại PDF đã lưu, không cần upload lại."""
     doc = get_document(db, document_id)
     settings = get_settings()
+    if not settings.ai_pipeline_enabled:
+        raise AppError(503, "AI_WORKER_UNAVAILABLE",
+                       "Không thể retry vì máy chủ không chạy MinerU/RAG.")
 
     if doc.status != DocumentStatus.failed.value:
         raise AppError(409, "DOCUMENT_NOT_FAILED",
@@ -129,6 +136,9 @@ def split_document(db: Session, document_id: str, ranges: List[dict]) -> List[Tu
     ranges: [{"from": 1, "to": 20, "name": "Chương 1"}, ...]"""
     parent = get_document(db, document_id)
     settings = get_settings()
+    if not settings.ai_pipeline_enabled:
+        raise AppError(503, "AI_WORKER_UNAVAILABLE",
+                       "Không thể xử lý PDF con vì AI pipeline chưa được bật.")
     src_path = settings.pdf_path(parent.id)
     if not src_path.exists():
         raise AppError(409, "PDF_MISSING", "Không tìm thấy PDF gốc để cắt.")

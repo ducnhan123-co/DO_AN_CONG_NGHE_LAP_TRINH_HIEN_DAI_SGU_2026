@@ -1,8 +1,14 @@
 """Controller: upload, liệt kê, xem thông tin, thử lại tài liệu."""
 from typing import Annotated
 
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, File, Response, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+
+from backend.app.core.config import get_settings
+from backend.app.core.errors import AppError
 
 from backend.app.models import document_model
 from backend.app.models.database import get_db
@@ -69,3 +75,40 @@ def split_document(document_id: str, body: SplitRequest, db: DbSession):
                summary="Xóa tài liệu và toàn bộ dữ liệu liên quan", responses=errors(404))
 def delete_document(document_id: str, db: DbSession):
     document_model.delete_document(db, document_id)
+
+# Backwards-compatible with the useful inspectable artifacts from backend v3.
+# The whitelist prevents path traversal and avoids serving arbitrary uploaded files.
+ARTIFACTS = {
+    "chunks.json": "chunks.json",
+    "validation.json": "validation.json",
+    "structured_data.json": "structured_data.json",
+    "work.md": "work_for_docx.md",
+}
+
+
+def _artifact_paths(document_id: str, db: Session) -> dict[str, Path]:
+    doc = document_model.get_document(db, document_id)
+    directory = get_settings().doc_dir(doc.id)
+    return {name: directory / relpath for name, relpath in ARTIFACTS.items()}
+
+
+@router.get("/documents/{document_id}/artifacts", tags=["documents"],
+            summary="Danh sách artifacts: chunks / validation / structured / DOCX Markdown")
+def list_document_artifacts(document_id: str, db: DbSession):
+    paths = _artifact_paths(document_id, db)
+    return {"items": [{"name": name, "size": path.stat().st_size}
+                      for name, path in paths.items() if path.is_file()]}
+
+
+@router.get("/documents/{document_id}/artifacts/{name}", tags=["documents"],
+            response_class=FileResponse, summary="Tải artifacts (whitelist)")
+def read_document_artifact(document_id: str, name: str, db: DbSession):
+    paths = _artifact_paths(document_id, db)
+    path = paths.get(name)
+    if path is None:
+        raise AppError(404, "ARTIFACT_NOT_FOUND", "Artifact không được hỗ trợ.")
+    if not path.is_file():
+        raise AppError(404, "ARTIFACT_NOT_READY", "Artifact chưa được tạo.")
+    return FileResponse(path,
+                        media_type="application/json" if name.endswith(".json") else "text/markdown",
+                        filename=name)

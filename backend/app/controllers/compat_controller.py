@@ -69,29 +69,40 @@ def _compat_info(doc: Document) -> dict:
     else:
         status, parser = "indexing", "mineru_running"
 
-    embed = "building" if doc.status == DocumentStatus.indexing.value else None
+    embed = ("ready" if doc.status == DocumentStatus.ready.value else
+             "failed" if doc.status == DocumentStatus.failed.value else "building")
 
     # DOCX chạy ở thread nền "docx-<id>": server khởi động lại giữa chừng thì thread chết,
     # không file/cờ -> coi là lỗi để UI không báo "đang xử lý" mãi.
+    docx_worker_alive = any(t.name == f"docx-{doc.id}" for t in threading.enumerate())
     docx_orphan = (doc.status == DocumentStatus.ready.value and not docx_exists
-                   and not any(t.name == f"docx-{doc.id}" for t in threading.enumerate()))
+                   and not docx_worker_alive)
 
-    if docx_flag.exists() or docx_orphan:
-        docx_state = "failed"
-    elif doc.status == DocumentStatus.failed.value:
+    if docx_flag.exists():
         docx_state = "failed"
     elif docx_exists:
-        docx_state = "ready"
+        docx_state = "ready"  # RAG may fail while DOCX remains valid
+    elif docx_worker_alive:
+        docx_state = "building"  # keep polling until independently running DOCX completes
+    elif doc.status == DocumentStatus.failed.value or docx_orphan:
+        docx_state = "failed"
     else:
         docx_state = "building"
 
     elapsed_s = _elapsed_s(doc, docx_state, settings.docx_path(doc.id))
+    latest_job = max(doc.jobs, key=lambda j: j.created_at, default=None)
+    chunks_available = (settings.doc_dir(doc.id) / "chunks.json").is_file()
+    if status == "failed" and chunks_available:
+        parser = "mineru"  # parsing succeeded; RAG/index failed later
 
     return {
         "doc_id": doc.id, "name": doc.filename,
         "num_pages": _num_pages(settings.pdf_path(doc.id)),
         "num_chunks": doc.num_chunks,
         "status": status, "parser": parser, "embed": embed,
+        "stage": latest_job.stage if latest_job else None,
+        "progress": latest_job.progress if latest_job else 0,
+        "chunks_available": chunks_available,
         "docx": docx_state,
         "elapsed_s": elapsed_s,
         "docx_url": f"{settings.api_prefix}/docx/{doc.id}" if docx_state == "ready" else None,
@@ -167,10 +178,10 @@ def docx_file(doc_id: str, db: DbSession):
     except AppError as exc:
         _raise_as_http(exc)
     path = get_settings().docx_path(doc.id)
-    if doc.status == DocumentStatus.failed.value:
-        raise HTTPException(404, "Tài liệu xử lý thất bại, không có DOCX.")
     if not path.exists():
-        raise HTTPException(425, "DOCX đang xử lý, xong sẽ tải được.")
+        if doc.status == DocumentStatus.failed.value:
+            raise HTTPException(404, "DOCX failed or missing after document processing error.")
+        raise HTTPException(425, "DOCX is still being generated.")
     name = Path(doc.filename).stem + ".docx"
     return FileResponse(
         path, filename=name,
