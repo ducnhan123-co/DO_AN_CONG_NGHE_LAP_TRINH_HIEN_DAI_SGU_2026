@@ -1,4 +1,5 @@
 import json
+import re
 import shutil
 import subprocess
 import zipfile
@@ -6,7 +7,7 @@ import zipfile
 import pytest
 
 from llm.src.build_docx import (fix_font_declarations, fix_symbol_pua, looks_like_ocr_table,
-                                md_to_docx, prepare_work_md)
+                                looks_like_table_formula, md_to_docx, prepare_work_md)
 
 
 def test_font_declarations_become_mathbf_groups():
@@ -47,6 +48,20 @@ def test_short_doc_has_no_toc_and_unparsable_formula_becomes_image(tmp_path):
     assert "Table of Contents" not in xml and "TOC" not in xml
     assert any(n.startswith("word/media/") for n in z.namelist())   # công thức dạng bảng -> ảnh gốc
     assert "frac" not in xml and "\\begin" not in xml
+
+
+@pytest.mark.skipif(not shutil.which("pandoc"), reason="cần pandoc")
+def test_long_doc_toc_heading_is_vietnamese(tmp_path):
+    body = "nội dung. " * 500
+    text = "\n\n".join(f"## Mục {i}\n\n{body}" for i in range(1, 10))
+    md = tmp_path / "d.md"
+    md.write_text(text, encoding="utf-8")
+    work = tmp_path / "w.md"
+    prepare_work_md(text, md, work)
+    out = md_to_docx(work, tmp_path / "o.docx", tmp_path, number_pages=False)
+    xml = zipfile.ZipFile(out).read("word/document.xml").decode("utf8")
+    toc = re.search(r"TOCHeading.*?</w:p>", xml, re.S)
+    assert toc and "Mục lục" in toc.group(0)
 
 
 @pytest.mark.skipif(not shutil.which("pandoc"), reason="cần pandoc")
@@ -113,3 +128,75 @@ def test_crop_pdf_region_makes_image(tmp_path):
     doc.save(str(pdf))
     out = tmp_path / "c" / "x.png"
     assert _crop_pdf_region(str(pdf), 0, [0, 0, 1000, 500], out) and out.stat().st_size > 100
+
+
+def test_table_like_formula_detected_but_matrix_and_system_kept():
+    table = r"\begin{array}{|c|c|} \text{P} & \text{Q} \\ \text{T} & \text{F} \end{array}"
+    wide = r"\begin{array}{cccc} a & b & c & d \\ 1 & 2 & 3 & 4 \end{array}"
+    matrix = r"\left[\begin{array}{cc} a & b \\ c & d \end{array}\right]"
+    system = r"\left\{ \begin{array}{l} x=1 \\ y=2 \end{array} \right."
+    frac_table = r"\begin{array}{c} \frac { x \quad - 3 \quad - 2 \quad 3 \quad 5 } { y' } \end{array}"
+    assert looks_like_table_formula(table) and looks_like_table_formula(wide)
+    assert looks_like_table_formula(frac_table)
+    assert not looks_like_table_formula(matrix) and not looks_like_table_formula(system)
+    assert looks_like_ocr_table(frac_table)
+
+
+@pytest.mark.skipif(not shutil.which("pandoc"), reason="cần pandoc")
+def test_table_formula_without_mineru_image_is_cropped_from_pdf(tmp_path):
+    """Bảng bị nhận thành công thức, MinerU không có img_path -> cắt bbox từ input.pdf."""
+    import fitz
+    md_dir = tmp_path / "m"
+    md_dir.mkdir()
+    pdf = md_dir / "input.pdf"
+    doc = fitz.open()
+    page = doc.new_page(width=300, height=300)
+    page.insert_text((40, 80), "P   Q")
+    page.insert_text((40, 120), "T   F")
+    doc.save(str(pdf))
+    doc.close()
+    bad = r"\begin{array}{|c|c|} \text{P} & \text{Q} \\ \text{T} & \text{F} \end{array}"
+    (md_dir / "d_content_list.json").write_text(json.dumps([
+        {"type": "equation", "text": f"$$\n{bad}\n$$", "page_idx": 0, "bbox": [20, 20, 280, 150]}
+    ]), encoding="utf-8")
+    md = md_dir / "d.md"
+    text = f"Bảng:\n\n$$\n{bad}\n$$\n\nHết\n"
+    md.write_text(text, encoding="utf-8")
+    work = tmp_path / "work.md"
+    prepare_work_md(text, md, work)
+    mapping = json.loads((tmp_path / "math_images.json").read_text(encoding="utf-8"))
+    assert mapping["force"] and all(k in mapping["map"] for k in mapping["force"])
+    out = md_to_docx(work, tmp_path / "o.docx", md_dir, number_pages=False)
+    z = zipfile.ZipFile(out)
+    assert any(n.startswith("word/media/") for n in z.namelist())
+    xml = z.read("word/document.xml").decode("utf8")
+    assert "\\begin{array}" not in xml
+
+
+@pytest.mark.skipif(not shutil.which("pandoc"), reason="cần pandoc")
+def test_failed_display_formula_without_mineru_image_is_cropped_from_pdf(tmp_path):
+    """Công thức display không có img_path, Pandoc không dịch được -> cắt bbox từ PDF."""
+    import fitz
+    md_dir = tmp_path / "m"
+    md_dir.mkdir()
+    pdf = md_dir / "input.pdf"
+    doc = fitz.open()
+    page = doc.new_page(width=300, height=300)
+    page.insert_text((40, 80), "x + y = 2")
+    doc.save(str(pdf))
+    doc.close()
+    bad = r"\notarealcommand{x+y}"
+    (md_dir / "d_content_list.json").write_text(json.dumps([
+        {"type": "equation", "text": f"$$\n{bad}\n$$", "page_idx": 0, "bbox": [20, 20, 280, 120]}
+    ]), encoding="utf-8")
+    md = md_dir / "d.md"
+    text = f"Trước\n\n$$\n{bad}\n$$\n\nSau\n"
+    md.write_text(text, encoding="utf-8")
+    work = tmp_path / "work.md"
+    prepare_work_md(text, md, work)
+    mapping = json.loads((tmp_path / "math_images.json").read_text(encoding="utf-8"))
+    assert mapping["bbox"] and not mapping["force"]
+    out = md_to_docx(work, tmp_path / "o.docx", md_dir, number_pages=False)
+    z = zipfile.ZipFile(out)
+    assert any(n.startswith("word/media/") for n in z.namelist())
+    assert "notarealcommand" not in z.read("word/document.xml").decode("utf8")

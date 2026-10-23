@@ -29,3 +29,6 @@ Mở `http://127.0.0.1:8080`. Cần có các model `qwen3:8b` và `qwen3-embeddi
 Push `main` kích hoạt `.github/workflows/deploy-pages.yml` để deploy `frontend/` lên GitHub Pages. Backend và Ollama phải chạy ở một host Python riêng; trước khi deploy frontend, đặt `frontend/config.js` thành URL HTTPS của host đó và thêm domain GitHub Pages vào `CORS_ORIGINS`. GitHub Pages không thể gọi Ollama đang chạy trên máy cá nhân của người xem.
 
 Chi tiết CLI và mô hình: `HUONG_DAN_CHAY_CHI_TIET.md`.
+
+Giải thích code và xử lý công thức/bảng: `docs/CODE_EXPLAINED_2026.md`, `docs/FORMULA_FIX_GUIDE_2026.md`.
+Đo CER/WER/PER khi có ground truth: `python3 -m llm.src.metrics --help`.

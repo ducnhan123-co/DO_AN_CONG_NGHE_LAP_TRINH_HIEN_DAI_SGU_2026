@@ -596,11 +596,47 @@ def _norm_tex(t: str) -> str:
 
 
 _TABLE_AS_FRAC_RE = re.compile(r"\\begin\{array\}\s*\{c\}\s*\\frac\s*\{(?:[^{}]*\\(?:quad|qquad)){3,}")
+_TABLE_ARRAY_RE = re.compile(r"\\begin\{(array|tabular)\}\s*(?:\{([^}]*)\})?")
+_MATRIX_WRAP_RE = re.compile(r"\\left\s*[\[\(\{].*?\\begin\{array\}.*?\\right\s*[\]\)\}]", re.S)
+_ROW_SPLIT_RE = re.compile(r"\\\\")
+_CELL_SPLIT_RE = re.compile(r"(?<!\\)&")
+_TEXT_CELL_RE = re.compile(r"\\text\s*\{[^{}]*\}")
+
+
+def looks_like_table_formula(body: str) -> bool:
+    """True nếu khối LaTeX nhiều khả năng là BẢNG bị MinerU nhận thành công thức.
+
+    Các dấu hiệu:
+    - `\\begin{tabular}` hoặc có `\\hline` (ma trận thật hiếm khi dùng).
+    - cột có đường kẻ dọc: `\\begin{array}{|c|c|}`.
+    - mẫu bảng xét dấu bị OCR thành `\\frac{ x \\quad -3 \\quad ...}{...}`.
+    - array >= 4 cột, hoặc >= 3 cột x >= 3 hàng mà không bọc trong ngoặc trái/phải
+      (ma trận thường được bọc `\\left[...\\right]`).
+    - nhiều ô `\\text{...}` trên >= 2 cột (bảng chữ).
+    """
+    if _TABLE_AS_FRAC_RE.search(body):
+        return True
+    if "\\begin{tabular}" in body or "\\hline" in body:
+        return True
+    specs = _TABLE_ARRAY_RE.findall(body)
+    if any("|" in (spec or "") for _, spec in specs):
+        return True
+    rows = [row for row in _ROW_SPLIT_RE.split(body) if row.strip()]
+    if len(rows) < 2:
+        return False
+    max_cols = max(len(_CELL_SPLIT_RE.split(row)) for row in rows)
+    if max_cols >= 4:
+        return True
+    if max_cols >= 3 and len(rows) >= 3 and not _MATRIX_WRAP_RE.search(body):
+        return True
+    if max_cols >= 2 and len(_TEXT_CELL_RE.findall(body)) >= 3:
+        return True
+    return False
 
 
 def looks_like_ocr_table(body: str) -> bool:
-    """Bảng xét dấu/biến thiên bị OCR thành `\\frac{ x \\quad -3 \\quad ...}{ y' \\quad 0 ...}`: pandoc dịch được nhưng ra rác."""
-    return bool(_TABLE_AS_FRAC_RE.search(body))
+    """Tên cũ, giữ để không phá caller/test; hành vi mở rộng ở looks_like_table_formula."""
+    return looks_like_table_formula(body)
 
 
 def _final_math_key(body: str) -> str:
@@ -613,30 +649,52 @@ def _final_math_key(body: str) -> str:
     return _norm_tex(m.group(1) if m else body)
 
 
-def build_math_image_map(markdown_text: str, md_path: Path) -> dict:
+def build_math_image_map(markdown_text: str, md_path: Path, work_md: Path | None = None) -> dict:
     """{latex đã qua fix_texmath_compat (chuẩn hoá khoảng trắng): đường dẫn ảnh gốc của công thức}.
     MinerU cắt ảnh cho mỗi công thức display (equation.img_path) -> khi pandoc không dịch nổi một công
-    thức (bảng xét dấu bị OCR thành `\\frac`, hàng đáp án vỡ...) thì chèn ảnh gốc thay vì để TeX thô."""
-    cands = list(md_path.parent.rglob("*_content_list.json"))
-    if not cands:
-        return {"map": {}, "force": []}
-    items = json.loads(max(cands, key=lambda q: q.stat().st_size).read_text(encoding="utf-8"))
-    img_by_tex = {}
+    thức (bảng xét dấu bị OCR thành `\\frac`, hàng đáp án vỡ...) thì chèn ảnh gốc thay vì để TeX thô.
+
+    Bảng bị nhận thành công thức: nếu equation không có img_path (hoặc file ảnh mất), cắt đúng
+    bbox của khối từ input.pdf. Khóa được đưa vào `force` để thay bằng ảnh kể cả khi pandoc vẫn
+    dịch được nhưng nội dung sẽ sai (bảng -> công thức rác).
+    """
+    items = _content_items(md_path)
+    if not items:
+        return {"map": {}, "force": [], "bbox": {}}
+    pdf = _find_input_pdf(md_path)
+    crop_dir = (work_md.parent if work_md else md_path.parent) / "crops"
+    out, force, bbox_map = {}, [], {}
     for it in items:
-        if it.get("type") == "equation" and it.get("img_path") and isinstance(it.get("text"), str):
-            body = it["text"].strip()
-            if body.startswith("$$") and body.endswith("$$"):
-                body = body[2:-2]
-            img = (md_path.parent / it["img_path"]).resolve()
-            if img.exists():
-                img_by_tex[_norm_tex(body)] = str(img)
-    out, force = {}, []
-    for body_norm, img in img_by_tex.items():
-        key = _final_math_key(body_norm)
-        out[key] = img
-        if looks_like_ocr_table(body_norm):
+        if it.get("type") != "equation" or not isinstance(it.get("text"), str):
+            continue
+        body = it["text"].strip()
+        if body.startswith("$$") and body.endswith("$$"):
+            body = body[2:-2]
+        key = _final_math_key(_norm_tex(body))
+        table_like = looks_like_table_formula(body)
+        page, bbox = it.get("page_idx"), it.get("bbox")
+        if pdf.exists() and isinstance(page, int) and bbox:
+            # Lưu bbox để _swap_failed_math_for_images cắt đúng khối nếu Pandoc không dịch được.
+            bbox_map[key] = {"pdf": str(pdf), "page": page, "bbox": bbox}
+        img = None
+        rel = it.get("img_path")
+        if rel:
+            candidate = (md_path.parent / rel).resolve()
+            if candidate.exists():
+                img = str(candidate)
+        if img is None and table_like and key in bbox_map:
+            png = crop_dir / f"table_formula_{len(out) + 1}.png"
+            info = bbox_map[key]
+            if _crop_pdf_region(info["pdf"], info["page"], info["bbox"], png):
+                img = str(png)
+        if img:
+            out[key] = img
+        if table_like:
             force.append(key)
-    return {"map": out, "force": force}
+    missing = [key for key in force if key not in out]
+    if missing:
+        print(f"[CẢNH BÁO] {len(missing)} bảng-nhận-thành-công-thức không có ảnh gốc để thay.")
+    return {"map": out, "force": sorted(set(force)), "bbox": bbox_map}
 
 
 def looks_like_garbled_table(html: str) -> bool:
@@ -830,7 +888,7 @@ def prepare_work_md(markdown_text: str, md_path: Path, work_md: Path) -> Path:
     markdown_text = fix_legacy_tex_bf(markdown_text)
     try:
         work_md.with_name("math_images.json").write_text(
-            json.dumps(build_math_image_map(markdown_text, md_path), ensure_ascii=False), encoding="utf-8")
+            json.dumps(build_math_image_map(markdown_text, md_path, work_md), ensure_ascii=False), encoding="utf-8")
     except Exception as e:  # noqa: BLE001 - đường lui ảnh chỉ là tiện ích, không được làm hỏng DOCX
         print("[CẢNH BÁO] không dựng được bản đồ công thức->ảnh:", e)
     markdown_text = fix_texmath_compat(markdown_text)
@@ -1094,23 +1152,33 @@ def _swap_failed_math_for_images(work_md: Path, pandoc_stderr: str) -> int:
     if not map_path.exists():
         return 0
     data = json.loads(map_path.read_text(encoding="utf-8"))
-    img_map = data["map"]
+    img_map = data.get("map", {})
+    bbox_map = data.get("bbox", {})
+    force = set(data.get("force", []))
     failed = {_norm_tex(x) for x in re.findall(
-        r"Could not convert TeX math(.*?), rendering as TeX:", pandoc_stderr, re.S)} | set(data["force"])
+        r"Could not convert TeX math(.*?), rendering as TeX:", pandoc_stderr, re.S)} | force
     n = 0
 
     def _sub(m):
         nonlocal n
         key = _norm_tex(m.group(1))
-        if key in failed and key in img_map:
+        if key not in failed:
+            return m.group(0)
+        if key in img_map:
             n += 1
             return f"\n![]({img_map[key]})\n"
+        info = bbox_map.get(key)
+        if info:
+            png = work_md.parent / "crops" / f"failed_math_{n + 1}.png"
+            if _crop_pdf_region(info["pdf"], info["page"], info["bbox"], png):
+                n += 1
+                return f"\n![]({png})\n"
         return m.group(0)
 
     text = _DISPLAY_RE.sub(_sub, work_md.read_text(encoding="utf-8"))
     # công thức inline hỏng (không có ảnh riêng): cắt cả đoạn văn từ PDF gốc theo bbox của khối MinerU
     regions_path = work_md.with_name("block_regions.json")
-    inline_failed = [f for f in failed if f not in img_map and f not in data["force"]]
+    inline_failed = [f for f in failed if f not in img_map and f not in force and f not in bbox_map]
     if inline_failed and regions_path.exists():
         reg = json.loads(regions_path.read_text(encoding="utf-8"))
         if reg.get("pdf"):
@@ -1169,7 +1237,7 @@ def _md_to_docx_inplace(work_md: Path, docx_path: Path, resource_dir: Path,
     # "cập nhật trường" của Word là thừa.
     md_text = work_md.read_text(encoding="utf-8")
     if len(md_text) >= 40000 and len(re.findall(r"^#{1,6}\s", md_text, re.M)) >= 8:   # ~15+ trang
-        cmd.append("--toc")
+        cmd.extend(["--toc", "-M", "toc-title=Mục lục"])
     layout_path = work_md.with_name("layout.json")
     lay = json.loads(layout_path.read_text(encoding="utf-8")) if layout_path.exists() else None
 
