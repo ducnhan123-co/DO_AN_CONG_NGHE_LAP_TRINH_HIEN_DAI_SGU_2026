@@ -174,8 +174,8 @@ async def lifespan(_: FastAPI):
             get_llm()
         except LLMError as e:
             logger.warning("Preload LLM thất bại: %s", e)
-    # Nạp sẵn E5 ở thread nền: chat/index đầu tiên khỏi chờ 10-30s.
-    # Daemon + try/except nên không bao giờ chặn khởi động.
+    # Optionally load E5 at startup to reduce first-query latency.
+    # Disabled by default because background threads still consume RAM.
     def _warm_embed() -> None:
         try:
             from llm.src.config import EMBED_MODEL
@@ -186,22 +186,23 @@ async def lifespan(_: FastAPI):
             logger.warning("Preload embed thất bại: %s", e)
 
     import threading as _threading
-    _threading.Thread(target=_warm_embed, daemon=True,
-                      name="warm-embed").start()
+    if s.embed_prewarm:
+        _threading.Thread(target=_warm_embed, daemon=True,
+                          name="warm-embed").start()
 
-    # Nạp sẵn model MinerU (2 server nóng) ở nền: upload đầu tiên khỏi chờ ~25-30s. MINERU_PREWARM=0 để tắt.
+    # Start optional MinerU pool only when MINERU_PREWARM=true.
     def _warm_mineru() -> None:
         try:
-            import os
             from llm.src.config import MINERU_DEVICE, MINERU_LANG, MINERU_WORKERS
-            from llm.src.mineru_pool import prewarm
-            if MINERU_WORKERS > 0 and os.getenv("MINERU_PREWARM", "1") != "0":
+            if MINERU_WORKERS > 0:
+                from llm.src.mineru_pool import prewarm
                 prewarm(MINERU_WORKERS, MINERU_DEVICE, MINERU_LANG)
                 logger.info("Preload MinerU xong (%d server nóng)", MINERU_WORKERS)
         except Exception as e:                            # noqa: BLE001
             logger.warning("Preload MinerU thất bại: %s", e)
 
-    _threading.Thread(target=_warm_mineru, daemon=True, name="warm-mineru").start()
+    if s.mineru_prewarm:
+        _threading.Thread(target=_warm_mineru, daemon=True, name="warm-mineru").start()
     yield
     pipeline_model.shutdown()
  

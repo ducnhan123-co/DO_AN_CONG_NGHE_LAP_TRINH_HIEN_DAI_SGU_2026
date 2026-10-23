@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     llm_backend: str = "none"          # none | qwen_local | ollama
     llm_name: str = ""                 # rỗng -> src.config.LLM_NAME
     preload_llm: bool = False
+    embed_prewarm: bool = False       # opt-in: E5 can exceed low-memory instances
+    mineru_prewarm: bool = False      # opt-in: do not start MinerU model pool by default
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:7b"
 
