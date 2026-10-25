@@ -98,82 +98,129 @@ def merge_fragmented_math(md: str) -> tuple[str, int]:
 
 
 # ----------------------------------------------------------------------------
-# 2. Nhãn "Bài N." bị OCR sai
+# 2. Nhãn "Bài N." / "Câu N." bị OCR sai - TỰ HỌC nhãn từ chính tài liệu
 # ----------------------------------------------------------------------------
-_LABEL_WORD = ("bài", "bai")
-
-
+# Ý tưởng (không ghi cứng chữ "Bài"): trong một tài liệu bài tập, có một "từ đầu dòng" lặp đi lặp lại
+# trước một dãy số TĂNG DẦN 1,2,3,... Từ nào có dãy như vậy chính là nhãn (Bài / Câu / Ví dụ / Problem...).
+# Sau khi biết nhãn, dòng nào bắt đầu bằng một "chữ gần giống nhãn" + số khớp chỗ đang thiếu trong dãy
+# thì được hiểu là nhãn bị OCR sai ("Bi 57", "Ba i 57", "B à i 57", "Rài 57" -> "Bài 57.").
+# Hai tín hiệu phải cùng đúng: (1) chữ gần giống nhãn đã học, (2) số hợp lý với dãy xung quanh.
 def _strip(s: str) -> str:
+    """Bỏ dấu tiếng Việt + hạ chữ thường: 'Bài' -> 'bai', 'Đề' -> 'de'."""
     s = unicodedata.normalize("NFD", s)
     s = "".join(c for c in s if unicodedata.category(c) != "Mn")
     return s.replace("đ", "d").replace("Đ", "D").lower()
 
 
-def _looks_like_bai(tok: str) -> bool:
-    """'Bai','Pai','nǐ','Bi','Bài','Ba1','Bãi'... - gần giống 'Bài' (khoảng cách ≤ 2 trên dạng bỏ dấu)."""
-    t = _strip(tok)
-    if not 1 <= len(t) <= 4:
-        return False
-    if t in ("bai", "ba", "bi"):
-        return True
-    # lệch 1 ký tự so với "bai" (pai, bal, ba1, nai...) hoặc "ni"/"ni" từ "nǐ"
-    def lev1(a, b):
-        if abs(len(a) - len(b)) > 1:
-            return False
-        if len(a) == len(b):
-            return sum(x != y for x, y in zip(a, b)) <= 1
-        s, l = (a, b) if len(a) < len(b) else (b, a)
-        return any(l[:i] + l[i + 1:] == s for i in range(len(l)))
-    return lev1(t, "bai") or t in ("ni", "ai")
+_HEAD_LINE = re.compile(
+    r"^(?P<lead>\s*(?:\*\*)?)(?P<head>[^\W\d_]{1,8}(?:[ \t][^\W\d_]{1,3}){0,3})[ \t]*[.:]?[ \t]*"
+    r"(?P<num>\d{1,3})(?P<tail>[ \t]*[.:,)]?[ \t]*(?:\*\*)?[ \t]*)(?P<rest>.*)$")
 
 
-_LABEL_LINE = re.compile(r"^(?P<lead>\s*(?:\*\*)?)(?P<tok>[^\W\d_]{1,4})\.?\s*(?P<num>\d{1,3})(?P<tail>\s*[.:,)]?\s*(?:\*\*)?\s*)(?P<rest>.*)$")
+def _collapse(head: str) -> str:
+    """'B à i' / 'Bài' / 'Bãi' -> 'bai' (bỏ khoảng trắng, dấu, hoa/thường)."""
+    return re.sub(r"\s+", "", _strip(head))
 
 
-def fix_problem_labels(md: str) -> tuple[str, list]:
-    """Sửa nhãn đề bài dựa trên dãy số liên tiếp: Bài 51, [nǐ 52], Bai 52, Pai 54  ->  51, 52?, ..."""
+def _edit_distance(a: str, b: str) -> int:
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
+        prev = cur
+    return prev[-1]
+
+
+def _learn_labels(lines, min_count: int = 5, min_seq: float = 0.6):
+    """Trả {dạng_gộp: {"surface": chữ hay gặp nhất, "items": [(dòng, số)]}} cho các từ đầu dòng
+    có dãy số tăng dần (>= min_seq số cặp liền kề cách đúng 1)."""
+    groups: dict[str, dict] = {}
+    for i, l in enumerate(lines):
+        m = _HEAD_LINE.match(l)
+        if not m:
+            continue
+        key = _collapse(m.group("head"))
+        if len(key) < 2:
+            continue
+        g = groups.setdefault(key, {"items": [], "surfaces": Counter()})
+        g["items"].append((i, int(m.group("num")), m.group("head").strip()))
+        g["surfaces"][m.group("head").strip()] += 1
+    learned = {}
+    for key, g in groups.items():
+        items = g["items"]
+        if len(items) < min_count:
+            continue
+        nums = [n for _, n, _ in items]
+        ok = sum(1 for x, y in zip(nums, nums[1:]) if y == x + 1)
+        if ok / max(1, len(nums) - 1) >= min_seq:
+            # chọn dạng viết có dấu đầy đủ & hay gặp nhất (không có khoảng trắng chen giữa)
+            surf = max(g["surfaces"].items(), key=lambda kv: (" " not in kv[0], kv[1]))[0]
+            share = g["surfaces"][surf] / sum(g["surfaces"].values())
+            learned[key] = {"surface": surf, "items": list(items), "share": share}
+    return learned
+
+
+def fix_problem_labels(md: str, max_dist: int = 2) -> tuple[str, list]:
     lines = md.split("\n")
-    # 1) thu các dòng "Bài <số>." chuẩn để biết dãy
-    std = re.compile(r"^\s*(?:\*\*)?Bài\s+(\d{1,3})\s*[.:)]")
-    seq = []
-    for i, l in enumerate(lines):
-        m = std.match(l)
-        if m:
-            seq.append((i, int(m.group(1))))
+    learned = _learn_labels(lines)
     fixes = []
-    if len(seq) < 5:
+    if not learned:
         return md, fixes
-    # 2) dòng ứng viên: token gần giống "Bài" + số, nhưng KHÔNG phải nhãn chuẩn
-    for i, l in enumerate(lines):
-        if std.match(l):
+    all_keys = set(learned)                      # "bai", "cau", "buoc"... đều là nhãn THẬT, không được đổi lẫn nhau
+    for key, info in learned.items():
+        if info["share"] < 0.7:                   # không có dạng viết áp đảo -> không đủ tin để chuẩn hoá
             continue
-        m = _LABEL_LINE.match(l)
-        if not m or not _looks_like_bai(m.group("tok")):
-            continue
-        # láng giềng chuẩn gần nhất phía trước/sau
-        prev = max(((j, v) for j, v in seq if j < i), default=None, key=lambda t: t[0])
-        nxt = min(((j, v) for j, v in seq if j > i), default=None, key=lambda t: t[0])
-        read = int(m.group("num"))
-        expect = None
-        if prev and nxt and nxt[1] - prev[1] == 2:
-            expect = prev[1] + 1                     # chỉ có đúng 1 số hợp lệ ở giữa
-        elif prev and abs(read - prev[1]) <= 1:
-            expect = prev[1] + 1 if read != prev[1] + 1 else read
-        else:
-            expect = read
-        # Tránh hồi tố sai: nếu số đọc được đã nằm trong dãy chuẩn ở chỗ khác (trùng) và ta không suy ra được chỗ -> dùng expect
-        new = f"{m.group('lead')}Bài {expect}.{' ' if m.group('rest') else ''}{m.group('rest')}"
-        new = new.replace("**Bài", "**Bài")
-        fixes.append({"line": i + 1, "old": l[:60], "new": new[:60]})
-        lines[i] = new
-        seq.append((i, expect))
-        seq.sort()
-    # 3) nhãn "Bai N" (thiếu dấu) có dạng chuẩn hơn nhưng sai dấu
-    for i, l in enumerate(lines):
-        m = re.match(r"^(\s*(?:\*\*)?)(Bai|Bài|Bãi|Bải|Bái|Bại)(\s+\d{1,3}\s*[.:)])", l)
-        if m and m.group(2) != "Bài":
-            fixes.append({"line": i + 1, "old": l[:40], "new": "Bài" + l[len(m.group(1)) + len(m.group(2)):][:36]})
-            lines[i] = m.group(1) + "Bài" + l[len(m.group(1)) + len(m.group(2)):]
+        # dãy "sạch" = các dòng viết ĐÚNG dạng phổ biến nhất; dòng cùng dạng gộp nhưng viết lạ
+        # ("Ba i", "Bai", "B à i") không được dùng làm mốc, mà chính là đối tượng cần chuẩn hoá
+        seq = sorted((i, n) for i, n, raw in info["items"] if raw == info["surface"])
+        clean_lines = {i for i, _ in seq}
+        for i, l in enumerate(lines):
+            if i in clean_lines:
+                continue
+            m = _HEAD_LINE.match(l)
+            if not m:
+                continue
+            head, read = m.group("head"), int(m.group("num"))
+            ck = _collapse(head)
+            if len(ck) < 2:                                # "A." "B." "C." = đáp án trắc nghiệm, không phải nhãn
+                continue
+            if ck != key and ck in all_keys:               # "Câu" không bao giờ bị đổi thành "Bài"
+                continue
+            dist = _edit_distance(ck, key)
+            if dist > max_dist or dist >= len(key):        # quá khác nhãn (vd "Cho" vs "Bài") -> bỏ qua
+                continue
+            if len(ck) > len(key) + 2:
+                continue
+            prev = max(((j, v) for j, v in seq if j < i), default=None)
+            nxt = min(((j, v) for j, v in seq if j > i), default=None)
+            expect = None
+            if prev and nxt and nxt[1] - prev[1] == 2:
+                expect = prev[1] + 1                       # chỉ còn đúng 1 số hợp lệ ở giữa
+            elif prev and nxt and prev[1] < read < nxt[1]:
+                expect = read
+            elif prev and read in (prev[1], prev[1] + 1):
+                expect = prev[1] + 1
+            elif nxt and read in (nxt[1], nxt[1] - 1):
+                expect = nxt[1] - 1 if read == nxt[1] else read
+            exact_gap = bool(prev and nxt and nxt[1] - prev[1] == 2 and expect == prev[1] + 1)
+            if dist == 2 and not exact_gap:                # lệch 2 ký tự chỉ chấp nhận khi dãy số chỉ còn đúng 1 chỗ trống
+                continue
+            if expect is None:
+                if dist == 0:                              # chỉ sai dấu/khoảng trắng của chữ nhãn
+                    expect = read
+                else:
+                    continue
+            rest = m.group("rest")
+            if rest.startswith(("(", ")")) and not rest.startswith("("):
+                pass
+            new = f"{m.group('lead')}{info['surface']} {expect}.{' ' if rest else ''}{rest}"
+            if new != l:
+                fixes.append({"line": i + 1, "old": l[:60], "new": new[:60], "label": info["surface"]})
+                lines[i] = new
+                seq.append((i, expect))
+                seq.sort()
+                clean_lines.add(i)
     return "\n".join(lines), fixes
 
 
@@ -335,7 +382,26 @@ def strip_degenerate_formulas(md: str) -> tuple[str, list]:
 
 
 # ----------------------------------------------------------------------------
+_B64 = re.compile(r"\]\(data:image/[^)]*\)")
+
+
 def repair_markdown(md: str, *, promote_tall: bool = True) -> tuple[str, dict]:
+    """Ảnh nhúng base64 (hàng triệu ký tự) được cất ra trước khi sửa rồi trả lại sau:
+    không cất thì các regex phải quét qua chúng -> chậm hàng chục giây và vô ích."""
+    stash: list[str] = []
+
+    def _hide(m):
+        stash.append(m.group(0))
+        return f"](@@IMG{len(stash) - 1}@@)"
+
+    md = _B64.sub(_hide, md)
+    md, report = _repair_markdown(md, promote_tall=promote_tall)
+    if stash:
+        md = re.sub(r"\]\(@@IMG(\d+)@@\)", lambda m: stash[int(m.group(1))], md)
+    return md, report
+
+
+def _repair_markdown(md: str, *, promote_tall: bool = True) -> tuple[str, dict]:
     report: dict = {}
     md, report["degenerate_removed"] = strip_degenerate_formulas(md)
     md, report["merged_math_fragments"] = merge_fragmented_math(md)
