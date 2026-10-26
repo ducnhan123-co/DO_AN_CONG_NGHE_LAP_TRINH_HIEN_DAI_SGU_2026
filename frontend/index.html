@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PDF → DOCX</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>PDF toán → Word</h1>
+    <p>Công thức thành Equation chỉnh sửa được, kèm báo cáo kiểm tra chất lượng.</p>
+  </header>
+
+  <main>
+    <form id="form" class="card">
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept="application/pdf,.pdf" required>
+        <span id="fileLabel"><b>Chọn hoặc kéo thả PDF</b> (tối đa 80 MB)</span>
+      </label>
+      <div class="row">
+        <label>Tier MinerU
+          <select id="tier">
+            <option>flash</option><option>basic</option><option>standard</option>
+            <option selected>advanced</option>
+          </select>
+        </label>
+        <label>Tiến trình song song
+          <input id="workers" type="number" min="1" max="4" value="2">
+        </label>
+        <button type="submit" id="submit">Chuyển đổi</button>
+      </div>
+      <p class="error" id="error" role="alert"></p>
+    </form>
+
+    <section class="card">
+      <h2>Lượt chạy</h2>
+      <ul id="jobs" class="jobs"></ul>
+    </section>
+
+    <section class="card" id="detail" hidden>
+      <div class="detail-head">
+        <h2 id="dName"></h2>
+        <span class="badge" id="dStatus"></span>
+        <a class="btn" id="dDownload" hidden>Tải DOCX</a>
+      </div>
+      <div id="dAudit" class="audit"></div>
+      <details open>
+        <summary>Log</summary>
+        <pre id="dLog"></pre>
+      </details>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+[project]
+name = "pdf2docx-engine"
+version = "0.1.0"
+description = "PDF toán -> DOCX (Equation thật): MinerU + sửa công thức + Pandoc"
+requires-python = ">=3.10"
+# Ngoài Python còn cần: pandoc (bắt buộc), tesseract (dò cột khi PDF nhiều cột)
+dependencies = [
+    "mineru[core]>=4.0,<5",
+    "pymupdf",
+    "pypdf",
+    "pypdfium2",
+    "python-docx",
+    "lxml",
+    "pillow",
+    "numpy",
+    "opencv-python-headless",
+    "pytesseract",
+]
+
+[project.scripts]
+pdf2docx = "pdf2docx_engine.pipeline:main"
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"

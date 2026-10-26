@@ -33,13 +33,13 @@ Tất cả các bước dưới đây chạy **offline**, không cần GPU, khô
 
 | Cải tiến | Cách làm | File |
 |---|---|---|
-| Che rãnh gáy bản scan | Dò cột tối hẹp có phía ngoài sáng hơn hẳn → tô trắng phần ngoài rãnh | `src/scan_clean.py` |
-| Tách dải cột cho cheat sheet | Dò đường kẻ dọc dài gần bằng đường dài nhất → cắt thành các dải, cho MinerU đọc từng cột như tài liệu 1 cột | `src/column_split.py` |
-| Chạy song song | Chia PDF thành N dải trang liên tiếp, N tiến trình MinerU cùng lúc, ghép lại theo `page_idx` | `src/parallel_mineru.py` |
+| Che rãnh gáy bản scan | Dò cột tối hẹp có phía ngoài sáng hơn hẳn → tô trắng phần ngoài rãnh | `engine/src/pdf2docx_engine/pdf/scan_clean.py` |
+| Tách dải cột cho cheat sheet | Dò đường kẻ dọc dài gần bằng đường dài nhất → cắt thành các dải, cho MinerU đọc từng cột như tài liệu 1 cột | `engine/src/pdf2docx_engine/pdf/column_split.py` |
+| Chạy song song | Chia PDF thành N dải trang liên tiếp, N tiến trình MinerU cùng lúc, ghép lại theo `page_idx` | `engine/src/pdf2docx_engine/recognition/parallel_mineru.py` |
 
 ### 2.2. Sửa công thức trên Markdown
 
-`src/math_repair.py` chạy 4 bước thuần regex + thống kê:
+`engine/src/pdf2docx_engine/math/math_repair.py` chạy 4 bước thuần regex + thống kê:
 
 1. **`merge_fragmented_math`** — gộp `x$^{7}$` → `$x^{7}$`, `(1+x)$^{11}$` → `$(1+x)^{11}$`.
 2. **`fix_problem_labels`** — dựa vào dãy số thứ tự liên tiếp của đề bài để sửa `nǐ 52`, `Bai 52`, `Pai 54` → `Bài 52.`, `Bài 53.`, `Bài 54.`
@@ -50,15 +50,15 @@ Tất cả các bước dưới đây chạy **offline**, không cần GPU, khô
 
 | Cải tiến | Cách làm | File |
 |---|---|---|
-| Equation OMML thật | Pandoc với `tex_math_dollars` → `m:oMath`, công thức chỉnh sửa được trong Word | `src/build_docx.py` |
-| Chuẩn hoá LaTeX legacy | `{\bf X}` → `\mathbf{X}` trước khi Pandoc đọc | `src/build_docx.py` |
-| Giữ bố cục nhiều cột | Đặt section N cột + chèn ngắt cột đúng chỗ mỗi cột PDF kết thúc | `src/columns.py` |
-| Giữ khung + tiêu đề mục | Dựng lại viền trang, kẻ cột, banner lặp đầu trang, thanh tiêu đề mục | `src/frame_layout.py` |
-| Kích thước ảnh đúng PDF | MinerU cắt ảnh ở 200 dpi nhưng Pandoc đoán 96 dpi → ảnh to gấp ~2 lần; thêm `{width=..in}` | `src/image_size.py` |
+| Equation OMML thật | Pandoc với `tex_math_dollars` → `m:oMath`, công thức chỉnh sửa được trong Word | `engine/src/pdf2docx_engine/docx/build_docx.py` |
+| Chuẩn hoá LaTeX legacy | `{\bf X}` → `\mathbf{X}` trước khi Pandoc đọc | `engine/src/pdf2docx_engine/docx/build_docx.py` |
+| Giữ bố cục nhiều cột | Đặt section N cột + chèn ngắt cột đúng chỗ mỗi cột PDF kết thúc | `engine/src/pdf2docx_engine/docx/columns.py` |
+| Giữ khung + tiêu đề mục | Dựng lại viền trang, kẻ cột, banner lặp đầu trang, thanh tiêu đề mục | `engine/src/pdf2docx_engine/docx/frame_layout.py` |
+| Kích thước ảnh đúng PDF | MinerU cắt ảnh ở 200 dpi nhưng Pandoc đoán 96 dpi → ảnh to gấp ~2 lần; thêm `{width=..in}` | `engine/src/pdf2docx_engine/docx/image_size.py` |
 
 ### 2.4. Kiểm soát chất lượng
 
-`src/audit.py` chạy ba phép kiểm tra sau khi dựng DOCX và ghi `audit.json`:
+`engine/src/pdf2docx_engine/audit.py` chạy ba phép kiểm tra sau khi dựng DOCX và ghi `audit.json`:
 
 - **`dropped_pages`** — đọc log MinerU, tìm trang bị `dropped=N` (khối nội dung bị bỏ).
 - **`numbering_gaps`** — phát hiện đề bài / ý nhỏ nhảy số (`Bài 53` mất, `11a) 11c)` thiếu `b)`).
@@ -90,23 +90,12 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    subgraph UI["Frontend — CLI Studio"]
-        FE["Chọn PDF · Tuỳ chọn CLI<br/>Log CLI · Kết quả · Lịch sử run"]
-    end
-
-    subgraph Host["Mac M5 32GB"]
-        BR["ui/server.py<br/>bridge subprocess"]
-        CLI["main.py<br/>pipeline"]
-        MU["MinerU 4.0.12<br/>tier standard, MPS"]
-        PD["Pandoc 3.11"]
-    end
-
-    FE <-->|"HTTP + SSE"| BR
-    BR -->|"spawn đúng lệnh CLI"| CLI
-    CLI --> MU
-    CLI --> PD
-    CLI --> OUT[("runs/ + docx_output/")]
-    OUT --> BR
+    FE["frontend/<br/>HTML + JS tĩnh"] <-->|"HTTP /api/jobs"| BE["backend/app/main.py<br/>FastAPI"]
+    BE -->|"subprocess, hàng đợi 1 job"| EN["engine/<br/>pdf2docx_engine.pipeline"]
+    EN --> MU["MinerU 4 (mineru-kit)"]
+    EN --> PD["Pandoc"]
+    EN --> ST[("storage/jobs/&lt;id&gt;/")]
+    ST --> BE
 ```
 
 ---
@@ -133,84 +122,66 @@ pandoc --version | head -1       # → pandoc 3.11
 python3 --version                # → Python 3.13.14
 ```
 
-> **Ghi chú trung thực:** `src/config.py` vẫn còn khai báo `EMBED_MODEL` (E5) và `LLM_NAME` (Qwen2.5-3B) từ hướng tiếp cận cũ. Hai model đó **không nằm trong phạm vi đề tài** và không được dùng ở pipeline hiện tại — chỉ còn là di sản của bản thử nghiệm trước.
 
 ---
 
-## 5. Frontend minh hoạ
-
-`ui/` — **MatchPDF · CLI Studio**. Nguyên tắc thiết kế: UI chạy **đúng lệnh CLI** mà người dùng vẫn gõ trong terminal, rồi đọc lại **đúng artifact** CLI sinh ra (`runs/`, `docx_output/`). Không logic xử lý PDF/DOCX nào bị viết lại trong UI — chỉ spawn subprocess và phục vụ file.
+## 5. Cấu trúc repo
 
 ```text
-┌──────────────────────────────────────────────────────────────┐
-│  MatchPDF · CLI Studio                                       │
-│  Chạy CLI. Xem đúng kết quả CLI.                             │
-├──────────────────────────────────────────────────────────────┤
-│  Chọn PDF              Tuỳ chọn CLI                          │
-│  ┌──────────────────┐  Tier      [ standard ▼ ]             │
-│  │ 📄 toan11.pdf    │  Workers   [ 2 ]                       │
-│  │ 128 trang · 8MB  │  ☐ force   ☐ no-split                 │
-│  └──────────────────┘  ☐ no-columns  ☐ no-scan-clean         │
-│                        ☐ no-repair   ☐ no-frame              │
-│                        [ ▶ Chạy CLI ]                        │
-├───────────────────────────┬──────────────────────────────────┤
-│  Log CLI (stream)         │  Kết quả CLI                     │
-│  [MinerU] part 1/2 ...    │  📄 toan11.docx     [ Tải ]      │
-│  [repair] DOCX: {...}     │  📄 audit.json      [ Tải ]      │
-│  [image] 42 ảnh           │  📄 content_list    [ Tải ]      │
-│  [audit] 0 lỗi            │  📄 chunks / repair_report       │
-├───────────────────────────┴──────────────────────────────────┤
-│  Lịch sử run — doc_id, tier, thời điểm, trạng thái           │
-└──────────────────────────────────────────────────────────────┘
+engine/                      Lõi xử lý, không phụ thuộc web
+  src/pdf2docx_engine/
+    pipeline.py              convert(pdf, out_dir) + CLI
+    config.py                tier MinerU, cờ Pandoc, thư mục storage
+    audit.py                 kiểm tra chất lượng -> audit.json
+    pdf/                     scan_clean, column_split (tiền xử lý PDF)
+    recognition/             run_mineru, parallel_mineru (OCR)
+    math/                    math_repair (sửa công thức trên Markdown)
+    docx/                    build_docx, columns, frame_layout, image_size
+  tests/
+backend/                     FastAPI mỏng: nhận PDF, chạy engine, trả DOCX
+  app/main.py
+  tests/
+frontend/                    index.html + app.js + style.css, không build step
+storage/                     Kết quả chạy (bị gitignore)
 ```
 
-Đã có thật: upload PDF, dựng lệnh CLI tương ứng tuỳ chọn, stream log qua SSE, liệt kê và tải artifact, xem PDF gốc, xem trước ảnh/Markdown, lịch sử run.
-
-Điểm quan trọng để bảo vệ đồ án: mọi thứ hiển thị trên UI đều là **file thật do CLI sinh ra**, không phải dữ liệu mô phỏng. Người chấm có thể mở terminal chạy lệnh y hệt và nhận đúng kết quả đó.
+Engine không biết gì về web; backend chỉ gọi `python -m pdf2docx_engine.pipeline` như người dùng gõ trong terminal, nên mọi kết quả trên UI đều tái lập được bằng CLI.
 
 ---
 
-## 6. Backend API
+## 6. Cách chạy
 
-Bridge HTTP trong `ui/server.py` (mặc định `127.0.0.1:8090`).
+Cần sẵn: Python ≥ 3.10, `pandoc`, `tesseract` (dò cột), MinerU 4 (`mineru-kit`).
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -e engine fastapi uvicorn python-multipart
+
+# CLI
+python -m pdf2docx_engine.pipeline --pdf bai_giang.pdf          # -> storage/runs/<ten>_<doc_id>/
+python -m pdf2docx_engine.pipeline --pdf bai_giang.pdf --tier standard --workers 1 --out /tmp/x
+
+# Web: backend phục vụ luôn frontend/
+uvicorn backend.app.main:app --port 8000                        # mở http://127.0.0.1:8000
+
+# Test
+pytest engine/tests backend/tests
+```
 
 | Method | Đường dẫn | Mô tả |
 |---|---|---|
-| `GET` | `/` | Trả `index.html` |
-| `GET` | `/api/state` | Trạng thái server, run đang chạy, danh sách run gần đây |
-| `POST` | `/api/upload` | Nhận PDF (giới hạn 80 MB), trả `doc_id` = SHA-1 nội dung |
-| `GET` | `/api/command` | Trả trước câu lệnh CLI sẽ chạy, ứng với tuỳ chọn hiện tại |
-| `POST` | `/api/run` | Spawn `main.py` với tham số, trả `run_id` |
-| `GET` | `/api/run?id=` | Trạng thái một run: đang chạy / xong / lỗi, exit code |
-| `GET` | `/api/run/{id}/events` | **SSE** stream log theo thời gian thực |
-| `GET` | `/api/artifacts?dir=` | Liệt kê file trong `runs/` hoặc `docx_output/` |
-| `GET` | `/api/file?path=` | Tải file kết quả |
-| `GET` | `/api/pdf?id=` | Trả PDF gốc để render |
-| `GET` | `/api/preview?path=` | Xem trước ảnh / Markdown / JSON |
+| `POST` | `/api/jobs` | multipart `file` (PDF ≤ 80 MB), `tier`, `workers` (1–4) → job `queued` |
+| `GET` | `/api/jobs` | Danh sách job, mới nhất trước |
+| `GET` | `/api/jobs/{id}` | Trạng thái + 80 dòng log cuối + `audit.json` |
+| `GET` | `/api/jobs/{id}/docx` | Tải DOCX khi `status = done` |
 
-**Ràng buộc an toàn:** mọi đường dẫn phải nằm trong `input/`, `runs/`, `docx_output/` — hàm `safe_rel()` chặn path traversal ra ngoài ba thư mục này.
+Job chạy tuần tự (MinerU ngốn RAM/CPU). Mỗi job nằm trong `storage/jobs/<id>/` (`input.pdf`, `job.json`, `log.txt`, `out/`); id được kiểm bằng regex nên không path traversal được.
 
 ---
 
-## 7. Cấu trúc repo
-
-```text
-main.py         Entrypoint CLI của pipeline
-src/            Toàn bộ logic: tiền xử lý, math repair, DOCX, audit
-ui/             CLI Studio: bridge subprocess + giao diện
-tests/          Test cho chunking, math repair, build DOCX
-runs/           Artifact mỗi PDF một thư mục riêng (doc_id = hash nội dung)
-docx_output/    DOCX cuối cùng
-input/          PDF gốc
-```
-
-Mỗi PDF có run directory riêng theo hash nội dung, nên chạy nhiều PDF liên tiếp không bao giờ lấy nhầm output của lần trước.
-
----
-
-## 8. Giới hạn đã biết
+## 7. Giới hạn đã biết
 
 - **Rãnh gáy:** chỉ bắt được trường hợp có rãnh tối rõ. Chữ lộ qua giấy ở mép **không** có rãnh tối (đã thử trên 95 trang `Toan11`: che được 47 trang) thì chưa tách được bằng heuristic đơn giản.
-- **Chưa có ground truth** trong repo nên chưa có số CER/WER/PER của đồ án; `llm/src/metrics.py` chỉ là công cụ đo khi có nhãn.
+- **Chưa có ground truth** trong repo nên chưa có số CER/WER/PER của đồ án.
 - **Công thức mờ / mất nét** trong bản scan có thể không phục hồi được. Hệ thống ghi cảnh báo vào `audit.json` thay vì tự bịa nội dung.
 - **Phụ thuộc bên ngoài:** thiếu `pypdfium2`/`pdftoppm`, `tesseract` hoặc `opencv` thì bước dò cột tự rơi về chế độ "chia cột liên tục", không báo lỗi.
