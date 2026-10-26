@@ -155,12 +155,13 @@ Cần sẵn: Python ≥ 3.10, `pandoc`, `tesseract` (dò cột), MinerU 4 (`mine
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -e engine fastapi uvicorn python-multipart
+pip install -r requirements.txt -r backend/requirements.txt   # requirements.txt = của nhánh kiet
+export PYTHONPATH=$PWD/engine/src                              # hoặc: pip install --no-deps -e engine
 
 # CLI
 python -m pdf2docx_engine.pipeline --pdf bai_giang.pdf          # -> storage/runs/<ten>_<doc_id>/
 python -m pdf2docx_engine.pipeline --pdf bai_giang.pdf --tier standard --workers 1 --out /tmp/x
-pip install -e "engine[vi]" && python -m pdf2docx_engine.pipeline --pdf bai_giang.pdf --vi-correct   # sửa dấu tiếng Việt
+python -m pdf2docx_engine.pipeline --pdf bai_giang.pdf --vi-correct   # sửa dấu tiếng Việt
 
 # Web: backend phục vụ luôn frontend/
 uvicorn backend.app.main:app --port 8000                        # mở http://127.0.0.1:8000
