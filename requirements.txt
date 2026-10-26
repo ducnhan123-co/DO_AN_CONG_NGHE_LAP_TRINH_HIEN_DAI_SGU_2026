@@ -1,9 +1,0 @@
-# Core chuẩn từ notebook — model tốt nhất, không đổi nếu muốn giữ điểm
-mineru[all]
-sentence-transformers
-faiss-cpu
-pypandoc
-transformers
-accelerate
-torch
-numpy
