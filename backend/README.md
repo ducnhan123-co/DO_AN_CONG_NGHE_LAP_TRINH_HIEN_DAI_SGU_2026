@@ -41,7 +41,7 @@ Test: `pip install -r requirements-dev.txt && pytest -q tests`
 | `fix_legacy_tex_bf`, `prepare_work_md` | như cũ → `work.md` | preparing | 75–82 |
 | `md_to_docx`, cột/khung | như cũ → `docx_output/<id>.docx` (file tạm rồi đổi tên) | building | 82–92 |
 | — | `validate_docx` (đếm Equation/ảnh/bảng) | validating | 92–97 |
-| structured → chunks → validation | như cũ; **lỗi ở đây không làm hỏng file Word** | validating | 97–99 |
+| structured → chunks → validation | tùy chọn; chỉ chạy nếu các module tương ứng còn trong `rag_toan/src` | validating | 97–99 |
 | LlamaIndex | tùy chọn `RAG_INDEX=1` | | |
 
 Giữ nguyên mặc định của main.py: 2 tiến trình MinerU, stagger 20 s, profile `auto`, tier `advanced`, resume (phần `.done` được bỏ qua).
@@ -63,18 +63,9 @@ data/
 Giao diện sửa → dữ liệu đổi ngay: tải lên (tạo `input/` + `documents/<id>`), hủy (kill MinerU), thử lại (tiếp tục từ chỗ dở; `?force=true` chạy lại cả MinerU), đổi tên, **xóa (xóa thật file trong data/** khi không còn ai dùng tài liệu đó).
 Mỗi trình duyệt (`X-Client-Id`) có thư viện riêng; PDF giống hệt đã xử lý thì dùng lại kết quả (`cache_hit`).
 
-## Bố cục cột (PDF 2–3 cột trên một trang)
+## Bố cục cột
 
-Trên giao diện, ngay trên khung thả file có nút chọn **Giữ cột như PDF** / **Chuyển thành 1 cột** (nhớ lại lần chọn, áp dụng cho các file tải lên sau đó).
-API: `POST /api/documents` nhận thêm trường form `column_mode` = `keep` (mặc định) | `single`.
-
-| Chế độ | Cách làm | Kết quả Word |
-|---|---|---|
-| `keep` | hành vi gốc của `rag_toan` (`layout_of` + `apply_section_columns`, hoặc `plan_strips` cho tờ có khung kẻ) | giữ 2/3 cột, khổ giấy và ngắt cột như PDF |
-| `single` | mỗi cột của mỗi trang được cắt thành 1 "dải" (1 trang PDF riêng), MinerU đọc lần lượt cột 1 → 2 → 3 rồi mới sang trang kế; **không** áp section cột/khung/band | trang Word thường, 1 cột, đúng thứ tự đọc |
-
-Tờ có khung kẻ dùng `plan_strips` sẵn có; tờ không kẻ dùng bộ dò rãnh trắng mới trong `app/services/column_flatten.py` (bỏ qua dải nền/đường kẻ/tiêu đề trải ngang; cần ≥ 2 cột dày chữ để khỏi cắt nhầm trang thưa).
-Cùng một PDF ở hai chế độ là **hai kết quả độc lập**: chế độ `single` có `id` dạng `<sha1>_1c` (thư mục `documents/<sha1>_1c/`), mỗi cái có cache riêng. `app.db` cũ được tự nâng cấp (thêm cột `column_mode`, mặc định `keep`).
+Backend xử lý cột theo `rag_toan/main.py`: tài liệu có khung phân cột có thể dùng `plan_strips`; các tài liệu khác dùng `layout_of`/section-column hiện có để giữ bố cục gốc trong Word. Giao diện và API không còn chế độ tách từng cột PDF thành các dải riêng nhằm ép đầu ra thành một cột.
 
 ## API (khớp frontend)
 

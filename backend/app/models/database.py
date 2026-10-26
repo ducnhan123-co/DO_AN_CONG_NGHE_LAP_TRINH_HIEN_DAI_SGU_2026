@@ -18,8 +18,7 @@ CORE_COLUMNS = {
     "error_message", "tier", "shards", "stages", "docx_size", "queued_at", "created_at",
     "started_at", "finished_at", "updated_at", "rag_ok", "rag_note",
 }
-# Cột thêm về sau: tự ALTER TABLE nếu app.db cũ chưa có
-DOCUMENT_COLUMNS = CORE_COLUMNS | {"column_mode"}
+DOCUMENT_COLUMNS = CORE_COLUMNS
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS documents (
@@ -42,8 +41,7 @@ CREATE TABLE IF NOT EXISTS documents (
     finished_at   REAL,
     updated_at    REAL NOT NULL,
     rag_ok        INTEGER,
-    rag_note      TEXT,
-    column_mode   TEXT NOT NULL DEFAULT 'keep'
+    rag_note      TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(status, queued_at);
 
@@ -95,6 +93,4 @@ class Database:
                     f"Hãy sao lưu rồi đổi tên/xóa file này, hoặc đặt DATA_DIR sang thư mục mới."
                 )
             c.executescript(SCHEMA)
-            if existing and "column_mode" not in existing:       # migration: app.db tạo bởi bản trước khi có tùy chọn cột
-                c.execute("ALTER TABLE documents ADD COLUMN column_mode TEXT NOT NULL DEFAULT 'keep'")
             c.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")

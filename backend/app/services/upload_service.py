@@ -2,10 +2,6 @@
 
 doc_id = sha1(nội dung)[:10] — đúng cách đặt ID của rag_toan (compute_doc_id), nên cùng một file luôn ra cùng
 thư mục documents/<id>/ và PDF giống hệt người khác đã chuyển thì dùng lại kết quả ngay (cache_hit).
-
-Chế độ cột là một phần của khóa kết quả: cùng PDF nhưng chọn "1 cột" thì id có hậu tố `_1c`
-(documents/<sha1>_1c/), vì hai cách chuyển cho ra hai file Word khác nhau và không được dùng lẫn cache của nhau.
-Chế độ mặc định (giữ cột) giữ nguyên id cũ nên dữ liệu đã có không bị ảnh hưởng.
 """
 from __future__ import annotations
 
@@ -22,7 +18,7 @@ from fastapi import UploadFile
 
 from ..core.config import Settings
 from ..models.document_repository import DocumentRepository
-from ..models.entities import COLUMN_KEEP, COLUMN_SINGLE, DONE, Document, LibraryEntry
+from ..models.entities import DONE, Document, LibraryEntry
 from .scheduler import Scheduler
 from .storage import Storage
 
@@ -104,20 +100,18 @@ class UploadService:
         return n
 
     # ------------------------------------------------------------------ 2. đăng ký vào thư viện + xếp hàng
-    def register(self, client_id: str, st: Staged, column_mode: str = COLUMN_KEEP) -> Tuple[Document, LibraryEntry]:
+    def register(self, client_id: str, st: Staged) -> Tuple[Document, LibraryEntry]:
         with self.lock:
-            doc_id = self._pick_id(st, column_mode)
+            doc_id = self._pick_id(st)
             existing = self.repo.get(doc_id)
             display = Path(st.filename).stem[:200] or doc_id
-            if column_mode == COLUMN_SINGLE:                       # phân biệt với bản "giữ cột" của cùng file trong danh sách
-                display = (display[:190] + " (1 cột)")
             requeue = False
             cache_hit = False
 
             if existing is None:
                 os.replace(st.path, self.storage.input_pdf(doc_id))
                 self.repo.insert(Document(id=doc_id, sha256=st.sha256, filename=st.filename, size_bytes=st.size,
-                                          num_pages=st.pages, tier=self.s.mineru_tier, column_mode=column_mode))
+                                          num_pages=st.pages, tier=self.s.mineru_tier))
                 requeue = True
             else:
                 st.path.unlink(missing_ok=True)                    # đã có PDF này rồi
@@ -134,12 +128,11 @@ class UploadService:
         doc = self.repo.get(doc_id)
         return doc, entry
 
-    def _pick_id(self, st: Staged, column_mode: str = COLUMN_KEEP) -> str:
-        """sha1[:10] (+ `_1c` nếu chế độ 1 cột); nếu (cực hiếm) trùng id với file KHÁC nội dung thì nới dài id."""
-        suffix = "_1c" if column_mode == COLUMN_SINGLE else ""
+    def _pick_id(self, st: Staged) -> str:
+        """sha1[:10]; nếu (cực hiếm) trùng id với file KHÁC nội dung thì nới dài id."""
         for n in (10, 14, 20, 32, 40):
-            cand = st.sha1[:n] + suffix
+            cand = st.sha1[:n]
             ex = self.repo.get(cand)
             if ex is None or ex.sha256 == st.sha256:
                 return cand
-        return st.sha256[:48] + suffix
+        return st.sha256[:48]

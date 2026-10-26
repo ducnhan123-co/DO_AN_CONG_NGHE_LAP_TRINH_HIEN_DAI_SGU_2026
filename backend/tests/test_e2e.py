@@ -86,6 +86,7 @@ def test_full_pipeline_and_layout(env):
     item = r.json()["items"][0]
     doc_id = item["id"]
     assert len(doc_id) == 10 and item["num_pages"] == 12 and item["name"] == "Giai tich 1"
+    assert "column_mode" not in item
 
     done, seen = wait(client, doc_id, {"done", "failed"})
     assert done["status"] == "done", done
@@ -103,8 +104,7 @@ def test_full_pipeline_and_layout(env):
     assert (data / "input" / f"{doc_id}.pdf").is_file()
     assert (data / "docx_output" / f"{doc_id}.docx").is_file()
     run_dir = data / "documents" / doc_id
-    for name in ("logs", "mineru", "mineru_parts", "work.md", "structured_data.json", "chunks.json",
-                 "validation.json"):
+    for name in ("logs", "mineru", "mineru_parts", "work.md"):
         assert (run_dir / name).exists(), f"thiếu {name}"
     assert not (run_dir / "input.pdf").exists() and not (run_dir / "output.docx").exists()
     assert not (data / "runs").exists()
@@ -119,11 +119,14 @@ def test_full_pipeline_and_layout(env):
     z = zipfile.ZipFile(io.BytesIO(r.content))
     assert b"<m:oMath" in z.read("word/document.xml")
 
-    # --- dữ liệu RAG
-    chunks = json.loads((run_dir / "chunks.json").read_text(encoding="utf-8"))
-    assert chunks and all(c["doc_id"] == doc_id and c["source"] == "Giai tich 1.pdf" for c in chunks)
-    assert json.loads((run_dir / "validation.json").read_text(encoding="utf-8"))["ok"] is True
-    assert done["rag"]["ok"] is True
+    # --- RAG artifacts chỉ được tạo nếu các module tương ứng có trong rag_toan/src
+    if done["rag"]["ok"] is True:
+        chunks = json.loads((run_dir / "chunks.json").read_text(encoding="utf-8"))
+        assert chunks and all(c["doc_id"] == doc_id and c["source"] == "Giai tich 1.pdf" for c in chunks)
+        assert json.loads((run_dir / "validation.json").read_text(encoding="utf-8"))["ok"] is True
+    else:
+        assert done["rag"]["ok"] is None
+        assert not (run_dir / "chunks.json").exists()
 
     # --- PDF gốc xem được
     r = client.get(f"/api/documents/{doc_id}/pdf")
@@ -131,7 +134,7 @@ def test_full_pipeline_and_layout(env):
     assert "inline" in r.headers["content-disposition"]
 
     arts = client.get(f"/api/documents/{doc_id}/artifacts", headers=CID).json()["items"]
-    assert {a["name"] for a in arts} >= {"chunks.json", "work.md"}
+    assert "work.md" in {a["name"] for a in arts}
     assert "BẮT ĐẦU" in client.get(f"/api/documents/{doc_id}/log", headers=CID).text
 
 

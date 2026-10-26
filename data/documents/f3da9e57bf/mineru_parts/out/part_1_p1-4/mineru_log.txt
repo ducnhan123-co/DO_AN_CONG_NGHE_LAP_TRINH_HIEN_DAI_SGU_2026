@@ -1,0 +1,96 @@
+$ mineru-kit parse C:\Users\ASUS\Documents\CCNLTHT\DO_AN_CONG_NGHE_LAP_TRINH_HIEN_DAI_SGU_2026\data\documents\f3da9e57bf\mineru_parts\pdf\part_1_p1-4.pdf -o C:\Users\ASUS\Documents\CCNLTHT\DO_AN_CONG_NGHE_LAP_TRINH_HIEN_DAI_SGU_2026\data\documents\f3da9e57bf\mineru_parts\out\part_1_p1-4 --tier advanced
+
+--- STDOUT ---
+<frozen importlib._bootstrap>:491: Warning: Numpy built with MINGW-W64 on Windows 64 bits is experimental, and only available for 
+testing. You are advised not to use it for production. 
+
+CRASHES ARE TO BE EXPECTED - PLEASE REPORT THEM TO NUMPY DEVELOPERS
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:227: RuntimeWarning: invalid value encountered in exp2
+  epsneg_f128 = exp2(ld(-113))
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:228: RuntimeWarning: invalid value encountered in exp2
+  tiny_f128 = exp2(ld(-16382))
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:242: RuntimeWarning: invalid value encountered in exp2
+  eps=exp2(ld(-112)),
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:41: RuntimeWarning: invalid value encountered in nextafter
+  self._smallest_subnormal = nextafter(
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:52: RuntimeWarning: invalid value encountered in log10
+  self.precision = int(-log10(self.eps))
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:252: RuntimeWarning: invalid value encountered in exp2
+  epsneg_f80 = exp2(ld(-64))
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:253: RuntimeWarning: invalid value encountered in exp2
+  tiny_f80 = exp2(ld(-16382))
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:267: RuntimeWarning: invalid value encountered in exp2
+  eps=exp2(ld(-63)),
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:279: RuntimeWarning: invalid value encountered in nextafter
+  huge_dd = nextafter(ld(inf), ld(0), dtype=ld)
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:295: RuntimeWarning: invalid value encountered in exp2
+  eps=exp2(ld(-105)),
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:296: RuntimeWarning: invalid value encountered in exp2
+  epsneg=exp2(ld(-106)),
+2026-10-26 19:56:42.066 | INFO     | mineru.model.vlm.selector:get_vlm_engine:61 - Using llama-cpp-engine as the inference engine for VLM.
+0.04.588.201 W load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+0.07.476.198 W load_hparams: Qwen-VL models require at minimum 1024 image tokens to function correctly on grounding tasks
+0.07.476.213 W load_hparams: if you encounter problems with accuracy, try adding --image-min-tokens 1024
+0.07.476.214 W load_hparams: more info: https://github.com/ggml-org/llama.cpp/issues/16842
+
+2026-10-26 19:57:01.607 | INFO     | mineru.model.vlm.runtime:_create_model:348 - get llama-cpp-engine predictor cost: 19.54s
+2026-10-26 19:57:01.608 | INFO     | mineru.backend.analysis.pdf.window:_log_processing_window_plan:120 - Hybrid processing-window run. page_count=4, window_size=64, total_windows=1
+<frozen importlib._bootstrap>:491: Warning: Numpy built with MINGW-W64 on Windows 64 bits is experimental, and only available for 
+testing. You are advised not to use it for production. 
+
+CRASHES ARE TO BE EXPECTED - PLEASE REPORT THEM TO NUMPY DEVELOPERS
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:227: RuntimeWarning: invalid value encountered in exp2
+  epsneg_f128 = exp2(ld(-113))
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:228: RuntimeWarning: invalid value encountered in exp2
+  tiny_f128 = exp2(ld(-16382))
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:242: RuntimeWarning: invalid value encountered in exp2
+  eps=exp2(ld(-112)),
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:41: RuntimeWarning: invalid value encountered in nextafter
+  self._smallest_subnormal = nextafter(
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:52: RuntimeWarning: invalid value encountered in log10
+  self.precision = int(-log10(self.eps))
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:252: RuntimeWarning: invalid value encountered in exp2
+  epsneg_f80 = exp2(ld(-64))
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:253: RuntimeWarning: invalid value encountered in exp2
+  tiny_f80 = exp2(ld(-16382))
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:267: RuntimeWarning: invalid value encountered in exp2
+  eps=exp2(ld(-63)),
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:279: RuntimeWarning: invalid value encountered in nextafter
+  huge_dd = nextafter(ld(inf), ld(0), dtype=ld)
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:295: RuntimeWarning: invalid value encountered in exp2
+  eps=exp2(ld(-105)),
+c:\Users\ASUS\Documents\CCNLTHT\.venv\Lib\site-packages\numpy\_core\getlimits.py:296: RuntimeWarning: invalid value encountered in exp2
+  epsneg=exp2(ld(-106)),
+2026-10-26 19:57:04.931 | INFO     | mineru.backend.analysis.pdf.window:_log_processing_window:128 - Hybrid processing window 1/1: pages 1-4/4 (4 pages)
+
+Layout Predict:   0%|          | 0/4 [00:00<?, ?it/s]
+Layout Predict:  50%|█████     | 2/4 [00:03<00:03,  1.55s/it]
+Layout Predict: 100%|██████████| 4/4 [00:05<00:00,  1.44s/it]
+Layout Predict: 100%|██████████| 4/4 [00:05<00:00,  1.45s/it]
+
+Two Step Extraction:   0%|          | 0/4 [00:00<?, ?it/s]
+Two Step Extraction:  25%|██▌       | 1/4 [00:39<01:59, 40.00s/it]
+Two Step Extraction:  50%|█████     | 2/4 [00:55<00:50, 25.36s/it]
+Two Step Extraction:  75%|███████▌  | 3/4 [01:04<00:17, 17.86s/it]
+Two Step Extraction: 100%|██████████| 4/4 [01:09<00:00, 12.94s/it]
+Two Step Extraction: 100%|██████████| 4/4 [01:09<00:00, 17.36s/it]
+
+OCR-det:   0%|          | 0/183 [00:00<?, ?it/s]
+OCR-det:   6%|▌         | 11/183 [00:00<00:11, 15.36it/s]
+OCR-det:  20%|█▉        | 36/183 [00:00<00:02, 52.66it/s]
+OCR-det:  27%|██▋       | 50/183 [00:01<00:02, 55.10it/s]
+OCR-det:  33%|███▎      | 61/183 [00:01<00:02, 54.71it/s]
+OCR-det:  38%|███▊      | 70/183 [00:01<00:02, 55.60it/s]
+OCR-det:  46%|████▋     | 85/183 [00:01<00:01, 65.70it/s]
+OCR-det:  57%|█████▋    | 104/183 [00:01<00:01, 62.54it/s]
+OCR-det:  66%|██████▌   | 120/183 [00:02<00:00, 75.69it/s]
+OCR-det:  75%|███████▍  | 137/183 [00:02<00:00, 90.67it/s]
+OCR-det:  86%|████████▌ | 157/183 [00:02<00:00, 104.57it/s]
+OCR-det:  95%|█████████▌| 174/183 [00:02<00:00, 88.85it/s] 
+OCR-det: 100%|██████████| 183/183 [00:02<00:00, 69.30it/s]
+2026-10-26 19:58:23.419 | INFO     | mineru.backend.analyze:_log_infer_performance:26 - model_list infer finished, file_suffix=pdf, pages=4, cost=81.686984s, speed=0.049 page/s
+Parsed 1 input(s).
+
+
+--- STDERR ---
+(đã gộp vào STDOUT)

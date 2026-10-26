@@ -22,12 +22,6 @@
 
   <div id="notice"></div>
 
-  <div class="colmode">
-    <span class="lbl">Bố cục cột</span>
-    <div class="tabs" id="colmodeTabs" role="group" aria-label="Bố cục cột của PDF nhiều cột"></div>
-    <p class="hint" id="colmodeHint"></p>
-  </div>
-
   <label class="drop" id="drop">
     <input type="file" id="file" accept="application/pdf,.pdf" multiple>
     <div class="big">Kéo thả PDF vào đây</div>
@@ -52,19 +46,6 @@
   const FILTERS = [["all", "Tất cả"], ["active", "Đang xử lý"], ["done", "Xong"], ["failed", "Lỗi / hủy"]];
   let docs = [], filter = "all", query = "", timer = null;
 
-  // Bố cục cột cho PDF có 2–3 cột trên một trang. Lựa chọn áp dụng cho các file được tải lên SAU đó và được nhớ lại.
-  const COLMODES = [
-    ["keep", "Giữ cột như PDF", "Giữ nguyên bố cục 2 hoặc 3 cột như bản PDF (khổ giấy và ngắt cột theo PDF)."],
-    ["single", "Chuyển thành 1 cột", "Dồn các cột thành trang thông thường, đọc đúng thứ tự: cột 1 → cột 2 → cột 3 rồi mới sang trang kế."]
-  ];
-  let colMode = "keep";
-  try { const v = localStorage.getItem("colMode"); if (COLMODES.some((m) => m[0] === v)) colMode = v; } catch (e) {}
-  function renderColMode() {
-    $("colmodeTabs").innerHTML = COLMODES.map(([k, label]) =>
-      '<button type="button" data-m="' + k + '" aria-pressed="' + (colMode === k) + '">' + label + "</button>").join("");
-    $("colmodeHint").textContent = COLMODES.find((m) => m[0] === colMode)[2];
-  }
-
   // tìm kiếm không phân biệt hoa/thường và dấu tiếng Việt: "dai so" khớp "Đại số"
   const fold = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase().trim();
 
@@ -80,11 +61,6 @@
   function rowHTML(d) {
     const active = isActive(d.status);
     const meta = [d.num_pages + " trang", fmtBytes(d.size_bytes)];
-    const cr = d.column_result;
-    if (d.column_mode === "single") {
-      if (cr) meta.push(cr.source_columns > 1 ? "đã dồn " + cr.source_columns + " cột → 1 cột" : "1 cột (không dò thấy nhiều cột trong PDF)");
-      else meta.push("chuyển thành 1 cột");
-    } else if (cr && cr.output_columns > 1) meta.push("giữ " + cr.output_columns + " cột");
     if (d.shards && d.shards.length > 1) meta.push(d.shards.length + " phần MinerU");
     if (active) meta.push("đã chạy " + fmtDur(d.elapsed_s));
     else if (d.status === "done" && !d.cache_hit) meta.push("mất " + fmtDur(d.elapsed_s));
@@ -137,6 +113,23 @@
     existing.forEach((e) => e.remove());
   }
 
+  async function refresh() {
+    clearTimeout(timer);
+    try {
+      const result = await api("/documents?limit=200");
+      docs = result.items;
+      $("notice").innerHTML = "";
+      render();
+    } catch (e) {
+      $("notice").innerHTML = '<div class="notice bad">' + esc(e.message) + "</div>";
+      timer = setTimeout(refresh, document.hidden ? 10000 : 4000);
+      return;
+    }
+    if (docs.some((d) => isActive(d.status))) {
+      timer = setTimeout(refresh, document.hidden ? 5000 : 1200);
+    }
+  }
+
   async function refreshStats() {
     try {
       const s = await api("/system/stats");
@@ -183,7 +176,6 @@
     if (!pdfs.length) return;
     const fd = new FormData();
     pdfs.forEach((f) => fd.append("files", f, f.name));
-    fd.append("column_mode", colMode);
     $("upbar").style.width = "2%";
     const { status, data } = await xhrUpload(fd);
     $("upbar").style.width = "0";
@@ -191,8 +183,6 @@
       const hits = data.items.filter((i) => i.cache_hit).length;
       toast("Đã nhận " + data.items.length + " file" + (hits ? " (" + hits + " file đã có kết quả sẵn)" : ""));
       (data.rejected || []).forEach((r) => toast(r.filename + ": " + r.message, true));
-      // Máy chủ phải trả đúng chế độ đã chọn; nếu không (backend cũ bỏ qua trường column_mode) thì báo ngay, đừng im lặng
-      if (data.items.some((i) => i.column_mode !== colMode)) toast("Máy chủ KHÔNG áp dụng chế độ “" + (colMode === "single" ? "Chuyển thành 1 cột" : "Giữ cột như PDF") + "” (backend chưa cập nhật hoặc chưa khởi động lại). Kết quả sẽ theo chế độ cũ.", true);
     } else if (status === 0) toast("Không kết nối được máy chủ. Server đã chạy chưa?", true);
     else toast(data && data.error ? data.error.message : "Upload thất bại (" + status + ")", true);
     refresh();
@@ -224,13 +214,6 @@
     if (b) { filter = b.dataset.f; render(); }
   });
   $("q").addEventListener("input", (e) => { query = e.target.value; render(); });
-  $("colmodeTabs").addEventListener("click", (e) => {
-    const b = e.target.closest("button[data-m]"); if (!b) return;
-    colMode = b.dataset.m;
-    try { localStorage.setItem("colMode", colMode); } catch (err) {}
-    renderColMode();
-  });
-  renderColMode();
   $("file").addEventListener("change", (e) => { upload(e.target.files); e.target.value = ""; });
   const drop = $("drop");
   ["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));

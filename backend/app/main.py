@@ -13,6 +13,7 @@ from typing import Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .controllers import documents_controller, system_controller
@@ -48,6 +49,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         CORSMiddleware, allow_origins=settings.cors_origins, allow_credentials=False,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"], allow_headers=["*"],
         expose_headers=["Content-Disposition"])
+    app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)   # danh sách 246 KB -> ~5 KB
     install_handlers(app)
     app.include_router(system_controller.router)
     app.include_router(documents_controller.router)

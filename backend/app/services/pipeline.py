@@ -4,7 +4,6 @@ main.py (CLI)                                   Pipeline.run (backend)          
 -------------------------------------------     ------------------------------------   --------  -------
 0.  prepare_run_dir  (runs/<ten>_<id>)          documents/<id>/ (+ input/<id>.pdf)     parsing    2
 0b. plan_strips + build_strips_pdf              như cũ (PDF nhiều cột -> dải cột)      parsing
-0b'. column_mode=single: dải cột theo rãnh trắng  mỗi cột = 1 dải, đọc cột 1->2->3 (column_flatten)
 0c. scan_clean (PDF scan, không phải dải cột)   che dải trang bên cạnh trước MinerU     parsing
 1.  run_mineru_parallel                         MineruRunner (Popen, hủy được)         parsing   2-70
     (ghép các phần)                             merge_parts                            merging   70-75
@@ -34,9 +33,8 @@ from ..core.config import Settings
 from ..core.errors import Cancelled, PipelineError
 from ..core.log_router import capture_to, log_line
 from ..models.document_repository import DocumentRepository
-from ..models.entities import (BUILDING, CANCELLED, COLUMN_SINGLE, DONE, FAILED, MERGING, PARSING, PREPARING, VALIDATING,
+from ..models.entities import (BUILDING, CANCELLED, DONE, FAILED, MERGING, PARSING, PREPARING, VALIDATING,
                                Document)
-from . import column_flatten
 from .docx_validator import validate_docx
 from .engine import Engine
 from .mineru_runner import MineruRunner
@@ -97,15 +95,11 @@ class Pipeline:
             shutil.rmtree(run_dir / "mineru_parts", ignore_errors=True)
             repo.update(doc_id, shards=[])
 
-        # column_mode: keep = giữ cấu trúc cột như PDF (hành vi gốc của main.py) | single = dồn thành 1 cột đúng thứ tự
-        single = doc.column_mode == COLUMN_SINGLE
         need_parse = not merged_mark.exists()
 
-        # 0b. PDF nhiều cột -> tách dải cột (không phải PDF đó thì plan=None, mọi thứ chạy như cũ)
+        # 0b. Theo main.py: chỉ tờ khung có dải phân cột sẽ được tách trước MinerU.
         plan = None
-        if single:
-            plan = self._plan_single(E, doc, pdf_path, need_parse)
-        elif not (s.no_split or s.no_columns):
+        if not (s.no_split or s.no_columns):
             plan = self._safe("plan_strips", lambda: E.column_split.plan_strips(pdf_path))
 
         # ------------------------------------------------------------ 1. MinerU
@@ -167,7 +161,7 @@ class Pipeline:
         content_list_path = E.run_mineru.find_content_list(mineru_dir)
         run.end("merge", {"parts": len(ranges) or None})
         run.check()
-        if plan and not content_list_path and not single:
+        if plan and not content_list_path:
             log_line("[split] MinerU không trả content_list.json -> bỏ chế độ tách dải, dùng Markdown như cũ.")
             plan = None
 
@@ -177,17 +171,7 @@ class Pipeline:
         if not markdown_text.strip():
             raise PipelineError("EMPTY_MARKDOWN", "MinerU không trích được chữ nào từ PDF này (PDF scan chất lượng thấp?).")
         layout = None
-        if single:                     # 1 cột: các dải đã đúng thứ tự cột 1->2->3; KHÔNG chèn ngắt cột/section cột
-            docx_md = markdown_text
-            if plan and plan.get("mode") != "whitespace":                # tờ khung: content_list có cả chữ banner
-                if content_list_path:
-                    strips_raw = json.loads(Path(content_list_path).read_text(encoding="utf-8"))
-                    docx_md = column_flatten.strip_layout_markers(
-                        E, E.column_split.content_list_to_docx_md(strips_raw, plan))
-                else:
-                    log_line("[1 cột] MinerU không trả content_list.json: dùng Markdown theo thứ tự dải "
-                             "(chữ banner của tờ khung, nếu có, sẽ không có trong Word).")
-        elif plan:                     # đã có thứ tự cột chính xác -> không cần OCR dò cột
+        if plan:                       # đã có thứ tự dải chính xác -> không cần OCR dò cột
             strips_raw = json.loads(Path(content_list_path).read_text(encoding="utf-8"))
             docx_md = E.column_split.content_list_to_docx_md(strips_raw, plan)
         else:
@@ -196,11 +180,8 @@ class Pipeline:
             docx_md = markdown_text
             if layout:
                 docx_md = E.columns.insert_column_breaks(E.columns.drop_ocr_details(markdown_text), layout)
-        prep_note = {"columns": 1 if single else ((plan or {}).get("ncols") or (layout or {}).get("n_cols") or 1)}
-        if single:
-            prep_note["column_mode"] = "single"
-            if plan:
-                prep_note["source_columns"] = plan["ncols"]
+        docx_md = E.columns.drop_ocr_details(docx_md)
+        prep_note = {"columns": (plan or {}).get("ncols") or (layout or {}).get("n_cols") or 1}
         if s.math_repair and E.math_repair is not None:             # sửa lỗi OCR/công thức trên văn bản SẼ đưa vào Pandoc
             res = self._safe("math_repair", lambda: E.math_repair.repair_markdown(docx_md))
             if res:
@@ -209,7 +190,9 @@ class Pipeline:
                     json.dumps(report, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
                 prep_note["math_repair"] = self._count_report(report)
                 log_line(f"[math_repair] {prep_note['math_repair']}")
-        if s.image_sizes and E.image_size is not None:             # ảnh trong Word = đúng cỡ trong PDF gốc
+        frame = None if (s.no_frame or s.no_columns) else self._safe(
+            "detect_frame_layout", lambda: E.frame_layout.detect_frame_layout(pdf_path))
+        if s.image_sizes and E.image_size is not None and not (plan or layout or frame):
             res = self._safe("image_size", lambda: E.image_size.apply_pdf_image_sizes(
                 docx_md, md_path.parent, scale=s.image_scale))
             if res:
@@ -227,20 +210,17 @@ class Pipeline:
         final_docx = st.docx_path(doc_id)
         try:
             E.build_docx.md_to_docx(work_md, tmp_docx, md_path.parent)
-            if not single:                 # chế độ 1 cột: giữ nguyên trang Word thường của Pandoc
-                body_pt = s.col_font_pt or None
-                if layout:
-                    E.columns.apply_section_columns(tmp_docx, layout["n_cols"], layout["page_pt"], body_pt=body_pt)
-                frame = None if (s.no_frame or s.no_columns) else self._safe(
-                    "detect_frame_layout", lambda: E.frame_layout.detect_frame_layout(pdf_path))
-                if plan:
-                    E.columns.apply_section_columns(tmp_docx, plan["ncols"], tuple(plan["page_pt"]), body_pt=body_pt)
-                    E.column_split.apply_band_layout(tmp_docx, plan, heads=(frame or {}).get("headings", []))
-                elif frame:
-                    if not layout:
-                        E.columns.apply_section_columns(tmp_docx, frame["cols"], (frame["page_w_pt"], frame["page_h_pt"]),
-                                                        body_pt=body_pt)
-                    E.frame_layout.apply_frame_layout(tmp_docx, frame)
+            body_pt = s.col_font_pt or None
+            if layout:
+                E.columns.apply_section_columns(tmp_docx, layout["n_cols"], layout["page_pt"], body_pt=body_pt)
+            if plan:
+                E.columns.apply_section_columns(tmp_docx, plan["ncols"], tuple(plan["page_pt"]), body_pt=body_pt)
+                E.column_split.apply_band_layout(tmp_docx, plan, heads=(frame or {}).get("headings", []))
+            elif frame:
+                if not layout:
+                    E.columns.apply_section_columns(tmp_docx, frame["cols"], (frame["page_w_pt"], frame["page_h_pt"]),
+                                                    body_pt=body_pt)
+                E.frame_layout.apply_frame_layout(tmp_docx, frame)
         except PipelineError:
             raise
         except RuntimeError as ex:                                      # md_to_docx: "Pandoc tạo DOCX thất bại."
@@ -313,31 +293,12 @@ class Pipeline:
     # ------------------------------------------------------------------ tiện ích
     @staticmethod
     def _safe(name: str, fn: Callable):
-        """Các bước chỉ để cải thiện bố cục (dò cột/khung): lỗi thì bỏ qua, vẫn dựng Word 1 cột."""
+        """Các bước dò cột/khung chỉ để cải thiện bố cục; lỗi không ngăn tạo file Word."""
         try:
             return fn()
         except Exception as ex:                                         # noqa: BLE001
             log_line(f"[CẢNH BÁO] {name} lỗi ({type(ex).__name__}: {ex}) -> bỏ qua bước này")
             return None
-
-    def _plan_single(self, E, doc: Document, pdf_path: Path, need_parse: bool):
-        """Plan dải cột cho chế độ 1 cột: tờ có khung kẻ -> plan_strips (sẵn có); còn lại -> dò rãnh trắng."""
-        plan = self._safe("plan_strips", lambda: E.column_split.plan_strips(pdf_path))
-        if plan and plan["pages"] < doc.num_pages:       # plan_strips chỉ xét 200 trang đầu: không dùng nếu sẽ bị cắt cụt
-            log_line(f"[1 cột] plan_strips chỉ phủ {plan['pages']}/{doc.num_pages} trang -> dùng dò rãnh trắng")
-            plan = None
-        if plan:
-            plan["mode"] = "frame"
-            log_line(f"[1 cột] tờ có khung kẻ, tối đa {plan['ncols']} cột/dải")
-            return plan
-        if not need_parse:                               # đã có kết quả MinerU: Markdown đã đúng thứ tự, khỏi dò lại
-            return None
-        plan = self._safe("whitespace_strips", lambda: column_flatten.plan_whitespace_strips(pdf_path))
-        if plan:
-            log_line(f"[1 cột] dò được {plan['ncols']} cột/trang -> cắt mỗi cột thành 1 dải ({len(plan['strips'])} dải)")
-        else:
-            log_line("[1 cột] không thấy bố cục nhiều cột -> MinerU đọc như thường (kết quả vẫn là 1 cột)")
-        return plan
 
     def _maybe_clean_scan(self, E, pdf_path: Path, run_dir: Path, doc_id: str):
         """PDF scan có dải trang bên cạnh -> PDF đã che để đưa MinerU; không cần che thì dùng PDF gốc (không tái nén JPEG)."""
