@@ -1,10 +1,9 @@
-# MinerU 4 PDF/OCR/Math + DOCX; NO E5, local Qwen, LlamaIndex or Ollama.
-# MinerU may still pull torch/transformers itself for its OCR/VLM runtime on Apple Silicon.
-mineru>=4.0,<5
-pypdf
-pymupdf
+# Core chuẩn từ notebook — model tốt nhất, không đổi nếu muốn giữ điểm
+mineru[all]
+sentence-transformers
+faiss-cpu
 pypandoc
-python-docx
-lxml
-Pillow
-opencv-python-headless
+transformers
+accelerate
+torch
+numpy
