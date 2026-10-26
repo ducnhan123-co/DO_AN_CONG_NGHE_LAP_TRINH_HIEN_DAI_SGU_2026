@@ -108,7 +108,13 @@ def _merge_words(src: str, out: str) -> str:
         return src
     it = iter(words)
     return "".join(w if not w or w.isspace() else
-                   (o if _shape(o := next(it)) == _shape(w) else w) for w in parts)
+                   (o if _shape(o := next(it)) == _shape(w) and _close(w, o) else w) for w in parts)
+
+
+def _close(a: str, b: str) -> bool:
+    """Mặt chữ không dấu gần giống (sửa dấu, thiếu/thừa 1 ký tự). Chặn kiểu 'nhẫn' -> 'newborn'."""
+    from .diacritic_fusion import base
+    return SequenceMatcher(None, base(a), base(b)).ratio() >= 0.75
 
 
 def _accept(src: str, out: str) -> bool:

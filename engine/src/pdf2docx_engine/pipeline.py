@@ -27,7 +27,7 @@ from .recognition.run_mineru import find_content_list, find_mineru_outputs, prep
 def convert(pdf_path: Path, out_dir: Path, docx_dir: Path = DOCX_DIR, *, tier: str = MINERU_TIER, workers: int = 2,
             stagger: float = 20.0, force: bool = False, columns: bool = True, frame: bool = True,
             scan_clean: bool = True, image_size: bool = True, image_scale: float = 1.0,
-            repair: bool = True, vi_correct: bool = False, split: bool = True, ocr_lang: str = "eng",
+            repair: bool = True, vi_correct: bool = False, ocr_fusion: bool = True, split: bool = True, ocr_lang: str = "eng",
             col_font_pt: float = 8.0) -> dict:
     """Chuyển 1 PDF thành DOCX: file trung gian ở out_dir, DOCX + Markdown dựng DOCX ở docx_dir (như kiet)."""
     pdf_path, out_dir, docx_dir = Path(pdf_path), Path(out_dir), Path(docx_dir)
@@ -80,6 +80,17 @@ def convert(pdf_path: Path, out_dir: Path, docx_dir: Path = DOCX_DIR, *, tier: s
             docx_md = insert_column_breaks(drop_ocr_details(markdown_text), layout)
     # MinerU advanced sinh <details>...</details> sau mỗi ảnh -> luôn bỏ, ảnh gốc vẫn giữ.
     docx_md = drop_ocr_details(docx_md)
+    # PDF scan: Tesseract + Apple Vision bỏ phiếu sửa DẤU tiếng Việt mà VLM của MinerU đọc sai
+    if ocr_fusion and is_image_pdf(pdf_path):
+        from .recognition.diacritic_fusion import fuse_markdown, ocr_pages
+        refs = ocr_pages(pdf_path, out_dir / "ocr")
+        if refs:
+            docx_md, fus = fuse_markdown(docx_md, refs)
+            (out_dir / "ocr_fusion_report.json").write_text(json.dumps(fus, ensure_ascii=False, indent=2), encoding="utf-8")
+            print(f"[ocr-fusion] {'+'.join(fus['engines'])}: sửa dấu {fus['words_changed']} chữ, "
+                  f"{len(fus['flags'])} chỗ các bộ OCR không thống nhất (xem ocr_fusion_report.json)")
+        else:
+            print("[ocr-fusion] không có tesseract/Apple Vision -> bỏ qua")
     if repair:
         docx_md, fix_rep = repair_markdown(docx_md)
         print("[repair]", {k: (v if isinstance(v, int) else len(v)) for k, v in fix_rep.items()})
@@ -133,6 +144,9 @@ def main(argv=None):
     ap.add_argument("--no-image-size", action="store_true", help="Không đặt ảnh theo kích thước gốc PDF")
     ap.add_argument("--image-scale", type=float, default=1.0, help="Thu/phóng ảnh so với PDF")
     ap.add_argument("--no-repair", action="store_true", help="Không sửa lỗi OCR/công thức (math_repair)")
+    ap.add_argument("--no-ocr-fusion", action="store_true",
+                    help="PDF scan: KHÔNG cho Tesseract (vie) + Apple Vision bỏ phiếu sửa chữ của MinerU "
+                         "(tắt = ra đúng như main.py nhánh kiet)")
     ap.add_argument("--vi-correct", action="store_true",
                     help="Sửa dấu/chính tả tiếng Việt bằng bmd1905/vietnamese-correction-v2 (tải model khi bật)")
     ap.add_argument("--no-split", action="store_true", help="Không tách PDF nhiều cột thành dải cột")
@@ -143,7 +157,7 @@ def main(argv=None):
     out = a.out or prepare_run_dir(a.pdf, STORAGE_DIR / "runs")[1]
     res = convert(a.pdf, out, a.docx_dir, tier=a.tier, workers=a.workers, stagger=a.stagger, force=a.force,
                   columns=not a.no_columns, frame=not a.no_frame, scan_clean=not a.no_scan_clean,
-                  image_size=not a.no_image_size, image_scale=a.image_scale, repair=not a.no_repair, vi_correct=a.vi_correct,
+                  image_size=not a.no_image_size, image_scale=a.image_scale, repair=not a.no_repair, vi_correct=a.vi_correct, ocr_fusion=not a.no_ocr_fusion,
                   split=not a.no_split, ocr_lang=a.ocr_lang, col_font_pt=a.col_font_pt)
     print("\n===== FINAL OUTPUT =====")
     print("DOCX  :", res["docx"])

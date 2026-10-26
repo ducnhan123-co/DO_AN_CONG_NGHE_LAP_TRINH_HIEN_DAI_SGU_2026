@@ -134,7 +134,7 @@ engine/                      Lõi xử lý, không phụ thuộc web
     config.py                tier MinerU, cờ Pandoc, thư mục storage
     audit.py                 kiểm tra chất lượng -> audit.json
     pdf/                     scan_clean, column_split (tiền xử lý PDF)
-    recognition/             run_mineru, parallel_mineru (OCR), vi_correct (sửa dấu, tuỳ chọn)
+    recognition/             run_mineru, parallel_mineru (OCR), diacritic_fusion + vision_ocr.swift (ghép OCR), vi_correct
     math/                    math_repair (sửa công thức trên Markdown)
     docx/                    build_docx, columns, frame_layout, image_size
   tests/
@@ -152,6 +152,11 @@ Engine không biết gì về web; backend chỉ gọi `python -m pdf2docx_engin
 ## 6. Cách chạy
 
 Cần sẵn: Python ≥ 3.10, `pandoc`, `tesseract` (dò cột), MinerU 4 (`mineru-kit`).
+
+PDF scan: mặc định Tesseract (`vie`) + Apple Vision (macOS, tự biên dịch `vision_ocr.swift` bằng `swiftc`) bỏ phiếu sửa chữ
+MinerU đọc sai (`recognition/diacritic_fusion.py`). Đo trên 2 trang AAA gõ tay làm đáp án: sai 8,72% → 0,59%.
+Cài: `brew install tesseract tesseract-lang` (Windows: cài Tesseract + gói `vie`, chỉ dùng Tesseract). Tắt: `--no-ocr-fusion`
+(ra y hệt `main.py` nhánh kiet).
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
