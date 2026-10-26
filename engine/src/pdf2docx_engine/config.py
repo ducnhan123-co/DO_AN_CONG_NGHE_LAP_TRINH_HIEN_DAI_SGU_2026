@@ -1,6 +1,6 @@
 """Cấu hình engine.
 
-STORAGE_DIR: nơi CLI ghi kết quả khi không truyền --out (mặc định <repo>/storage,
+STORAGE_DIR: nơi CLI ghi kết quả khi không truyền --out/--docx-dir (mặc định <repo>/storage,
 đổi bằng biến môi trường PDF2DOCX_STORAGE).
 """
 import os
@@ -8,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 STORAGE_DIR = Path(os.environ.get("PDF2DOCX_STORAGE", ROOT / "storage"))
+DOCX_DIR = STORAGE_DIR / "docx_output"   # như docx_output/ của nhánh kiet
 
 # MinerU >= 4.0: CLI "mineru-kit parse ... --tier <tier>"
 MINERU_TIERS = ("flash", "basic", "standard", "advanced")

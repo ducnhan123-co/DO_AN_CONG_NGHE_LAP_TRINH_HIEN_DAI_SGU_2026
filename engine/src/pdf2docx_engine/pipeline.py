@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 
 from .audit import print_audit, run_audit
-from .config import MINERU_TIER, MINERU_TIERS, STORAGE_DIR
+from .config import DOCX_DIR, MINERU_TIER, MINERU_TIERS, STORAGE_DIR
 from .docx.build_docx import fix_legacy_tex_bf, md_to_docx, prepare_work_md
 from .docx.columns import apply_section_columns, drop_ocr_details, insert_column_breaks, layout_of
 from .docx.frame_layout import apply_frame_layout, detect_frame_layout
@@ -24,16 +24,17 @@ from .recognition.parallel_mineru import run_mineru_parallel
 from .recognition.run_mineru import find_content_list, find_mineru_outputs, prepare_run_dir, run_mineru
 
 
-def convert(pdf_path: Path, out_dir: Path, *, tier: str = MINERU_TIER, workers: int = 2,
+def convert(pdf_path: Path, out_dir: Path, docx_dir: Path = DOCX_DIR, *, tier: str = MINERU_TIER, workers: int = 2,
             stagger: float = 20.0, force: bool = False, columns: bool = True, frame: bool = True,
             scan_clean: bool = True, image_size: bool = True, image_scale: float = 1.0,
             repair: bool = True, split: bool = True, ocr_lang: str = "eng",
             col_font_pt: float = 8.0) -> dict:
-    """Chuyển 1 PDF thành DOCX, mọi file trung gian + kết quả nằm trong out_dir."""
-    pdf_path, out_dir = Path(pdf_path), Path(out_dir)
+    """Chuyển 1 PDF thành DOCX: file trung gian ở out_dir, DOCX + Markdown dựng DOCX ở docx_dir (như kiet)."""
+    pdf_path, out_dir, docx_dir = Path(pdf_path), Path(out_dir), Path(docx_dir)
     if not pdf_path.exists():
         raise FileNotFoundError(f"Không thấy PDF: {pdf_path}")
     out_dir.mkdir(parents=True, exist_ok=True)
+    docx_dir.mkdir(parents=True, exist_ok=True)
     mineru_dir = out_dir / "mineru"
     print("PDF:", pdf_path, "| out:", out_dir)
 
@@ -91,9 +92,9 @@ def convert(pdf_path: Path, out_dir: Path, *, tier: str = MINERU_TIER, workers: 
         print(f"[image] đặt kích thước gốc PDF cho {n_img} ảnh")
 
     # 3. DOCX qua Pandoc + dựng lại bố cục
-    work_md = out_dir / f"{pdf_path.stem}_for_docx.md"
+    work_md = docx_dir / f"{pdf_path.stem}_for_docx.md"
     prepare_work_md(docx_md, md_path, work_md)
-    docx_path = out_dir / f"{pdf_path.stem}.docx"
+    docx_path = docx_dir / f"{pdf_path.stem}.docx"
     md_to_docx(work_md, docx_path, md_path.parent)
     body_pt = col_font_pt or None
     if layout:
@@ -117,6 +118,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="PDF toán -> DOCX (Equation thật)")
     ap.add_argument("--pdf", required=True, type=Path, help="PDF đầu vào")
     ap.add_argument("--out", type=Path, help="Thư mục kết quả (mặc định storage/runs/<ten>_<doc_id>)")
+    ap.add_argument("--docx-dir", type=Path, default=DOCX_DIR, help="Thư mục ghi DOCX (mặc định storage/docx_output)")
     ap.add_argument("--tier", default=MINERU_TIER, choices=MINERU_TIERS, help="Tier của mineru-kit parse")
     ap.add_argument("--force", action="store_true", help="Chạy lại MinerU dù đã có output")
     ap.add_argument("--workers", type=int, default=2, help="Số tiến trình MinerU song song (1 = tuần tự)")
@@ -133,7 +135,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
 
     out = a.out or prepare_run_dir(a.pdf, STORAGE_DIR / "runs")[1]
-    res = convert(a.pdf, out, tier=a.tier, workers=a.workers, stagger=a.stagger, force=a.force,
+    res = convert(a.pdf, out, a.docx_dir, tier=a.tier, workers=a.workers, stagger=a.stagger, force=a.force,
                   columns=not a.no_columns, frame=not a.no_frame, scan_clean=not a.no_scan_clean,
                   image_size=not a.no_image_size, image_scale=a.image_scale, repair=not a.no_repair,
                   split=not a.no_split, ocr_lang=a.ocr_lang, col_font_pt=a.col_font_pt)

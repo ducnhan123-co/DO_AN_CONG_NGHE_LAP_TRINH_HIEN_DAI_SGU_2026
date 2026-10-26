@@ -51,7 +51,7 @@ def run_job(d: Path) -> None:
     job = write_job(d, status="running", started=time.time())
     out = d / "out"
     cmd = [sys.executable, "-m", "pdf2docx_engine.pipeline", "--pdf", str(d / "input.pdf"),
-           "--out", str(out), "--tier", job["tier"], "--workers", str(job["workers"])]
+           "--out", str(out), "--docx-dir", str(out), "--tier", job["tier"], "--workers", str(job["workers"])]
     env = {**os.environ,
            "PYTHONPATH": os.pathsep.join(filter(None, [str(ROOT / "engine" / "src"), os.environ.get("PYTHONPATH")])),
            # mineru-kit nằm cạnh python của venv
