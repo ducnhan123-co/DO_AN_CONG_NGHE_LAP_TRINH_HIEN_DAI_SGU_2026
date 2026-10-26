@@ -1,6 +1,6 @@
-"""Sửa lỗi dấu / chính tả tiếng Việt bằng bmd1905/vietnamese-correction-v2.
+"""Sửa lỗi dấu / chính tả tiếng Việt bằng nrl-ai/vn-spell-correction-small.
 
-Model này là seq2seq (mBART, ~0.4B) chuyên SỬA CHÍNH TẢ + THÊM DẤU, không phải
+Model này là seq2seq (BARTpho-syllable, ~0.1B) chuyên SỬA CHÍNH TẢ + THÊM DẤU, không phải
 embedding hay LLM hỏi đáp. Vì vậy nó chỉ nên dùng ở 2 chỗ:
   1) Lúc nạp tài liệu: làm sạch chữ OCR trước khi chunk/embed  -> correct_markdown()
   2) Lúc hỏi: sửa câu hỏi gõ không dấu / sai chính tả          -> correct_query()
@@ -9,11 +9,17 @@ An toàn cho tài liệu toán:
   - Công thức $...$ / $$...$$ được thay bằng placeholder rồi trả lại nguyên vẹn.
   - Nếu model làm mất placeholder, đổi số, hoặc sửa quá tay -> GIỮ NGUYÊN dòng gốc.
   - Bỏ qua dòng bảng / HTML / ảnh.
+  - Tiền tố Markdown (##, -, +, số thứ tự) không đưa vào model; chỉ nhận sửa BÊN TRONG
+    từng chữ — model đổi dấu câu / ngoặc / khoảng trắng / số chữ thì giữ nguyên chữ gốc.
+
+Đo 2026-10-26 trên 36 dòng OCR thật của sách AAA (đáp án gõ tay): không sửa 94,70% ->
+bmd1905/vietnamese-correction-v2 92,00% (sửa sai 14 chữ đúng), nrl-ai/vn-spell-correction-small
+96,54% (0 chữ đúng bị sửa sai), 52 ms/dòng trên MPS.
 """
 import re
 from difflib import SequenceMatcher
 
-MODEL_NAME = "bmd1905/vietnamese-correction-v2"
+MODEL_NAME = "nrl-ai/vn-spell-correction-small"
 MAX_CHARS = 400          # model giới hạn 512 token -> cắt đoạn dài theo câu
 MIN_SIMILARITY = 0.6     # sửa lệch quá nhiều so với gốc thì không tin
 
@@ -22,6 +28,8 @@ _SKIP_LINE = re.compile(r"^\s*(<|!\[|\||#\s*$)")
 _HAS_VI = re.compile(r"[A-Za-zÀ-ỹ]")
 _PH = re.compile(r"ZM(\d+)Z")
 _NUM = re.compile(r"\d+")
+_PREFIX = re.compile(r"^(\s*(?:#{1,6}\s+|\\?[-+*]\s+|\(?\d+(?:\.\d+)*[.)]\s+|[a-zđ][.)]\s+|[IVX]+\.\s+)?)(.*)$", re.S)
+_LETTERS = re.compile(r"[^\W\d_]+")
 
 _pipe = None
 
@@ -37,7 +45,8 @@ def _get_pipe():
         import torch
         from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = ("cuda" if torch.cuda.is_available()
+                  else "mps" if torch.backends.mps.is_available() else "cpu")
         tok = AutoTokenizer.from_pretrained(MODEL_NAME)
         model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME).to(device).eval()
 
@@ -85,6 +94,23 @@ def _mask(line: str):
     return _MATH.sub(rep, line), spans
 
 
+def _shape(word: str) -> str:
+    """Bộ khung của 1 chữ: dấu câu/số giữ nguyên, mỗi cụm chữ cái -> kiểu hoa/thường."""
+    return _LETTERS.sub(lambda m: "U" if len(m[0]) > 1 and m[0].isupper()
+                        else "C" if m[0][0].isupper() else "l", word)
+
+
+def _merge_words(src: str, out: str) -> str:
+    """Chỉ nhận sửa TRONG từng chữ. Số chữ khác nhau (model gộp/tách/xoá chữ) -> giữ cả dòng gốc;
+    chữ nào đổi dấu câu, ngoặc, hoa/thường -> giữ chữ gốc. Khoảng trắng luôn theo dòng gốc."""
+    parts, words = re.split(r"(\s+)", src), out.split()
+    if sum(1 for w in parts if w and not w.isspace()) != len(words):
+        return src
+    it = iter(words)
+    return "".join(w if not w or w.isspace() else
+                   (o if _shape(o := next(it)) == _shape(w) else w) for w in parts)
+
+
 def _accept(src: str, out: str) -> bool:
     if _PH.findall(src) != _PH.findall(out):          # mất / đảo placeholder công thức
         return False
@@ -102,12 +128,13 @@ def correct_markdown(md: str, batch_size: int = 16, min_len: int = 15,
     for i, ln in enumerate(lines):
         if len(ln.strip()) < min_len or _SKIP_LINE.match(ln) or not _HAS_VI.search(ln):
             continue
-        masked, spans = _mask(ln)
+        prefix, body = _PREFIX.match(ln).groups()
+        masked, spans = _mask(body)
         ids = []
         for piece in _split_long(masked):
             ids.append(len(units))
             units.append((i, piece))
-        plan[i] = (spans, ids)
+        plan[i] = (prefix, spans, ids)
 
     report = {"units": len(units), "changed": 0, "format_only": 0, "rejected": 0}
     if not units:
@@ -117,7 +144,7 @@ def correct_markdown(md: str, batch_size: int = 16, min_len: int = 15,
     preds = _get_pipe()([u[1] for u in units], max_length=512, batch_size=batch_size)
     fixed = []
     for (_, src), p in zip(units, preds):
-        out = p["generated_text"].strip()
+        out = _merge_words(src, p["generated_text"].strip())
         if _accept(src, out):
             fixed.append(out)
             if out != src:
@@ -138,9 +165,9 @@ def correct_markdown(md: str, batch_size: int = 16, min_len: int = 15,
                 f.write(f"[{kind}]\n  trước: {a}\n  sau  : {b}\n\n")
         report["report_file"] = report_path
 
-    for i, (spans, ids) in plan.items():
+    for i, (prefix, spans, ids) in plan.items():
         text = " ".join(fixed[k] for k in ids) if len(ids) > 1 else fixed[ids[0]]
-        lines[i] = _PH.sub(lambda m: spans[int(m.group(1))], text)
+        lines[i] = prefix + _PH.sub(lambda m: spans[int(m.group(1))], text)
     return "\n".join(lines), report
 
 
