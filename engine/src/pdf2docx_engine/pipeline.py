@@ -27,7 +27,7 @@ from .recognition.run_mineru import find_content_list, find_mineru_outputs, prep
 def convert(pdf_path: Path, out_dir: Path, docx_dir: Path = DOCX_DIR, *, tier: str = MINERU_TIER, workers: int = 2,
             stagger: float = 20.0, force: bool = False, columns: bool = True, frame: bool = True,
             scan_clean: bool = True, image_size: bool = True, image_scale: float = 1.0,
-            repair: bool = True, split: bool = True, ocr_lang: str = "eng",
+            repair: bool = True, vi_correct: bool = False, split: bool = True, ocr_lang: str = "eng",
             col_font_pt: float = 8.0) -> dict:
     """Chuyển 1 PDF thành DOCX: file trung gian ở out_dir, DOCX + Markdown dựng DOCX ở docx_dir (như kiet)."""
     pdf_path, out_dir, docx_dir = Path(pdf_path), Path(out_dir), Path(docx_dir)
@@ -85,6 +85,10 @@ def convert(pdf_path: Path, out_dir: Path, docx_dir: Path = DOCX_DIR, *, tier: s
         print("[repair]", {k: (v if isinstance(v, int) else len(v)) for k, v in fix_rep.items()})
         (out_dir / "repair_report.json").write_text(
             json.dumps(fix_rep, ensure_ascii=False, indent=2), encoding="utf-8")
+    if vi_correct:
+        from .recognition.vi_correct import correct_markdown  # chỉ nạp torch/transformers khi bật cờ
+        docx_md, vi_rep = correct_markdown(docx_md, report_path=str(out_dir / "vi_correct_report.txt"))
+        print("[vi-correct]", vi_rep)
     frame_info = detect_frame_layout(pdf_path) if (frame and columns) else None
     # Ảnh đúng kích thước PDF; tài liệu nhiều cột / tờ khung tự co ảnh theo cột nên bỏ qua.
     if image_size and not (plan or layout or frame_info):
@@ -129,6 +133,8 @@ def main(argv=None):
     ap.add_argument("--no-image-size", action="store_true", help="Không đặt ảnh theo kích thước gốc PDF")
     ap.add_argument("--image-scale", type=float, default=1.0, help="Thu/phóng ảnh so với PDF")
     ap.add_argument("--no-repair", action="store_true", help="Không sửa lỗi OCR/công thức (math_repair)")
+    ap.add_argument("--vi-correct", action="store_true",
+                    help="Sửa dấu/chính tả tiếng Việt bằng bmd1905/vietnamese-correction-v2 (tải model khi bật)")
     ap.add_argument("--no-split", action="store_true", help="Không tách PDF nhiều cột thành dải cột")
     ap.add_argument("--ocr-lang", default="eng", help="Ngôn ngữ tesseract để dò cột, vd 'vie+eng'")
     ap.add_argument("--col-font-pt", type=float, default=8.0, help="Cỡ chữ (pt) khi nhiều cột; 0 = giữ nguyên")
@@ -137,7 +143,7 @@ def main(argv=None):
     out = a.out or prepare_run_dir(a.pdf, STORAGE_DIR / "runs")[1]
     res = convert(a.pdf, out, a.docx_dir, tier=a.tier, workers=a.workers, stagger=a.stagger, force=a.force,
                   columns=not a.no_columns, frame=not a.no_frame, scan_clean=not a.no_scan_clean,
-                  image_size=not a.no_image_size, image_scale=a.image_scale, repair=not a.no_repair,
+                  image_size=not a.no_image_size, image_scale=a.image_scale, repair=not a.no_repair, vi_correct=a.vi_correct,
                   split=not a.no_split, ocr_lang=a.ocr_lang, col_font_pt=a.col_font_pt)
     print("\n===== FINAL OUTPUT =====")
     print("DOCX  :", res["docx"])

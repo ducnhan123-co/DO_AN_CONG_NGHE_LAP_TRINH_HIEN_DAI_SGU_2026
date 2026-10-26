@@ -5,7 +5,7 @@ description = "PDF toán -> DOCX (Equation thật): MinerU + sửa công thức 
 requires-python = ">=3.10"
 # Ngoài Python còn cần: pandoc (bắt buộc), tesseract (dò cột khi PDF nhiều cột)
 dependencies = [
-    "mineru[core]>=4.0,<5",
+    "mineru==4.0.7",   # như requirements.txt của nhánh kiet
     "pymupdf",
     "pypdf",
     "pypdfium2",
@@ -16,6 +16,9 @@ dependencies = [
     "opencv-python-headless",
     "pytesseract",
 ]
+
+[project.optional-dependencies]
+vi = ["torch", "transformers>=4.44,<5", "sentencepiece"]   # cho --vi-correct
 
 [project.scripts]
 pdf2docx = "pdf2docx_engine.pipeline:main"

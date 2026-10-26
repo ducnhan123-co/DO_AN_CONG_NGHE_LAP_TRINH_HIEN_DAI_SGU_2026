@@ -134,7 +134,7 @@ engine/                      Lõi xử lý, không phụ thuộc web
     config.py                tier MinerU, cờ Pandoc, thư mục storage
     audit.py                 kiểm tra chất lượng -> audit.json
     pdf/                     scan_clean, column_split (tiền xử lý PDF)
-    recognition/             run_mineru, parallel_mineru (OCR)
+    recognition/             run_mineru, parallel_mineru (OCR), vi_correct (sửa dấu, tuỳ chọn)
     math/                    math_repair (sửa công thức trên Markdown)
     docx/                    build_docx, columns, frame_layout, image_size
   tests/
@@ -160,6 +160,7 @@ pip install -e engine fastapi uvicorn python-multipart
 # CLI
 python -m pdf2docx_engine.pipeline --pdf bai_giang.pdf          # -> storage/runs/<ten>_<doc_id>/
 python -m pdf2docx_engine.pipeline --pdf bai_giang.pdf --tier standard --workers 1 --out /tmp/x
+pip install -e "engine[vi]" && python -m pdf2docx_engine.pipeline --pdf bai_giang.pdf --vi-correct   # sửa dấu tiếng Việt
 
 # Web: backend phục vụ luôn frontend/
 uvicorn backend.app.main:app --port 8000                        # mở http://127.0.0.1:8000
