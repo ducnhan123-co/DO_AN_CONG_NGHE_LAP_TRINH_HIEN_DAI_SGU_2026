@@ -35,3 +35,10 @@ def test_ocr_fusion_votes():
                    "Đối tượng phản ánh của văn học, tàn nhẫn, bạc bẽo $x^2$ ở đây")
     one, _ = fuse_markdown(md, {"tesseract": ref})            # 1 bộ OCR: chỉ sửa dấu, không thay hẳn chữ
     assert "phản ánh" in one and "newborn" in one
+
+
+def test_place_tone():
+    from pdf2docx_engine.recognition.diacritic_fusion import place_tone
+    for bad, good in [("diụ", "dịu"), ("hóa", "hoá"), ("thủy", "thuỷ"), ("meọ", "mẹo"), ("người", "người"),
+                      ("của", "của"), ("giữa", "giữa"), ("quả", "quả"), ("thuyền", "thuyền"), ("ngoài", "ngoài")]:
+        assert place_tone(bad) == good, (bad, place_tone(bad))

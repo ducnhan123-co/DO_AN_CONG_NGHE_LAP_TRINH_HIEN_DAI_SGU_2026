@@ -82,12 +82,18 @@ def convert(pdf_path: Path, out_dir: Path, docx_dir: Path = DOCX_DIR, *, tier: s
     docx_md = drop_ocr_details(docx_md)
     # PDF scan: Tesseract + Apple Vision bỏ phiếu sửa DẤU tiếng Việt mà VLM của MinerU đọc sai
     if ocr_fusion and is_image_pdf(pdf_path):
-        from .recognition.diacritic_fusion import fuse_markdown, ocr_pages
+        from .recognition.diacritic_fusion import (fix_tone_placement, fuse_markdown, load_lexicon, ocr_pages,
+                                                    recheck)
         refs = ocr_pages(pdf_path, out_dir / "ocr")
         if refs:
-            docx_md, fus = fuse_markdown(docx_md, refs)
+            lexicon = load_lexicon(STORAGE_DIR / "lexicon")
+            docx_md, fus = fuse_markdown(docx_md, refs, lexicon=lexicon)
+            docx_md, fus["recheck"] = recheck(docx_md, pdf_path, refs, lexicon, out_dir / "ocr" / "recheck",
+                                              flags=fus["flags"])
+            docx_md, fus["tone_placement"] = fix_tone_placement(docx_md, lexicon)
             (out_dir / "ocr_fusion_report.json").write_text(json.dumps(fus, ensure_ascii=False, indent=2), encoding="utf-8")
-            print(f"[ocr-fusion] {'+'.join(fus['engines'])}: sửa dấu {fus['words_changed']} chữ, "
+            print(f"[ocr-fusion] {'+'.join(fus['engines'])}: sửa {fus['words_changed']} chữ, đọc lại sát dòng "
+                  f"{fus['recheck']['rechecked']} chữ khả nghi -> sửa {sum(fus['recheck']['changed'].values())}; "
                   f"{len(fus['flags'])} chỗ các bộ OCR không thống nhất (xem ocr_fusion_report.json)")
         else:
             print("[ocr-fusion] không có tesseract/Apple Vision -> bỏ qua")
