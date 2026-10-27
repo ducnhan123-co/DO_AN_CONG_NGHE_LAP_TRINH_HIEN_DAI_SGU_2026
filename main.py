@@ -7,7 +7,8 @@ Luồng: PDF -> (tách dải cột / che rãnh gáy nếu cần) -> MinerU -> s�
 Chạy:
   python main.py --pdf input/bai_giang.pdf
   python main.py --pdf input/bai_giang.pdf --force       # chạy lại MinerU dù đã có output
-  python main.py --pdf input/bai_giang.pdf --vi-correct  # sửa dấu tiếng Việt (src/vi_correct.py)
+  python main.py --pdf input/bai_giang.pdf --vi-correct                    # thêm dấu (vietnam.py) rồi sửa chính tả (vi_correct.py)
+  python main.py --pdf input/bai_giang.pdf --vi-correct --no-vi-diacritic  # chỉ sửa chính tả
 """
 import argparse
 import json
@@ -62,9 +63,11 @@ def main():
                     help="Ngôn ngữ tesseract để dò cột, vd 'vie+eng' (cần cài gói ngôn ngữ)")
     ap.add_argument("--col-font-pt", type=float, default=8.0,
                     help="Cỡ chữ nền (pt) khi DOCX nhiều cột; 0 = giữ nguyên")
+    ap.add_argument("--no-vi-diacritic", action="store_true",
+                    help="Khi dùng --vi-correct: bỏ bước THÊM DẤU (vietnam.py), chỉ sửa chính tả từng chữ")
     ap.add_argument("--vi-correct", action="store_true",
-                    help="Sửa lỗi dấu/chính tả tiếng Việt bằng bmd1905/vietnamese-correction-v2 "
-                         "(src/vi_correct.py). Mặc định tắt để không tải model nếu chưa cần.")
+                    help="Thêm dấu (nrl-ai, src/vietnam.py) rồi sửa chính tả (bmd1905, src/vi_correct.py) "
+                         "tiếng Việt. Mặc định tắt để không tải model nếu chưa cần.")
     args = ap.parse_args()
 
     for p in [INPUT_DIR, DOCX_DIR, RUNS_DIR]:
@@ -141,10 +144,19 @@ def main():
         print("[repair] DOCX:", {k: (v if isinstance(v, int) else len(v)) for k, v in fix_rep.items()})
         (run_dir / "repair_report.json").write_text(
             json.dumps(fix_rep, ensure_ascii=False, indent=2), encoding="utf-8")
+    # Sửa dấu / chính tả tiếng Việt (gọi SAU repair_markdown). Chỉ nạp model khi bật cờ.
     if args.vi_correct:
-        from src.vi_correct import correct_markdown  # chỉ nạp torch/transformers khi bật cờ
+        # Bước 1: THÊM DẤU theo ngữ cảnh (src/vietnam.py, nrl-ai vit5, có chấm điểm kiểm chứng từng chữ)
+        if not args.no_vi_diacritic:
+            from src.vietnam import correct_markdown as add_diacritics
+            dia_report_path = run_dir / "vi_diacritic_report.txt"
+            docx_md, dia_rep = add_diacritics(docx_md, report_path=str(dia_report_path))
+            print("[vi-diacritic]", dia_rep)
+        # Bước 2: SỬA CHÍNH TẢ từng chữ (src/vi_correct.py, bmd1905)
+        from src.vi_correct import correct_markdown as fix_spelling
         vi_report_path = run_dir / "vi_correct_report.txt"
-        docx_md, vi_rep = correct_markdown(docx_md, report_path=str(vi_report_path))
+        docx_md, vi_rep = fix_spelling(
+            docx_md, report_path=str(vi_report_path), spelling=True, add_diacritics=False)
         print("[vi-correct]", vi_rep)
     frame = None if (args.no_frame or args.no_columns) else detect_frame_layout(pdf_path)
     # Ảnh: đặt đúng kích thước như trong PDF (MinerU cắt hình ở 200 dpi). Bỏ qua với tài liệu nhiều cột /
@@ -181,6 +193,8 @@ def main():
     print("Audit        :", run_dir / "audit.json")
     print("Repair       :", run_dir / "repair_report.json")
     if args.vi_correct:
+        if not args.no_vi_diacritic:
+            print("VI diacritic :", run_dir / "vi_diacritic_report.txt")
         print("VI correct   :", run_dir / "vi_correct_report.txt")
 
 
