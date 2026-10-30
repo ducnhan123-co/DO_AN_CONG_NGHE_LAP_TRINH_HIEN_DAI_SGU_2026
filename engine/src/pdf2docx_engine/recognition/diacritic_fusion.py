@@ -40,8 +40,15 @@ LEX_BONUS = 1.0           # từ điển = 1 phiếu: dạng ghép với chữ b
 # Viet74K (GPL-2.0): KHÔNG đóng gói vào repo, tải về cache khi chạy lần đầu
 LEXICON_URL = "https://raw.githubusercontent.com/duyet/vietnamese-wordlist/master/Viet74K.txt"
 _WORD = re.compile(r"[^\W\d_]+")
-_MATH = re.compile(r"\$\$.*?\$\$|\$[^$\n]+?\$", re.S)
-_SKIP_LINE = re.compile(r"^\s*(<|!\[|\|)")
+# vùng giữ nguyên trong dòng: công thức và thẻ HTML (chú thích cuối trang MinerU bọc <small><span ...>)
+_MATH = re.compile(r"\$\$.*?\$\$|\$[^$\n]+?\$|<[^>]+>", re.S)
+_SKIP_LINE = re.compile(r"^\s*(!\[|\|)")   # ảnh, bảng
+
+
+def _line_words(ln: str) -> list[re.Match]:
+    """Chữ của dòng, bỏ qua công thức/thẻ HTML; đánh số chung cho cả dòng (fuse và recheck dùng chung)."""
+    keep = [m.span() for m in _MATH.finditer(ln)]
+    return [m for m in _WORD.finditer(ln) if not any(a <= m.start() < b for a, b in keep)]
 _ROMAN = re.compile(r"[IVXLCDM]+")
 _SWIFT = Path(__file__).with_name("vision_ocr.swift")
 _ENV = {**os.environ, "OMP_THREAD_LIMIT": "1"}   # 1 luồng/tiến trình, song song bằng ThreadPool
@@ -232,39 +239,35 @@ def fuse_markdown(md: str, refs: dict[str, list], min_votes: int = 2, single_con
     for n, ln in enumerate(lines):
         if not ln.strip() or _SKIP_LINE.match(ln) or "data:image" in ln:
             continue
-        maths = _MATH.findall(ln)
-        segs = []
-        for seg in _MATH.split(ln):
-            words = list(_WORD.finditer(seg))
-            lb = [base(m[0]) for m in words]
-            aligned = {k: r.align(lb) for k, r in R.items()} if len(lb) >= 3 else {}
-            out, pos = [], 0
-            for k, m in enumerate(words):
-                w = m[0]
-                # 1 ký tự không dấu ("I", "a") và số La Mã: bỏ qua; chữ 1 ký tự có dấu ("ở", "ý") vẫn xét
-                if (len(w) < 2 and w.isascii()) or (_ROMAN.fullmatch(w) and len(w) <= 4):
-                    continue
-                alts = {e: a[k] for e, a in aligned.items() if k in a}
-                def near(j):   # dạng MinerU + các bộ OCR của chữ thứ j
-                    if not 0 <= j < len(words):
-                        return set()
-                    return {words[j][0].lower()} | {a[j][0].lower() for a in aligned.values() if j in a and " " not in a[j][0]}
-                new = _decide(w, alts, min_votes, single_conf, prev=near(k - 1), nxt=near(k + 1), lexicon=lexicon)
-                # bất đồng thật: bỏ dạng chỉ khác chỗ đặt dấu ("hóa"/"hoá") và âm tiết không hợp lệ ("hóá")
-                chosen = (new or w).lower()
-                forms = {ck(chosen)} | {ck(a[0].lower()) for a in alts.values()
-                                        if " " not in a[0] and (not syllables or ck(a[0].lower()) in syllables)}
-                if len(forms) > 1:
-                    flags.append({"line": n + 1, "k": k, "word": w, "chosen": new or w,
-                                  "ocr": {e: a[0] for e, a in alts.items()}})
-                if new is None:
-                    continue
-                new = _match_case(w, new)
-                out.append(seg[pos:m.start()] + new)
-                pos = m.end()
-                stats[f"{w}->{new}"] += 1
-            segs.append("".join(out) + seg[pos:])
-        lines[n] = "".join(s + (maths[i] if i < len(maths) else "") for i, s in enumerate(segs))
+        words = _line_words(ln)
+        lb = [base(m[0]) for m in words]
+        aligned = {k: r.align(lb) for k, r in R.items()} if len(lb) >= 3 else {}
+        out, pos = [], 0
+        for k, m in enumerate(words):
+            w = m[0]
+            # 1 ký tự không dấu ("I", "a") và số La Mã: bỏ qua; chữ 1 ký tự có dấu ("ở", "ý") vẫn xét
+            if (len(w) < 2 and w.isascii()) or (_ROMAN.fullmatch(w) and len(w) <= 4):
+                continue
+            alts = {e: a[k] for e, a in aligned.items() if k in a}
+            def near(j):   # dạng MinerU + các bộ OCR của chữ thứ j
+                if not 0 <= j < len(words):
+                    return set()
+                return {words[j][0].lower()} | {a[j][0].lower() for a in aligned.values() if j in a and " " not in a[j][0]}
+            new = _decide(w, alts, min_votes, single_conf, prev=near(k - 1), nxt=near(k + 1), lexicon=lexicon)
+            # bất đồng thật: bỏ dạng chỉ khác chỗ đặt dấu ("hóa"/"hoá") và âm tiết không hợp lệ ("hóá")
+            chosen = (new or w).lower()
+            forms = {ck(chosen)} | {ck(a[0].lower()) for a in alts.values()
+                                    if " " not in a[0] and (not syllables or ck(a[0].lower()) in syllables)}
+            if len(forms) > 1:
+                flags.append({"line": n + 1, "k": k, "word": w, "chosen": new or w,
+                              "ocr": {e: a[0] for e, a in alts.items()}})
+            if new is None:
+                continue
+            new = _match_case(w, new)
+            out.append(ln[pos:m.start()] + new)
+            pos = m.end()
+            stats[f"{w}->{new}"] += 1
+        lines[n] = "".join(out) + ln[pos:]
     changes = dict(stats.most_common())
     return "\n".join(lines), {"engines": list(refs), "words_changed": sum(changes.values()),
                               "changes": changes, "flags": flags}
@@ -305,7 +308,7 @@ def recheck(md: str, pdf: Path, refs: dict[str, list], lexicon: set[str], cache:
     for n, ln in enumerate(lines):
         if not ln.strip() or _SKIP_LINE.match(ln) or "data:image" in ln:
             continue
-        words = list(_WORD.finditer(ln))
+        words = _line_words(ln)
         lw = [m[0].lower() for m in words]
 
         def joined(k, f):
@@ -356,7 +359,7 @@ def recheck(md: str, pdf: Path, refs: dict[str, list], lexicon: set[str], cache:
     for n, k, m, cands, page, box in targets:
         crop = reads[boxes[(page, box)]]
         cw = [c[0].lower() for c in crop]
-        lw = [x[0].lower() for x in _WORD.finditer(lines[n])]
+        lw = [x[0].lower() for x in _line_words(lines[n])]
         # tìm đúng chữ trong dòng đọc lại: cùng mặt chữ + chữ bên cạnh khớp mặt chữ
         for j, c in enumerate(cw):
             if (c in cands or ck(c) in cands) and ck(c) in syllables and tone_key(c) != tone_key(lw[k]) \
@@ -405,6 +408,45 @@ def fix_tone_placement(md: str, lexicon: set[str]) -> tuple[str, dict]:
         return _match_case(w, place_tone(low))
 
     out = [ln if (_SKIP_LINE.match(ln) or "data:image" in ln) else
-           "".join(p if i % 2 else _WORD.sub(fix, p) for i, p in enumerate(re.split(r"(\$\$.*?\$\$|\$[^$\n]+?\$)", ln)))
+           "".join(p if i % 2 else _WORD.sub(fix, p) for i, p in enumerate(re.split(f"({_MATH.pattern})", ln, flags=re.S)))
            for ln in md.split("\n")]
     return "\n".join(out), dict(stats)
+
+
+def drop_facing_page_slivers(md: str, lexicon: set[str]) -> tuple[str, list[str]]:
+    """Bỏ khối chữ lọt từ mép trang bên cạnh của sách scan (MinerU đọc cả dải hẹp trang kia).
+
+    Khối bị bỏ khi đủ cả 3: >= 3 dòng, >= 80% dòng ngắn (<= 25 ký tự); >= 60% dòng (bỏ chữ đầu bị cắt)
+    trùng (theo mặt chữ không dấu) chỗ khác trong tài liệu (trang bên cũng được OCR đầy đủ); >= 50% dòng mở đầu bằng chữ thường
+    hoặc mảnh chữ không phải âm tiết ("nuốn trở về", "ug làm được") -> thơ (mỗi dòng viết hoa) không bị bỏ."""
+    syllables = {s for wd in lexicon for s in wd.split()}
+    lines = md.split("\n")
+    blocks, cur = [], []
+    for i, ln in enumerate(lines + [""]):
+        if ln.strip() and not _SKIP_LINE.match(ln) and "data:image" not in ln and not ln.lstrip().startswith(("#", "$")):
+            cur.append(i)
+        else:
+            if len(cur) >= 3:
+                blocks.append(cur)
+            cur = []
+    def norm(t: str) -> str:   # chỉ chữ, mặt chữ không dấu: mảnh bị đọc sai dấu / dấu câu khác bản chính
+        return " ".join(base(w) for w in _WORD.findall(t))
+
+    flat = " " + norm(" ".join(lines)) + " "
+    drop, removed = set(), []
+    for b in blocks:
+        texts = [" ".join(lines[i].split()) for i in b]
+        if sum(len(t) <= 25 for t in texts) < 0.8 * len(texts):
+            continue
+        rest = flat.replace(" " + norm(" ".join(texts)) + " ", " ")
+        found = cut = 0
+        for t in texts:
+            words = t.split(" ")
+            tail = " ".join(words[1:]) if len(words) > 1 else ""
+            found += len(tail) >= 4 and f" {norm(tail)} " in rest
+            first = _WORD.match(words[0])
+            cut += bool(first) and (words[0][:1].islower() or (syllables and ck(first[0].lower()) not in syllables))
+        if found >= 0.6 * len(texts) and cut >= 0.5 * len(texts):
+            drop.update(b)
+            removed.append(" / ".join(texts))
+    return "\n".join(ln for i, ln in enumerate(lines) if i not in drop), removed

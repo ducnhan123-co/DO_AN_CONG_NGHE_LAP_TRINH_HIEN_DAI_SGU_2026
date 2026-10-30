@@ -90,7 +90,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    FE["frontend/<br/>HTML + JS tĩnh"] <-->|"HTTP /api/jobs"| BE["backend/app/main.py<br/>FastAPI"]
+    FE["frontend/<br/>thư viện + reader (UI Nghia)"] <-->|"HTTP /api/documents"| BE["backend/app/main.py<br/>FastAPI"]
     BE -->|"subprocess, hàng đợi 1 job"| EN["engine/<br/>pdf2docx_engine.pipeline"]
     EN --> MU["MinerU 4 (mineru-kit)"]
     EN --> PD["Pandoc"]
@@ -107,7 +107,7 @@ Số liệu đo trực tiếp trên máy phát triển ngày 2026-10-26.
 | Thành phần | Đang dùng | Phiên bản | Vai trò |
 |---|---|---|---|
 | Parse PDF | MinerU `mineru-kit` | **4.0.12** | Markdown, `content_list.json`, cắt ảnh |
-| Tier parse | `standard` | — | Cân bằng tốc độ / chất lượng công thức |
+| Tier parse | `advanced` (mặc định) | — | Chất lượng công thức cao nhất; đổi bằng `--tier` hoặc `MINERU_TIER` |
 | Thiết bị suy luận | `mps` | — | Apple Silicon GPU |
 | Worker | 2 tiến trình song song | — | Chia dải trang, chạy đồng thời |
 | Công thức → Word | Pandoc `texmath` | **3.11** | LaTeX → OMML Equation |
@@ -138,10 +138,12 @@ engine/                      Lõi xử lý, không phụ thuộc web
     math/                    math_repair (sửa công thức trên Markdown)
     docx/                    build_docx, columns, frame_layout, image_size
   tests/
-backend/                     FastAPI mỏng: nhận PDF, chạy engine, trả DOCX
-  app/main.py
+backend/                     FastAPI: thư viện tài liệu + hàng đợi chạy engine
+  app/main.py                route /api/documents, /api/health, /api/system/stats
+  app/jobs.py                kho job (storage/jobs/<id>/), chạy engine, dựng JSON cho UI
+  app/errors.py              lỗi trả {"error": {"code", "message"}}
   tests/
-frontend/                    index.html + app.js + style.css, không build step
+frontend/                    UI "vở toán" (nhánh Nghia): index.html, reader.html, app.js, config.js, style.css
 storage/                     Kết quả chạy (bị gitignore)
 ```
 
@@ -153,10 +155,19 @@ Engine không biết gì về web; backend chỉ gọi `python -m pdf2docx_engin
 
 Cần sẵn: Python ≥ 3.10, `pandoc`, `tesseract` (dò cột), MinerU 4 (`mineru-kit`).
 
-PDF scan: mặc định Tesseract (`vie`) + Apple Vision (macOS, tự biên dịch `vision_ocr.swift` bằng `swiftc`) bỏ phiếu sửa chữ
-MinerU đọc sai (`recognition/diacritic_fusion.py`). Đo trên 2 trang AAA gõ tay làm đáp án: sai 8,72% → 0,59%.
-Cài: `brew install tesseract tesseract-lang` (Windows: cài Tesseract + gói `vie`, chỉ dùng Tesseract). Tắt: `--no-ocr-fusion`
-(ra y hệt `main.py` nhánh kiet).
+PDF scan: mặc định bật **ghép OCR** (`recognition/diacritic_fusion.py`) — MinerU giữ bố cục/công thức, chữ được
+bỏ phiếu lại bởi Tesseract (`vie`) + Apple Vision (macOS, 300 và 400 DPI) + từ điển Viet74K (tải về cache, GPL-2.0,
+không đóng gói); chỗ bất đồng được cắt sát dòng và đọc lại; sửa dấu đặt sai chỗ; bỏ chữ lọt từ mép trang bên cạnh.
+Mọi chỗ các bộ OCR không thống nhất ghi trong `ocr_fusion_report.json`.
+
+| Đo trên sách AAA (đáp án gõ tay từ ảnh trang) | Bản kiet | Ghép OCR |
+|---|---|---|
+| 6 trang dùng khi tinh chỉnh (3.192 chữ) | 6,74% sai | 0 |
+| 2 trang mới chưa dùng (1.131 chữ) | 8,49% sai | 0 |
+| 36 dòng rải rác (891 chữ) | 5,27% sai | 0,22% |
+
+Cài: `brew install tesseract tesseract-lang`. Windows/Linux: chỉ Tesseract (không có Apple Vision).
+Tắt: `--no-ocr-fusion` (ra y hệt `main.py` nhánh kiet).
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
@@ -177,12 +188,18 @@ pytest engine/tests backend/tests
 
 | Method | Đường dẫn | Mô tả |
 |---|---|---|
-| `POST` | `/api/jobs` | multipart `file` (PDF ≤ 80 MB), `tier`, `workers` (1–4) → job `queued` |
-| `GET` | `/api/jobs` | Danh sách job, mới nhất trước |
-| `GET` | `/api/jobs/{id}` | Trạng thái + 80 dòng log cuối + `audit.json` |
-| `GET` | `/api/jobs/{id}/docx` | Tải DOCX khi `status = done` |
+| `POST` | `/api/documents` | multipart `files` (nhiều PDF ≤ 100 MB), `tier` (mặc định `advanced`), `workers` (1–8) → 202 |
+| `GET` | `/api/documents?limit=200` | Thư viện tài liệu, mới nhất trước |
+| `GET` | `/api/documents/{id}` | Trạng thái, shards MinerU, timeline từng bước, lỗi |
+| `PATCH` | `/api/documents/{id}` | Đổi tên hiển thị |
+| `DELETE` | `/api/documents/{id}` | Xóa tài liệu + toàn bộ file kết quả |
+| `POST` | `/api/documents/{id}/cancel` | Hủy tài liệu đang chạy/chờ |
+| `POST` | `/api/documents/{id}/retry?force=true` | Chạy lại; mặc định tiếp tục phần MinerU đã xong |
+| `GET` | `/api/documents/{id}/docx` | Tải DOCX khi `status = done` |
+| `GET` | `/api/documents/{id}/pdf` | PDF gốc cho khung xem của `reader.html` |
+| `GET` | `/api/health`, `/api/system/stats` | Công cụ cài đủ chưa / hàng đợi đang chạy |
 
-Job chạy tuần tự (MinerU ngốn RAM/CPU). Mỗi job nằm trong `storage/jobs/<id>/` (`input.pdf`, `job.json`, `log.txt`, `out/`); id được kiểm bằng regex nên không path traversal được.
+Job chạy tuần tự (MinerU ngốn RAM/CPU). Mỗi job nằm trong `storage/jobs/<id>/` (`input.pdf`, `job.json`, `log.txt`, `out/`); id được kiểm bằng regex nên không path traversal được. Tải lại đúng file đã chuyển xong thì dùng lại DOCX cũ (`cache_hit`), không chạy MinerU lần nữa.
 
 ---
 

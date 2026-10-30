@@ -42,3 +42,13 @@ def test_place_tone():
     for bad, good in [("diụ", "dịu"), ("hóa", "hoá"), ("thủy", "thuỷ"), ("meọ", "mẹo"), ("người", "người"),
                       ("của", "của"), ("giữa", "giữa"), ("quả", "quả"), ("thuyền", "thuyền"), ("ngoài", "ngoài")]:
         assert place_tone(bad) == good, (bad, place_tone(bad))
+
+
+def test_drop_facing_page_slivers_keeps_poems():
+    from pdf2docx_engine.recognition.diacritic_fusion import drop_facing_page_slivers
+    body = "Gatsby nhanh chóng rơi vào sự lãng quên với Gatsby của Gatsby tưởng như có rất nhiều bạn bè và không có ai"
+    sliver = "n với Gatsby,\ni của Gatsby,\nt tưởng như\nà và không"
+    poem = "Trúc nhớ mai, mai về trúc nhớ\nTrúc trở về, mai nhớ trúc không?\nGió đưa cây cải về trời"
+    md = f"{body}\n\n{sliver}\n\n{poem}\n\n{poem}"
+    out, removed = drop_facing_page_slivers(md, set())
+    assert len(removed) == 1 and "n với Gatsby,\n" not in out and out.count("Trúc nhớ mai") == 2
