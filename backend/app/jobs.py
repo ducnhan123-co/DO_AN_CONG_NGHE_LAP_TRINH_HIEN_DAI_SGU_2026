@@ -9,6 +9,10 @@ Một tài liệu = một thư mục `storage/jobs/<id>/`:
 
 Engine được gọi đúng như CLI (subprocess) để hủy được và không treo server;
 tiến độ đọc từ đĩa (phần MinerU nào có .done) và từ log, không bịa số.
+
+Lưu trữ theo NỘI DUNG: một PDF (sha256) + một tier = đúng một tài liệu. id của tài liệu mới được tính từ
+sha256(nội dung):tier, nên tải cùng một file nhiều lần (dù lần trước đang chờ/đang chạy/đã xong/lỗi) chỉ
+trả về tài liệu đã có thay vì tạo thêm thư mục, thêm bản input.pdf và chạy lại engine.
 """
 from __future__ import annotations
 
@@ -49,7 +53,8 @@ ACTIVE = ("queued", "running")
 STAGE_ERROR = {"parsing": "MINERU_FAILED", "merging": "MERGE_FAILED", "preparing": "PREPARE_FAILED",
                "building": "DOCX_BUILD_FAILED", "validating": "DOCX_INVALID"}
 
-_lock = threading.Lock()
+_lock = threading.Lock()                 # bảo vệ job.json và bảng tiến trình
+_reg_lock = threading.RLock()            # tuần tự hóa việc đăng ký/tái dùng tài liệu (chống 2 lần tải chạy đua)
 _procs: Dict[str, subprocess.Popen] = {}
 _queue: "queue.Queue[tuple]" = queue.Queue()
 _worker: Optional[threading.Thread] = None
@@ -179,37 +184,73 @@ def list_jobs(limit: int = 200) -> List[dict]:
     return jobs[:limit]
 
 
-def find_cached(sha256: str) -> Optional[Path]:
-    """Tài liệu đã xong cùng nội dung -> dùng lại DOCX, không chạy lại MinerU."""
-    for job in list_jobs(1000):
-        if job.get("sha256") != sha256 or job.get("status") != "done":
-            continue
-        d = JOBS_DIR / job["id"]
-        if docx_path(d) is not None:
-            return d
-    return None
+def job_key(sha256: str, tier: str) -> str:
+    """id của tài liệu mới: cùng nội dung + cùng tier -> cùng id (12 ký tự hex, hợp với ID_RE)."""
+    return hashlib.sha256(f"{sha256}:{tier}".encode()).hexdigest()[:12]
 
 
-def register(staged: Staged, display_name: str, tier: str, workers: int) -> dict:
-    job_id = uuid.uuid4().hex[:12]
-    d = JOBS_DIR / job_id
-    d.mkdir(parents=True, exist_ok=False)
-    os.replace(staged.path, d / "input.pdf")
-    display = (display_name or Path(staged.filename).stem)[:200] or job_id
-    job = write_job(d, id=job_id, name=display, filename=staged.filename, sha256=staged.sha256,
-                    size_bytes=staged.size, num_pages=staged.pages, tier=tier, workers=workers,
-                    status="queued", created=time.time(), started=None, finished=None,
-                    returncode=None, error_code=None, error_message=None, cache_hit=False, cancelled=False)
-    cached = find_cached(staged.sha256)
-    if cached is not None:                           # cùng nội dung đã chuyển xong -> chép DOCX sang, không chạy lại
-        (d / "out").mkdir(exist_ok=True)
-        copy = d / "out" / "cached.docx"
-        shutil.copy2(docx_path(cached), copy)
-        job = write_job(d, status="done", cache_hit=True, progress=100.0,
-                        finished=time.time(), started=time.time(), docx_size=copy.stat().st_size)
+def _rank(job: dict) -> tuple:
+    """Thứ tự ưu tiên khi có nhiều tài liệu cùng nội dung: xong có DOCX < đang chạy/chờ < còn lại; rồi cũ nhất."""
+    d = JOBS_DIR / job["id"]
+    status = job.get("status")
+    if status == "done" and docx_path(d) is not None:
+        group = 0
+    elif status in ACTIVE:
+        group = 1
     else:
+        group = 2
+    return group, job.get("created") or 0
+
+
+def find_existing(sha256: str, tier: str) -> Optional[dict]:
+    """Tài liệu đã có cùng nội dung + tier, ở BẤT KỲ trạng thái nào (kể cả đang chờ/đang chạy).
+
+    Quét cả tài liệu cũ có id ngẫu nhiên (tạo trước khi có id theo nội dung)."""
+    same = [j for j in list_jobs(10_000) if j.get("sha256") == sha256 and (j.get("tier") or DEFAULT_TIER) == tier]
+    return min(same, key=_rank) if same else None
+
+
+def register(staged: Staged, display_name: str, tier: str, workers: int) -> tuple:
+    """Đăng ký PDF vừa nhận. Trả (job, reused):
+
+        reused = ""         tài liệu MỚI, đã xếp hàng chạy
+        reused = "done"     đã có kết quả sẵn -> dùng lại, không chạy
+        reused = "active"   cùng file đang chờ/đang chạy -> dùng chung, không chạy thêm
+        reused = "requeued" cùng file từng lỗi/hủy (hoặc mất DOCX) -> chạy lại tài liệu CŨ (tiếp tục phần đã xong)
+
+    Không bao giờ tạo thêm thư mục hay thêm bản input.pdf cho nội dung đã có."""
+    with _reg_lock:
+        existing = find_existing(staged.sha256, tier)
+        if existing is not None:
+            d = JOBS_DIR / existing["id"]
+            if not (d / "input.pdf").is_file():          # mất PDF gốc (xóa tay?) -> khôi phục từ bản vừa nhận
+                os.replace(staged.path, d / "input.pdf")
+            else:
+                staged.path.unlink(missing_ok=True)       # đã có đúng nội dung này rồi, không giữ bản thứ hai
+            status = existing.get("status")
+            if status in ACTIVE:
+                return existing, "active"
+            if status == "done" and docx_path(d) is not None:
+                return existing, "done"
+            return _requeue(existing["id"]), "requeued"
+
+        job_id = job_key(staged.sha256, tier)
+        d = JOBS_DIR / job_id
+        if d.exists():
+            if (d / "job.json").is_file():               # va chạm id (xác suất ~0) -> id ngẫu nhiên
+                job_id = uuid.uuid4().hex[:12]
+                d = JOBS_DIR / job_id
+            else:                                        # thư mục dở dang từ lần sập trước
+                shutil.rmtree(d, ignore_errors=True)
+        d.mkdir(parents=True, exist_ok=False)
+        os.replace(staged.path, d / "input.pdf")
+        display = (display_name or Path(staged.filename).stem)[:200] or job_id
+        job = write_job(d, id=job_id, name=display, filename=staged.filename, sha256=staged.sha256,
+                        size_bytes=staged.size, num_pages=staged.pages, tier=tier, workers=workers,
+                        status="queued", created=time.time(), started=None, finished=None,
+                        returncode=None, error_code=None, error_message=None, cache_hit=False, cancelled=False)
         submit(job_id)
-    return job
+        return job, ""
 
 
 def rename(job_id: str, name: str) -> dict:
@@ -234,11 +275,8 @@ def cancel(job_id: str) -> dict:
     return get_job(job_id)
 
 
-def retry(job_id: str, force: bool = False) -> dict:
-    job = get_job(job_id)
-    status = job.get("status")
-    if status not in ("failed", "cancelled") and not (force and status == "done"):
-        raise AppError(409, "NOT_RETRYABLE", "Chỉ chạy lại được tài liệu bị lỗi hoặc đã hủy.")
+def _requeue(job_id: str, force: bool = False) -> dict:
+    """Đưa tài liệu đã có về hàng đợi (dùng cho Thử lại và cho việc tải lại cùng file sau khi lỗi/hủy)."""
     d = job_dir(job_id)
     if not (d / "input.pdf").is_file():
         raise AppError(409, "INPUT_MISSING", "Mất file PDF gốc, hãy xóa rồi tải lại.")
@@ -249,6 +287,14 @@ def retry(job_id: str, force: bool = False) -> dict:
                     started=None, finished=None, returncode=None, error_code=None, error_message=None)
     submit(job_id, force=force)
     return job
+
+
+def retry(job_id: str, force: bool = False) -> dict:
+    job = get_job(job_id)
+    status = job.get("status")
+    if status not in ("failed", "cancelled") and not (force and status == "done"):
+        raise AppError(409, "NOT_RETRYABLE", "Chỉ chạy lại được tài liệu bị lỗi hoặc đã hủy.")
+    return _requeue(job_id, force=force)
 
 
 def delete(job_id: str) -> None:
@@ -308,13 +354,21 @@ def _run(job_id: str, force: bool) -> None:
         cmd.append("--force")
     env = {**os.environ,
            "PYTHONPATH": os.pathsep.join(filter(None, [str(ENGINE_SRC), os.environ.get("PYTHONPATH")])),
-           "PATH": os.pathsep.join([str(Path(sys.executable).parent), os.environ.get("PATH", "")])}
+           "PATH": os.pathsep.join([str(Path(sys.executable).parent), os.environ.get("PATH", "")]),
+           # stdout ghi ra file thì Python đệm (buffer) tới khi đầy/kết thúc: mốc "[repair]", "[audit]"... sẽ tới trễ và
+           # giao diện hiện sai bước. Chỉ đổi cách tiến trình con xả log, không đổi hành vi của engine.
+           "PYTHONUNBUFFERED": "1", "PYTHONUTF8": "1"}
+    problem = _preflight()
+    if problem:                                      # thiếu công cụ: báo ngay, đừng đợi MinerU chạy xong mới lỗi ở Pandoc
+        write_job(d, status="failed", started=time.time(), finished=time.time(), cancelled=False, returncode=None,
+                  error_code=problem[0], error_message=problem[1])
+        return
+    _clean_stale_outputs(out)
     write_job(d, status="running", started=time.time(), finished=None, cancelled=False,
               returncode=None, error_code=None, error_message=None, pid=None)
     with open(d / "log.txt", "w", encoding="utf-8") as log:
         try:
-            proc = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT, env=env, cwd=ROOT,
-                                    start_new_session=True)
+            proc = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT, env=env, cwd=ROOT, **_POPEN_KW)
         except OSError as ex:
             write_job(d, status="failed", finished=time.time(), error_code="ENGINE_NOT_FOUND",
                       error_message=f"Không chạy được engine: {ex}")
@@ -335,13 +389,39 @@ def _run(job_id: str, force: bool) -> None:
         write_job(d, status="done", finished=time.time(), returncode=rc, progress=100.0,
                   docx_size=docx.stat().st_size)
     else:
-        log = tail_text(d / "log.txt")
-        code, message = _failure(log, rc)
+        log = tail_text(d / "log.txt", 262144)
+        code, message = _failure(log, rc, _stage(d, log))
         write_job(d, status="failed", finished=time.time(), returncode=rc,
                   error_code=code, error_message=message)
 
 
+def _preflight() -> Optional[tuple]:
+    """(mã lỗi, thông báo) nếu thiếu công cụ ngoài mà engine bắt buộc phải có."""
+    if which_tool("pandoc") is None:
+        return "PANDOC_NOT_FOUND", "Không tìm thấy Pandoc (chưa cài hoặc không có trong PATH)."
+    if which_tool("mineru-kit") is None:
+        return "MINERU_NOT_FOUND", "Không tìm thấy lệnh mineru-kit (pip install mineru, hoặc kích hoạt đúng môi trường)."
+    return None
+
+
+def _clean_stale_outputs(out: Path) -> None:
+    """Xóa file Word/audit của lần chạy TRƯỚC. Nếu để lại thì `docx_path()` thấy ngay một .docx cũ: giao diện sẽ báo
+    sai bước (nhảy thẳng tới 'kiểm tra') và tải được file cũ trong lúc đang chạy lại. Phần MinerU đã xong vẫn giữ
+    để engine tiếp tục (resume)."""
+    for f in out.glob("*.docx"):
+        f.unlink(missing_ok=True)
+    (out / "audit.json").unlink(missing_ok=True)
+
+
+# Tiến trình engine ở nhóm riêng để hủy được cả cây tiến trình con (mineru-kit...).
+_POPEN_KW = ({"creationflags": getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)} if os.name == "nt"
+             else {"start_new_session": True})
+
+
 def _kill(proc: subprocess.Popen) -> None:
+    if os.name == "nt":                              # Windows không có killpg/SIGKILL
+        subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True)
+        return
     try:
         os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
     except OSError:
@@ -355,39 +435,49 @@ def _kill(proc: subprocess.Popen) -> None:
             pass
 
 
-def _failure(log: str, rc: int) -> tuple[str, str]:
+def _failure(log: str, rc: int, stage: str = "parsing") -> tuple:
+    """(mã lỗi, thông báo). Mã lỗi theo BƯỚC đang chạy lúc dừng để giao diện tô đúng bước; trước đây chỉ cần log có chữ
+    "mineru" (gần như log nào cũng có) là bị coi là lỗi MinerU."""
     lines = [ln.strip() for ln in log.splitlines() if ln.strip()]
     tail = lines[-1] if lines else f"engine thoát với mã {rc}"
     low = log.lower()
     if "pandoc tạo docx thất bại" in low or "pandoc_not_found" in low:
         return "PANDOC_FAILED", tail
-    if "mineru" in low:
-        return "MINERU_FAILED", tail
-    return "PIPELINE_ERROR", tail
+    return STAGE_ERROR.get(stage, "PIPELINE_ERROR"), tail
 
 
 # --------------------------------------------------------------------------- dựng JSON cho frontend
 def _part_shards(d: Path) -> List[dict]:
-    parts_root = d / "out" / "mineru_parts" / "out"
-    shards = []
-    if not parts_root.is_dir():
-        return shards
-    for p in sorted(parts_root.iterdir()):
-        m = re.match(r"part_(\d+)_p(\d+)-(\d+)", p.name)
-        if not m or not p.is_dir():
+    """Các phần MinerU: lấy tổng số phần từ mineru_parts/pdf (engine cắt sẵn tất cả), nên phần chưa bắt đầu
+    (do --stagger) hiện là 'pending' thay vì biến mất khỏi danh sách."""
+    parts_root = d / "out" / "mineru_parts"
+    found: Dict[int, dict] = {}
+    for sub in ("pdf", "out"):
+        base = parts_root / sub
+        if not base.is_dir():
             continue
-        done = (p / ".done").is_file()
-        shards.append({"index": int(m.group(1)), "page_from": int(m.group(2)), "page_to": int(m.group(3)),
-                       "status": "done" if done else "running", "progress": 100.0 if done else 0.0,
-                       "elapsed_s": None, "peak_ram_gb": None, "error": None})
-    return shards
+        for p in sorted(base.iterdir()):
+            m = re.match(r"part_(\d+)_p(\d+)-(\d+)", p.name)
+            if not m:
+                continue
+            idx = int(m.group(1))
+            rec = found.setdefault(idx, {"index": idx, "page_from": int(m.group(2)), "page_to": int(m.group(3)),
+                                         "status": "pending", "progress": 0.0, "elapsed_s": None,
+                                         "peak_ram_gb": None, "error": None})
+            if sub == "out" and p.is_dir():
+                rec["status"] = "done" if (p / ".done").is_file() else "running"
+                rec["progress"] = 100.0 if rec["status"] == "done" else 0.0
+    return [found[k] for k in sorted(found)]
 
 
 def _stage(d: Path, log: str) -> str:
-    """Bước hiện tại, suy từ file kết quả + log engine (không đoán bừa)."""
-    if docx_path(d) is not None:
+    """Bước hiện tại, suy từ file kết quả + log engine (không đoán bừa).
+    parsing -> merging -> preparing -> building (Pandoc + chỉnh DOCX) -> validating (audit)."""
+    if "[audit]" in log:
         return "validating"
-    if any(mark in log for mark in ("[repair]", "[image]", "[math_repair]")):
+    if docx_path(d) is not None:
+        return "building"
+    if any(mark in log for mark in ("[repair]", "[image]", "[math_repair]", "[frame]", "Working Markdown")):
         return "preparing"
     if "Đã ghép" in log or "phần xong" in log:
         return "merging"
@@ -458,9 +548,11 @@ def _elapsed(job: dict) -> Optional[float]:
 def render(job: dict) -> dict:
     d = JOBS_DIR / job["id"]
     status = job.get("status") or "queued"
-    log = tail_text(d / "log.txt")
-    shards = _part_shards(d)
-    stage = _stage(d, log) if status not in ("queued",) else "queued"
+    # Log chỉ cần để biết "đang ở bước nào": với tài liệu đã xong/hủy/đang chờ thì khỏi đọc (danh sách được hỏi mỗi
+    # ~1,2 giây cho MỌI tài liệu nên đọc log của từng cái rất phí).
+    log = tail_text(d / "log.txt", 262144) if status in ("running", "failed", "cancelled") else ""
+    shards = _part_shards(d) if status != "queued" else []
+    stage = _stage(d, log) if status in ("running", "failed", "cancelled") else ("queued" if status == "queued" else "")
     docx = docx_path(d)
     shown = {"queued": "queued", "running": stage, "done": "done",
              "failed": "failed", "cancelled": "cancelled"}.get(status, "queued")
@@ -501,8 +593,74 @@ def stats() -> dict:
 
 
 def mark_interrupted() -> None:
-    """Server khởi động lại khi job đang chạy -> job đó sẽ không bao giờ xong nữa."""
-    for job in list_jobs(1000):
-        if job.get("status") in ACTIVE:
-            write_job(JOBS_DIR / job["id"], status="failed", finished=time.time(),
+    """Gọi khi server khởi động.
+
+    * dọn file tạm do lần chạy trước bị sập giữa chừng (.upload-*.part, .job.json.tmp);
+    * tài liệu đang chạy dở -> 'failed' (bấm Thử lại là engine tiếp tục các phần MinerU đã xong);
+    * tài liệu mới chỉ đang CHỜ -> xếp hàng lại (chưa chạy gì nên không có lý do bắt người dùng tải lại)."""
+    if JOBS_DIR.is_dir():
+        for f in JOBS_DIR.glob(".upload-*.part"):
+            f.unlink(missing_ok=True)
+    waiting = []
+    for job in sorted(list_jobs(10_000), key=lambda j: j.get("created") or 0):
+        d = JOBS_DIR / job["id"]
+        (d / ".job.json.tmp").unlink(missing_ok=True)
+        if job.get("status") == "running":
+            write_job(d, status="failed", finished=time.time(),
                       error_code="SERVER_RESTART", error_message="Server khởi động lại khi tài liệu đang chạy.")
+        elif job.get("status") == "queued" and not job.get("cancelled") and (d / "input.pdf").is_file():
+            waiting.append(job["id"])
+    for job_id in waiting:
+        submit(job_id)
+
+
+# --------------------------------------------------------------------------- dọn tài liệu trùng (dữ liệu cũ)
+def find_duplicates() -> List[dict]:
+    """Nhóm các tài liệu CÙNG NỘI DUNG + cùng tier (do bản cũ tạo ra mỗi lần tải một thư mục riêng).
+    Mỗi nhóm giữ 1 bản tốt nhất (đã xong có DOCX > đang chạy > còn lại; cùng hạng thì cũ nhất)."""
+    groups: Dict[tuple, List[dict]] = {}
+    for job in list_jobs(10_000):
+        if job.get("sha256"):
+            groups.setdefault((job["sha256"], job.get("tier") or DEFAULT_TIER), []).append(job)
+    result = []
+    for (sha, tier), jobs_ in groups.items():
+        if len(jobs_) < 2:
+            continue
+        jobs_.sort(key=_rank)
+        keep, extra = jobs_[0], [j for j in jobs_[1:] if j.get("status") not in ACTIVE]   # không bao giờ xóa bản đang chạy
+        size = sum(_dir_size(JOBS_DIR / j["id"]) for j in extra)
+        result.append({"keep": keep["id"], "name": keep.get("name"), "remove": [j["id"] for j in extra], "bytes": size})
+    return result
+
+
+def _dir_size(d: Path) -> int:
+    return sum(f.stat().st_size for f in d.rglob("*") if f.is_file())
+
+
+def dedupe_storage(apply: bool = False) -> dict:
+    """Xóa các bản trùng (apply=True) hoặc chỉ báo cáo (mặc định). Dùng: python -m backend.app.jobs --dedupe [--apply]"""
+    groups = find_duplicates()
+    removed = 0
+    if apply:
+        with _reg_lock:
+            for g in groups:
+                for job_id in g["remove"]:
+                    shutil.rmtree(JOBS_DIR / job_id, ignore_errors=True)
+                    removed += 1
+    return {"groups": groups, "removed": removed, "freed_bytes": sum(g["bytes"] for g in groups) if apply else 0,
+            "reclaimable_bytes": sum(g["bytes"] for g in groups)}
+
+
+if __name__ == "__main__":
+    import argparse
+    ap = argparse.ArgumentParser(description="Dọn các tài liệu trùng nội dung trong storage/jobs")
+    ap.add_argument("--dedupe", action="store_true", help="liệt kê các nhóm trùng")
+    ap.add_argument("--apply", action="store_true", help="thật sự xóa (mặc định chỉ báo cáo)")
+    a = ap.parse_args()
+    if not a.dedupe:
+        ap.error("dùng --dedupe")
+    res = dedupe_storage(apply=a.apply)
+    for g in res["groups"]:
+        print(f"giữ {g['keep']} ({g['name']}) | {'xóa' if a.apply else 'sẽ xóa'}: {', '.join(g['remove']) or '-'} | {g['bytes'] / 1e6:.1f} MB")
+    print(f"{len(res['groups'])} nhóm trùng; " + (f"đã xóa {res['removed']} thư mục, giải phóng {res['freed_bytes'] / 1e6:.1f} MB"
+          if a.apply else f"có thể giải phóng {res['reclaimable_bytes'] / 1e6:.1f} MB (thêm --apply để xóa)"))
