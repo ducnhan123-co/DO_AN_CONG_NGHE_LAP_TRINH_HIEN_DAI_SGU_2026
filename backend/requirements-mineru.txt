@@ -1,2 +1,0 @@
-# MinerU (parse PDF bằng model cục bộ). Nặng: kéo onnxruntime, model tải về lần chạy đầu (hoặc khi build image).
-mineru==4.0.12

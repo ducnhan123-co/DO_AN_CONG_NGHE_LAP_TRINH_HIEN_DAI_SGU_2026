@@ -1,8 +1,0 @@
-# Build context là thư mục projects/ nên đường dẫn tính từ đó (file này đặt cạnh Dockerfile, cần BuildKit)
-backend/data/
-backend/.env
-**/__pycache__/
-**/*.pyc
-**/.pytest_cache/
-**/.git/
-frontend/node_modules/
