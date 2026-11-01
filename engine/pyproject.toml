@@ -1,0 +1,29 @@
+[project]
+name = "pdf2docx-engine"
+version = "0.1.0"
+description = "PDF toán -> DOCX (Equation thật): MinerU + sửa công thức + Pandoc"
+requires-python = ">=3.10"
+# Ngoài Python còn cần: pandoc (bắt buộc), tesseract (dò cột khi PDF nhiều cột)
+# Giống requirements.txt của nhánh kiet (xem requirements.txt ở gốc repo)
+dependencies = [
+    "mineru==4.0.7",
+    "torch",
+    "transformers>=4.44,<5; sys_platform != 'darwin'",
+    "transformers>=5.10.1,<6; sys_platform == 'darwin'",   # MinerU 4.0.7 trên Mac bắt buộc
+    "sentencepiece",
+    "numpy",
+    "pillow",
+    "pymupdf",
+    "pypdf",
+    "pdfminer.six",
+    "pytesseract",
+    "python-docx",
+    "lxml",
+]
+
+[project.scripts]
+pdf2docx = "pdf2docx_engine.pipeline:main"
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"

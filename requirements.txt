@@ -1,0 +1,14 @@
+mineru==4.0.7
+torch
+# MinerU 4.0.7 trên Mac Apple Silicon bắt buộc transformers>=5.10.1 (đã kiểm bằng uv pip compile)
+transformers>=4.44,<5; sys_platform != "darwin"
+transformers>=5.10.1,<6; sys_platform == "darwin"
+sentencepiece
+numpy
+pillow
+pymupdf
+pypdf
+pdfminer.six
+pytesseract
+python-docx
+lxml
