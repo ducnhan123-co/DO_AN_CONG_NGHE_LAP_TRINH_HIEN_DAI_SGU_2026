@@ -70,7 +70,7 @@ async def upload_documents(files: List[UploadFile] = File(...),
         raise AppError(400, "INVALID_TIER", f"tier phải thuộc {jobs.TIERS}")
     if not 1 <= workers <= 8:
         raise AppError(400, "INVALID_WORKERS", "workers trong khoảng 1-8")
-    items, rejected = [], []
+    items, rejected, seen = [], [], set()
     for i, f in enumerate(files):
         name = jobs.clean_filename(f.filename) or "(không tên)"
         if i >= jobs.MAX_FILES_PER_REQUEST:
@@ -78,10 +78,22 @@ async def upload_documents(files: List[UploadFile] = File(...),
             continue
         try:
             staged = await jobs.stage_upload(f)
-            job = jobs.register(staged, Path(name).stem, tier, workers)
-            items.append(jobs.render(job))
+            # Cùng nội dung (sha256) + cùng tier thì dùng lại tài liệu đã có, KHÔNG tạo thêm và KHÔNG chạy lại engine.
+            job, reused = jobs.register(staged, Path(name).stem, tier, workers)
         except AppError as ex:
             rejected.append({"filename": name, "message": ex.message})
+            continue
+        if job["id"] in seen:                        # cùng một file xuất hiện 2 lần trong 1 lần tải
+            continue
+        seen.add(job["id"])
+        item = jobs.render(job)
+        if reused == "done":
+            # Chỉ gắn trong phản hồi này (để giao diện báo "đã có kết quả sẵn"); KHÔNG lưu vào tài liệu gốc vì
+            # reader.html thay dòng thời gian các bước bằng "Dùng lại kết quả" khi cache_hit bật.
+            item["cache_hit"] = True
+        if reused:
+            item["duplicate"] = reused               # done | active | requeued (giao diện hiện tại bỏ qua trường này)
+        items.append(item)
     if not items:
         msg = "; ".join(f"{r['filename']}: {r['message']}" for r in rejected) or "Không có file nào được nhận."
         raise AppError(400, "UPLOAD_REJECTED", msg)
