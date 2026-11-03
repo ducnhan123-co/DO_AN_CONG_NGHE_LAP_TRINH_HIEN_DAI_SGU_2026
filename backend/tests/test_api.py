@@ -1,3 +1,4 @@
+import hashlib
 import importlib
 import json
 import os
@@ -130,3 +131,49 @@ def test_queued_document_has_zero_progress():
     assert doc["status"] == "queued"
     assert doc["progress"] == 0.0
     assert all(s["status"] == "planned" for s in doc["stages"])
+
+
+def test_same_pdf_reuses_document(monkeypatch):
+    from backend.app import jobs
+
+    monkeypatch.setattr(jobs, "submit", lambda *args, **kwargs: None)
+    data = make_pdf()
+
+    def staged(name):
+        p = jobs.JOBS_DIR / f".{name}"
+        p.write_bytes(data)
+        return jobs.Staged(p, name, hashlib.sha256(data).hexdigest(), len(data), 1)
+
+    before = {p.name for p in jobs.JOBS_DIR.iterdir() if p.is_dir()}
+    job, reused = jobs.register(staged("first.pdf"), "Tài liệu", "advanced", 2)
+    assert reused == ""
+    job2, reused2 = jobs.register(staged("second.pdf"), "Tài liệu", "advanced", 2)
+    after = {p.name for p in jobs.JOBS_DIR.iterdir() if p.is_dir()}
+    assert reused2 == "active"
+    assert job2["id"] == job["id"]
+    assert after == before | {job["id"]}
+
+    d = jobs.JOBS_DIR / job["id"]
+    (d / "out").mkdir(exist_ok=True)
+    (d / "out" / "input.docx").write_bytes(b"PK\x03\x04")
+    jobs.write_job(d, status="done")
+    job3, reused3 = jobs.register(staged("third.pdf"), "Tài liệu", "advanced", 2)
+    assert reused3 == "done"
+    assert job3["id"] == job["id"]
+
+
+def test_shards_include_pending_and_failure_code_follows_stage():
+    from backend.app import jobs
+
+    d = make_job(job_id="ddd444ddd444")
+    parts = d / "out" / "mineru_parts"
+    (parts / "pdf").mkdir(parents=True)
+    (parts / "pdf" / "part_1_p1-10.pdf").write_bytes(b"x")
+    (parts / "pdf" / "part_2_p11-20.pdf").write_bytes(b"x")
+    (parts / "out" / "part_1_p1-10").mkdir(parents=True)
+    (parts / "out" / "part_1_p1-10" / ".done").write_text("ok", encoding="utf-8")
+    doc = client.get("/api/documents/ddd444ddd444").json()
+    assert [(s["index"], s["status"]) for s in doc["shards"]] == [(1, "done"), (2, "pending")]
+    assert jobs._failure("Running: mineru-kit parse", 1, "preparing")[0] == "PREPARE_FAILED"
+    assert jobs._failure("Pandoc tạo DOCX thất bại.", 1, "building")[0] == "PANDOC_FAILED"
+    assert jobs._failure("lỗi", 1, "merging")[0] == "MERGE_FAILED"
